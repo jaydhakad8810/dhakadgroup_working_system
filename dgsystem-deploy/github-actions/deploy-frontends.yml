@@ -1,0 +1,125 @@
+name: Deploy DGSystem Frontends
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'admin-panel/**'
+      - 'supervisor-pwa/**'
+      - 'driver-pwa/**'
+      - 'landing/**'
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      # ── Build Admin Panel ──────────────────────────────────────
+      - name: Build Admin Panel
+        working-directory: ./admin-panel
+        run: |
+          npm install
+          npm run build
+        env:
+          VITE_API_URL: https://api.dhakadgroup.in
+
+      # ── Build Supervisor PWA ───────────────────────────────────
+      - name: Build Supervisor PWA
+        working-directory: ./supervisor-pwa
+        run: |
+          npm install
+          npm run build
+        env:
+          VITE_API_URL: https://api.dhakadgroup.in
+
+      # ── Build Driver PWA ───────────────────────────────────────
+      - name: Build Driver PWA
+        working-directory: ./driver-pwa
+        run: |
+          npm install
+          npm run build
+        env:
+          VITE_API_URL: https://api.dhakadgroup.in
+
+      # ── Deploy all builds via SSH ──────────────────────────────
+      - name: Deploy to Hostinger VPS
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: 22
+          script: |
+            # Admin panel
+            rm -rf /var/www/dgsystem/admin/dist
+            mkdir -p /var/www/dgsystem/admin
+
+            # Supervisor PWA
+            rm -rf /var/www/dgsystem/supervisor/dist
+            mkdir -p /var/www/dgsystem/supervisor
+
+            # Driver PWA
+            rm -rf /var/www/dgsystem/driver/dist
+            mkdir -p /var/www/dgsystem/driver
+
+            # Landing page
+            cp /var/www/dgsystem/landing/index.html /var/www/html/index.html
+
+            echo "Frontends deployed"
+
+      # ── Upload built files via SCP ─────────────────────────────
+      - name: Upload Admin Panel build
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          source: "admin-panel/dist/*"
+          target: "/var/www/dgsystem/admin/dist"
+          strip_components: 2
+
+      - name: Upload Supervisor PWA build
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          source: "supervisor-pwa/dist/*"
+          target: "/var/www/dgsystem/supervisor/dist"
+          strip_components: 2
+
+      - name: Upload Driver PWA build
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          source: "driver-pwa/dist/*"
+          target: "/var/www/dgsystem/driver/dist"
+          strip_components: 2
+
+      - name: Upload Landing Page
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          source: "landing/index.html"
+          target: "/var/www/html/"
+          strip_components: 1
+
+      - name: Reload Nginx
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: nginx -t && systemctl reload nginx

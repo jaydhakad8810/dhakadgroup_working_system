@@ -1,0 +1,43 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * { -webkit-tap-highlight-color: transparent; box-sizing: border-box; }
+  html, body, #root { height: 100%; width: 100%; margin: 0; padding: 0; }
+  body {
+    @apply bg-surface-600 text-gray-100 font-sans;
+    overscroll-behavior: none;
+    -webkit-overflow-scrolling: touch;
+    overflow-x: hidden;
+  }
+  #root {
+    display: flex;
+    justify-content: center;
+    background: #080809;
+  }
+  ::-webkit-scrollbar { width: 3px; }
+  ::-webkit-scrollbar-thumb { @apply bg-primary-600 rounded-full; }
+}
+
+@layer components {
+  .card     { @apply bg-surface-300 border border-white/10 rounded-2xl p-4; }
+  .card-sm  { @apply bg-surface-300 border border-white/10 rounded-xl p-3; }
+
+  .btn-primary   { @apply bg-primary-500 hover:bg-primary-600 active:bg-primary-700 text-white font-semibold px-5 py-3 rounded-xl transition-all flex items-center justify-center gap-2 disabled:opacity-50 select-none; }
+  .btn-secondary { @apply bg-surface-200 hover:bg-surface-100 text-gray-200 font-medium px-5 py-3 rounded-xl transition-all flex items-center justify-center gap-2 select-none; }
+  .btn-success   { @apply bg-green-500 hover:bg-green-600 text-white font-semibold px-5 py-3 rounded-xl transition-all flex items-center justify-center gap-2 select-none; }
+  .btn-ghost     { @apply text-gray-400 hover:text-white hover:bg-white/10 px-3 py-2 rounded-lg transition-all flex items-center gap-2 select-none; }
+
+  .input  { @apply w-full bg-surface-400 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 transition-all text-base; }
+  .select { @apply w-full bg-surface-400 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-primary-500 transition-all text-base; }
+  .label  { @apply block text-sm font-medium text-gray-400 mb-1.5; }
+
+  .badge-blue   { @apply bg-primary-500/20 text-primary-400 text-xs font-semibold px-2.5 py-0.5 rounded-full; }
+  .badge-green  { @apply bg-green-500/20 text-green-400 text-xs font-semibold px-2.5 py-0.5 rounded-full; }
+  .badge-red    { @apply bg-red-500/20 text-red-400 text-xs font-semibold px-2.5 py-0.5 rounded-full; }
+  .badge-orange { @apply bg-orange-500/20 text-orange-400 text-xs font-semibold px-2.5 py-0.5 rounded-full; }
+  .badge-gray   { @apply bg-gray-500/20 text-gray-400 text-xs font-semibold px-2.5 py-0.5 rounded-full; }
+
+  .page-content { @apply px-4 py-4 space-y-4; }
+}
