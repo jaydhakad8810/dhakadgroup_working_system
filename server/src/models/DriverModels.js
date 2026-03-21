@@ -47,8 +47,24 @@ const Trip = sequelize.define('Trip', {
   distance_km: { type: DataTypes.INTEGER, allowNull: true },
   fuel_cost: { type: DataTypes.DECIMAL(10, 2), defaultValue: 0 },
   other_expenses: { type: DataTypes.DECIMAL(10, 2), defaultValue: 0 },
-  status: { type: DataTypes.ENUM('ongoing', 'completed', 'cancelled'), defaultValue: 'ongoing' },
+  status: { type: DataTypes.ENUM('ongoing', 'completed', 'cancelled', 'pending', 'in_progress', 'delivered'), defaultValue: 'ongoing' },
   notes: { type: DataTypes.TEXT, allowNull: true },
+  // Godown stock flow fields
+  trip_type: { type: DataTypes.ENUM('delivery', 'return', 'transfer', 'regular'), defaultValue: 'regular' },
+  material_request_id: { type: DataTypes.UUID, allowNull: true },
+  material_name: { type: DataTypes.STRING(200), allowNull: true },
+  material_quantity: { type: DataTypes.DECIMAL(10, 2), allowNull: true },
+  material_unit: { type: DataTypes.STRING(50), allowNull: true },
+  from_godown_id: { type: DataTypes.UUID, allowNull: true },
+  to_site_id: { type: DataTypes.UUID, allowNull: true },
+  from_site_id: { type: DataTypes.UUID, allowNull: true },
+  to_godown_id: { type: DataTypes.UUID, allowNull: true },
+  pickup_photo: { type: DataTypes.TEXT, allowNull: true },
+  delivery_photo: { type: DataTypes.TEXT, allowNull: true },
+  pickup_confirmed_at: { type: DataTypes.DATE, allowNull: true },
+  delivery_confirmed_at: { type: DataTypes.DATE, allowNull: true },
+  delivery_confirmed_by: { type: DataTypes.UUID, allowNull: true },
+  master_card_number: { type: DataTypes.STRING(50), allowNull: true, unique: false },
 }, { tableName: 'trips' });
 
 module.exports = { Driver, Vehicle, Trip };

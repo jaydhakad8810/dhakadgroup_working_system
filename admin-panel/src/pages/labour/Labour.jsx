@@ -10,7 +10,7 @@ const EMPTY_FORM = {
   labour_type: 'unskilled', daily_wage: '',
   photo: '', aadhar_number: '', aadhar_photo: '',
   pan_number: '', custom_doc_name: '', custom_doc_photo: '',
-  bank_account: '', bank_ifsc: '', bank_name: '',
+  bank_account: '', bank_ifsc: '', bank_name: '', bank_passbook_photo: '',
 }
 
 export default function Labour() {
@@ -201,6 +201,13 @@ export default function Labour() {
               <div><label className="label">Account Number</label><input className="input" value={form.bank_account} onChange={e => f('bank_account', e.target.value)} /></div>
               <div><label className="label">IFSC Code</label><input className="input" value={form.bank_ifsc} onChange={e => f('bank_ifsc', e.target.value)} /></div>
               <div className="col-span-2"><label className="label">Bank Name</label><input className="input" value={form.bank_name} onChange={e => f('bank_name', e.target.value)} /></div>
+              <div className="col-span-2">
+                <label className="label">Bank Passbook Photo</label>
+                <DocUpload value={form.bank_passbook_photo} onChange={v => f('bank_passbook_photo', v)} folder="dgsystem/labour-docs" label="Upload passbook photo" />
+                {form.bank_passbook_photo && (
+                  <a href={form.bank_passbook_photo} target="_blank" rel="noreferrer" className="text-blue-400 text-xs mt-1 inline-block hover:underline">View Passbook</a>
+                )}
+              </div>
             </div>
           </div>
 

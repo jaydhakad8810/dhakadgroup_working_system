@@ -104,6 +104,14 @@ export default function Sites() {
                     {site.supervisor && <p>👷 {site.supervisor.name}</p>}
                     {site.contract_type && <p>📄 {site.contract_type.replace(/_/g, ' + ')}</p>}
                     {site.latitude && <p className="text-xs text-green-400">📍 GPS: {parseFloat(site.latitude).toFixed(4)}, {parseFloat(site.longitude).toFixed(4)} ({site.gps_radius_meters}m)</p>}
+                    {site.latitude && site.longitude && (
+                      <a href={`https://www.google.com/maps?q=${site.latitude},${site.longitude}`}
+                         target="_blank" rel="noreferrer"
+                         className="text-blue-400 text-xs flex items-center gap-1 hover:underline"
+                         onClick={e => e.stopPropagation()}>
+                        📍 Open in Maps
+                      </a>
+                    )}
                   </div>
                   <div className="flex gap-2">
                     <Link to={`/sites/${site.id}`} className="btn-outline flex-1 justify-center text-sm py-1.5"><Eye size={14} />View</Link>

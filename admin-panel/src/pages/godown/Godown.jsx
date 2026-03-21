@@ -18,6 +18,8 @@ export default function Godown() {
   const [stockModal, setStockModal] = useState(null)
   const [transferModal, setTransferModal] = useState(false)
   const [tab, setTab] = useState('stock')
+  const [activeTrips, setActiveTrips] = useState([])
+  const [masterCardModal, setMasterCardModal] = useState(null)
   const [form, setForm] = useState({})
   const [stockForm, setStockForm] = useState({ type: 'in', quantity: '', notes: '', material_name: '' })
   const [transferForm, setTransferForm] = useState({ type: 'godown', to_godown_id: '', to_site_id: '', quantity: '', notes: '' })
@@ -41,6 +43,17 @@ export default function Godown() {
   }
 
   useEffect(() => { load() }, [])
+
+  const loadActiveTrips = async () => {
+    try {
+      const r = await api.get('/trips/active')
+      setActiveTrips(r.data)
+    } catch {}
+  }
+
+  useEffect(() => {
+    if (tab === 'trips') loadActiveTrips()
+  }, [tab])
 
   useEffect(() => {
     if (selected) {
@@ -129,13 +142,44 @@ export default function Godown() {
 
       {/* Tab bar */}
       <div className="flex gap-1 p-1 rounded-xl w-fit" style={{ background: 'var(--bg2)' }}>
-        {['stock', 'requests'].map(t => (
+        {['stock', 'requests', 'trips'].map(t => (
           <button key={t} onClick={() => setTab(t)}
             className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${tab === t ? 'bg-gold-500 text-black' : 'text-gray-400 hover:text-white'}`}>
-            {t === 'stock' ? 'Godowns & Stock' : `Material Requests (${requests.filter(r => r.status === 'pending').length})`}
+            {t === 'stock' ? 'Godowns & Stock' : t === 'requests' ? `Material Requests (${requests.filter(r => r.status === 'pending').length})` : `Active Trips (${activeTrips.length})`}
           </button>
         ))}
       </div>
+
+      {tab === 'trips' && (
+        <div className="space-y-4">
+          <button onClick={loadActiveTrips} className="btn-outline text-sm">Refresh</button>
+          <div className="table-container">
+            <table>
+              <thead><tr><th>Master Card</th><th>Driver</th><th>Material</th><th>From → To</th><th>Status</th><th>Created</th><th>Action</th></tr></thead>
+              <tbody>
+                {activeTrips.map(t => (
+                  <tr key={t.id}>
+                    <td className="font-mono text-gold-400 font-semibold text-sm">{t.master_card_number || '—'}</td>
+                    <td>{t.driver?.name || '—'}</td>
+                    <td className="text-gray-400">{t.material_name || t.purpose || '—'}</td>
+                    <td className="text-gray-400 text-xs max-w-48 truncate">{t.from_location} → {t.to_location || '?'}</td>
+                    <td>
+                      <span className={`${t.status === 'pending' ? 'badge-gray' : t.status === 'in_progress' ? 'badge-blue' : t.status === 'delivered' ? 'badge-gold' : t.status === 'completed' ? 'badge-green' : 'badge-gray'} capitalize`}>
+                        {t.status}
+                      </span>
+                    </td>
+                    <td className="text-gray-400 text-xs">{new Date(t.createdAt).toLocaleDateString('en-IN')}</td>
+                    <td>
+                      <button onClick={() => setMasterCardModal(t)} className="btn-ghost px-2 py-1 text-xs text-blue-400">View Card</button>
+                    </td>
+                  </tr>
+                ))}
+                {!activeTrips.length && <tr><td colSpan={7} className="text-center py-8" style={{ color: 'var(--muted)' }}>No active trips</td></tr>}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {tab === 'requests' && (
         <div className="table-container">
@@ -335,6 +379,63 @@ export default function Godown() {
           <div><label className="label">Notes</label><textarea className="input" rows={2} value={transferForm.notes} onChange={e => setTransferForm({ ...transferForm, notes: e.target.value })} /></div>
           <div className="flex gap-3 justify-end"><button type="button" onClick={() => setTransferModal(false)} className="btn-ghost">Cancel</button><button type="submit" disabled={saving} className="btn-gold">{saving ? 'Transferring...' : 'Transfer'}</button></div>
         </form>
+      </Modal>
+
+      {/* Master Card Modal */}
+      <Modal open={!!masterCardModal} onClose={() => setMasterCardModal(null)} title="Trip Master Card" size="md">
+        {masterCardModal && (
+          <div className="space-y-4">
+            <div className="text-center p-4 rounded-xl" style={{ background: 'var(--bg3)' }}>
+              <p className="text-gray-400 text-xs uppercase tracking-widest mb-1">DGSystem · Dhakad Group</p>
+              <p className="text-gold-400 font-bold text-2xl font-mono">{masterCardModal.master_card_number || 'N/A'}</p>
+              <span className={`mt-2 inline-block capitalize ${masterCardModal.status === 'completed' ? 'badge-green' : masterCardModal.status === 'delivered' ? 'badge-gold' : 'badge-blue'}`}>{masterCardModal.status}</span>
+              {masterCardModal.trip_type && <span className="badge-blue ml-2 capitalize">{masterCardModal.trip_type}</span>}
+            </div>
+            <div className="grid grid-cols-2 gap-2 text-sm">
+              {[
+                ['Driver', masterCardModal.driver?.name],
+                ['Vehicle', masterCardModal.vehicle?.registration_number],
+                ['Material', masterCardModal.material_name || masterCardModal.purpose],
+                ['Quantity', masterCardModal.material_quantity ? `${masterCardModal.material_quantity} ${masterCardModal.material_unit || ''}` : null],
+                ['From', masterCardModal.from_location],
+                ['To', masterCardModal.to_location],
+                ['Date', masterCardModal.trip_date],
+              ].filter(([, v]) => v).map(([label, value]) => (
+                <div key={label} className="p-2.5 rounded-lg" style={{ background: 'var(--bg3)' }}>
+                  <p className="text-gray-400 text-xs">{label}</p>
+                  <p className="text-white font-medium">{value}</p>
+                </div>
+              ))}
+            </div>
+            <div>
+              <p className="text-gray-400 text-xs mb-2">Timeline</p>
+              <div className="flex items-center gap-1 text-xs">
+                {[
+                  { label: 'Created', done: true },
+                  { label: 'Picked Up', done: !!masterCardModal.pickup_confirmed_at },
+                  { label: 'Delivered', done: !!masterCardModal.delivery_confirmed_at },
+                  { label: 'Confirmed', done: masterCardModal.status === 'completed' },
+                ].map((step, i) => (
+                  <div key={step.label} className={`flex items-center gap-1 ${i < 3 ? 'flex-1' : ''}`}>
+                    <div className="flex flex-col items-center">
+                      <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs ${step.done ? 'bg-green-500 text-white' : 'bg-gray-700 text-gray-400'}`}>
+                        {step.done ? '✓' : '○'}
+                      </div>
+                      <p className="text-gray-400 text-xs mt-0.5 whitespace-nowrap">{step.label}</p>
+                    </div>
+                    {i < 3 && <div className={`h-0.5 flex-1 mb-4 ${step.done ? 'bg-green-500' : 'bg-gray-700'}`} />}
+                  </div>
+                ))}
+              </div>
+            </div>
+            {(masterCardModal.pickup_photo || masterCardModal.delivery_photo) && (
+              <div className="grid grid-cols-2 gap-3">
+                {masterCardModal.pickup_photo && <div><p className="text-gray-400 text-xs mb-1">Pickup Photo</p><img src={masterCardModal.pickup_photo} className="w-full h-28 object-cover rounded-xl" /></div>}
+                {masterCardModal.delivery_photo && <div><p className="text-gray-400 text-xs mb-1">Delivery Photo</p><img src={masterCardModal.delivery_photo} className="w-full h-28 object-cover rounded-xl" /></div>}
+              </div>
+            )}
+          </div>
+        )}
       </Modal>
     </div>
   )

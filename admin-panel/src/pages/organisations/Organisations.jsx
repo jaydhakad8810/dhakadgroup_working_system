@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import toast from 'react-hot-toast'
 import api from '../../utils/api'
 import { PageHeader, LoadingPage, Modal, ConfirmDialog } from '../../components/ui'
+import { DocUpload } from '../../components/ui/PhotoUpload'
 import { Plus, Trash2, Edit } from 'lucide-react'
 
 export default function Organisations() {
@@ -77,6 +78,15 @@ export default function Organisations() {
             <div><label className="label">Email</label><input type="email" className="input" value={form.email||''} onChange={e=>setForm({...form,email:e.target.value})} /></div>
           </div>
           <div><label className="label">Address</label><textarea className="input" rows={2} value={form.address||''} onChange={e=>setForm({...form,address:e.target.value})} /></div>
+          <div>
+            <label className="label">GST Certificate / Registration Document</label>
+            <DocUpload value={form.document_url} onChange={v=>setForm({...form,document_url:v})} folder="dgsystem/organisations" label="Upload PDF, JPG, PNG, WEBP" />
+            {form.document_url && (
+              <a href={form.document_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-blue-400 text-sm mt-1 hover:underline">
+                📄 View Document
+              </a>
+            )}
+          </div>
           <div className="flex gap-3 justify-end"><button type="button" onClick={()=>{setModal(false);setEditing(null);setForm({})}} className="btn-ghost">Cancel</button><button type="submit" disabled={saving} className="btn-gold">{saving?'Saving...':editing?'Save Changes':'Create'}</button></div>
         </form>
       </Modal>

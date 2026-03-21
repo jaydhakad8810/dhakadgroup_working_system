@@ -5,6 +5,26 @@ const { Op } = require('sequelize');
 
 router.use(auth);
 
+// GET /api/labour/all-available - Returns all active labour (no supervisor filter)
+router.get('/all-available', async (req, res) => {
+  try {
+    const where = { is_active: true };
+    if (req.query.search) {
+      where[Op.or] = [
+        { name: { [Op.iLike]: `%${req.query.search}%` } },
+        { phone: { [Op.iLike]: `%${req.query.search}%` } },
+        { aadhar_number: { [Op.iLike]: `%${req.query.search}%` } },
+      ];
+    }
+    const labour = await Labour.findAll({
+      where,
+      include: [{ model: Site, as: 'site', attributes: ['id', 'name'] }],
+      order: [['name', 'ASC']]
+    });
+    res.json(labour);
+  } catch (e) { res.status(500).json({ message: e.message }); }
+});
+
 router.get('/', async (req, res) => {
   try {
     const where = {};

@@ -52,15 +52,15 @@ export default function Dashboard() {
       {/* Stats */}
       <div className="grid grid-cols-2 gap-3">
         {[
-          { label: 'Today Trips', value: todayTrips.length, icon: Route, color: 'text-primary-400', bg: 'bg-primary-500/20' },
-          { label: 'Total Trips', value: totalTrips, icon: CheckCircle, color: 'text-green-400', bg: 'bg-green-500/20' },
-          { label: 'Vehicles', value: driver?.vehicles?.length || 0, icon: Truck, color: 'text-blue-400', bg: 'bg-blue-500/20' },
-          { label: 'Status', value: ongoingTrip ? 'On Trip' : 'Available', icon: Clock, color: ongoingTrip ? 'text-green-400' : 'text-gray-400', bg: ongoingTrip ? 'bg-green-500/20' : 'bg-gray-500/20' },
-        ].map(({ label, value, icon: Icon, color, bg }) => (
-          <div key={label} className="card-sm flex items-center gap-3">
+          { label: 'Today Trips', value: todayTrips.length, icon: Route, color: 'text-primary-400', bg: 'bg-primary-500/20', to: '/trips' },
+          { label: 'Total Trips', value: totalTrips, icon: CheckCircle, color: 'text-green-400', bg: 'bg-green-500/20', to: '/trips' },
+          { label: 'Vehicles', value: driver?.vehicles?.length || 0, icon: Truck, color: 'text-blue-400', bg: 'bg-blue-500/20', to: '/vehicle' },
+          { label: 'Status', value: ongoingTrip ? 'On Trip' : 'Available', icon: Clock, color: ongoingTrip ? 'text-green-400' : 'text-gray-400', bg: ongoingTrip ? 'bg-green-500/20' : 'bg-gray-500/20', to: '/trips' },
+        ].map(({ label, value, icon: Icon, color, bg, to }) => (
+          <button key={label} onClick={() => navigate(to)} className="card-sm flex items-center gap-3 w-full text-left active:scale-95 transition-transform cursor-pointer">
             <div className={`w-10 h-10 rounded-xl ${bg} flex items-center justify-center flex-shrink-0`}><Icon size={18} className={color} /></div>
             <div><p className="text-gray-400 text-xs">{label}</p><p className="text-white font-bold text-lg">{value}</p></div>
-          </div>
+          </button>
         ))}
       </div>
 
