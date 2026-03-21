@@ -20,6 +20,7 @@ const Labour = sequelize.define('Labour', {
   bank_account: { type: DataTypes.STRING(20), allowNull: true },
   bank_ifsc: { type: DataTypes.STRING(15), allowNull: true },
   bank_name: { type: DataTypes.STRING(80), allowNull: true },
+  bank_passbook_photo: { type: DataTypes.TEXT, allowNull: true },
   assigned_site_id: { type: DataTypes.UUID, allowNull: true },
   supervisor_id: { type: DataTypes.UUID, allowNull: true },
   is_active: { type: DataTypes.BOOLEAN, defaultValue: true },

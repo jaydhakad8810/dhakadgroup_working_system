@@ -7,12 +7,18 @@ const { auth } = require('../middleware/auth');
 // Login
 router.post('/login', async (req, res) => {
   try {
-    const { email, employee_id, password } = req.body;
+    const { email, employee_id, password, login } = req.body;
     let user;
-    if (email) {
-      user = await User.findOne({ where: { email } });
-    } else if (employee_id) {
-      user = await User.findOne({ where: { employee_id } });
+    // Support unified 'login' field or separate email/employee_id
+    const identifier = login || email || employee_id;
+    if (identifier) {
+      if (identifier.includes('@')) {
+        user = await User.findOne({ where: { email: identifier } });
+      } else {
+        user = await User.findOne({ where: { employee_id: identifier } });
+        // Fallback: try email in case identifier has @ but wasn't caught
+        if (!user && email) user = await User.findOne({ where: { email } });
+      }
     }
     if (!user) return res.status(401).json({ message: 'Invalid credentials' });
     if (!user.is_active) return res.status(401).json({ message: 'Account disabled' });

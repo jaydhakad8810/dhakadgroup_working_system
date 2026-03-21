@@ -42,10 +42,11 @@ export default function Login() {
 
         <div className="space-y-4">
           <div>
-            <label className="label">Email or Employee ID</label>
+            <label className="label">Employee ID</label>
             <input value={identifier} onChange={e => setIdentifier(e.target.value)}
-              className="input" placeholder="email@example.com or EMP001"
+              className="input" placeholder="Enter your Employee ID (e.g. DRV-MOHAN-001)"
               autoComplete="username" required />
+            <p className="text-gray-500 text-xs mt-1">Login with your Employee ID provided by admin</p>
           </div>
           <div>
             <label className="label">Password</label>

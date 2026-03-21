@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { Building2, Users, ClipboardCheck, DollarSign, Truck, Wrench, Bell, TrendingUp } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line, CartesianGrid } from 'recharts'
 import api from '../../utils/api'
@@ -10,6 +10,7 @@ export default function Dashboard() {
   const [attendanceChart, setAttendanceChart] = useState([])
   const [expenseChart, setExpenseChart] = useState([])
   const [loading, setLoading] = useState(true)
+  const navigate = useNavigate()
 
   useEffect(() => {
     const load = async () => {
@@ -47,14 +48,30 @@ export default function Dashboard() {
 
       {/* Stats Grid */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard icon={Building2} label="Active Sites" value={s.activeSites} color="gold" sub={`${s.totalSites} total`} />
-        <StatCard icon={Users} label="Active Labour" value={s.activeLabour} color="green" sub={`${s.totalLabour} total`} />
-        <StatCard icon={ClipboardCheck} label="Today Present" value={s.todayAttendance} color="blue" />
-        <StatCard icon={TrendingUp} label="Month Expenses" value={`₹${(s.monthExpenses || 0).toLocaleString('en-IN')}`} color="red" />
-        <StatCard icon={Users} label="Supervisors" value={s.totalSupervisors} color="purple" />
-        <StatCard icon={Truck} label="Active Trips" value={s.activeTrips} color="blue" />
-        <StatCard icon={Wrench} label="Machines In Use" value={s.machinesInUse} color="gold" />
-        <StatCard icon={Bell} label="Pending Requests" value={s.pendingRequests} color="red" />
+        <div onClick={() => navigate('/sites')} className="cursor-pointer hover:border-gold-500/50 hover:scale-[1.02] active:scale-95 transition-all duration-200 rounded-xl">
+          <StatCard icon={Building2} label="Active Sites" value={s.activeSites} color="gold" sub={`${s.totalSites} total`} />
+        </div>
+        <div onClick={() => navigate('/labour')} className="cursor-pointer hover:border-gold-500/50 hover:scale-[1.02] active:scale-95 transition-all duration-200 rounded-xl">
+          <StatCard icon={Users} label="Active Labour" value={s.activeLabour} color="green" sub={`${s.totalLabour} total`} />
+        </div>
+        <div onClick={() => navigate('/attendance')} className="cursor-pointer hover:border-gold-500/50 hover:scale-[1.02] active:scale-95 transition-all duration-200 rounded-xl">
+          <StatCard icon={ClipboardCheck} label="Today Present" value={s.todayAttendance} color="blue" />
+        </div>
+        <div onClick={() => navigate('/expenses')} className="cursor-pointer hover:border-gold-500/50 hover:scale-[1.02] active:scale-95 transition-all duration-200 rounded-xl">
+          <StatCard icon={TrendingUp} label="Month Expenses" value={`₹${(s.monthExpenses || 0).toLocaleString('en-IN')}`} color="red" />
+        </div>
+        <div onClick={() => navigate('/users')} className="cursor-pointer hover:border-gold-500/50 hover:scale-[1.02] active:scale-95 transition-all duration-200 rounded-xl">
+          <StatCard icon={Users} label="Supervisors" value={s.totalSupervisors} color="purple" />
+        </div>
+        <div onClick={() => navigate('/drivers/trips')} className="cursor-pointer hover:border-gold-500/50 hover:scale-[1.02] active:scale-95 transition-all duration-200 rounded-xl">
+          <StatCard icon={Truck} label="Active Trips" value={s.activeTrips} color="blue" />
+        </div>
+        <div onClick={() => navigate('/machines')} className="cursor-pointer hover:border-gold-500/50 hover:scale-[1.02] active:scale-95 transition-all duration-200 rounded-xl">
+          <StatCard icon={Wrench} label="Machines In Use" value={s.machinesInUse} color="gold" />
+        </div>
+        <div onClick={() => navigate('/notifications')} className="cursor-pointer hover:border-gold-500/50 hover:scale-[1.02] active:scale-95 transition-all duration-200 rounded-xl">
+          <StatCard icon={Bell} label="Pending Requests" value={s.pendingRequests} color="red" />
+        </div>
       </div>
 
       {/* Charts */}
