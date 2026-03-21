@@ -1,17 +1,18 @@
 import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, Route, Truck, Bell, User } from 'lucide-react'
+import { LayoutDashboard, Route, Package, DollarSign, User } from 'lucide-react'
 
 const items = [
-  { to: '/', icon: LayoutDashboard, label: 'Home' },
-  { to: '/trips', icon: Route, label: 'Trips' },
-  { to: '/vehicle', icon: Truck, label: 'Vehicle' },
-  { to: '/notifications', icon: Bell, label: 'Alerts' },
-  { to: '/profile', icon: User, label: 'Profile' },
+  { to: '/',          icon: LayoutDashboard, label: 'Home' },
+  { to: '/trips',     icon: Route,           label: 'Trips' },
+  { to: '/material',  icon: Package,         label: 'Material' },
+  { to: '/salary',    icon: DollarSign,      label: 'Salary' },
+  { to: '/profile',   icon: User,            label: 'Profile' },
 ]
 
 export function BottomNav() {
   return (
-    <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md z-40 bg-surface-500/98 backdrop-blur-lg border-t border-white/5"
+    <nav
+      className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md z-40 bg-surface-500/98 backdrop-blur-lg border-t border-white/5"
       style={{ boxShadow: '0 -4px 20px rgba(0,0,0,0.4)' }}>
       <div className="flex items-center justify-around px-1 py-1">
         {items.map(({ to, icon: Icon, label }) => (

@@ -238,3 +238,15 @@ router.get('/alerts/low-stock', async (_req, res) => {
 });
 
 module.exports = router;
+
+// Update request status (driver dispatches, supervisor receives)
+router.patch('/requests/:id/status', supervisorOrAdmin, async (req, res) => {
+  try {
+    const { MaterialRequest } = require('../models');
+    if (!MaterialRequest) return res.status(400).json({ message: 'Model not available' });
+    const request = await MaterialRequest.findByPk(req.params.id);
+    if (!request) return res.status(404).json({ message: 'Not found' });
+    await request.update({ status: req.body.status, ...(req.body.status === 'approved' ? { approved_by: req.user.id } : {}), ...(req.body.status === 'dispatched' ? { dispatched_by: req.user.id } : {}) });
+    res.json(request);
+  } catch (e) { res.status(500).json({ message: e.message }); }
+});
