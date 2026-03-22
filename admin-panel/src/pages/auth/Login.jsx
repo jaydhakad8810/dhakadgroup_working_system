@@ -31,7 +31,7 @@ export default function Login() {
 
       <div className="relative w-full max-w-md">
         <div className="text-center mb-10">
-          <span className="text-6xl">🏗️</span>
+          <img src="/logo.png" alt="Dhakad Group" className="w-20 h-20 object-contain mx-auto mb-2" />
           <h1 className="text-3xl font-bold text-white mt-4">DGSystem</h1>
           <p className="text-gold-500 font-medium mt-1">Construction Management</p>
           <p className="text-gray-500 text-sm mt-1">Admin Panel</p>
