@@ -17,6 +17,16 @@ router.get('/', async (req, res) => {
       ],
       order: [['createdAt', 'DESC']]
     });
+    if (req.user.role === 'supervisor') {
+      const filtered = sites.map(s => {
+        const plain = s.toJSON();
+        delete plain.contract_value;
+        delete plain.client_email;
+        delete plain.notes;
+        return plain;
+      });
+      return res.json(filtered);
+    }
     res.json(sites);
   } catch (e) { res.status(500).json({ message: e.message }); }
 });

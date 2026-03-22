@@ -170,8 +170,15 @@ export default function Sites() {
           <div className="p-4 rounded-xl border" style={{ borderColor: 'var(--border)', background: 'var(--bg3)' }}>
             <div className="flex items-center justify-between mb-3">
               <p className="font-medium text-sm" style={{ color: 'var(--text)' }}>📍 GPS Location (for attendance radius)</p>
-              <button type="button" onClick={captureGPS} disabled={gpsLoading}
-                className="btn-outline text-xs py-1.5 px-3">{gpsLoading ? 'Getting...' : 'Capture GPS'}</button>
+              <div className="flex gap-2">
+                <button type="button" onClick={captureGPS} disabled={gpsLoading}
+                  className="btn-outline text-xs py-1.5 px-3">{gpsLoading ? 'Getting...' : 'Capture GPS'}</button>
+                {form.latitude && form.longitude && (
+                  <button type="button"
+                    onClick={() => window.open(`https://www.google.com/maps?q=${form.latitude},${form.longitude}`, '_blank')}
+                    className="btn-outline text-xs py-1.5 px-3">Open in Maps 🗺️</button>
+                )}
+              </div>
             </div>
             <div className="grid grid-cols-3 gap-3">
               <div><label className="label">Latitude</label><input className="input" value={form.latitude || ''} onChange={e => f('latitude', e.target.value)} placeholder="Auto-filled" /></div>
