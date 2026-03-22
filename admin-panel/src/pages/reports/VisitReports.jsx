@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import toast from 'react-hot-toast'
 import api from '../../utils/api'
 import { PageHeader, LoadingPage, Modal, StatusBadge } from '../../components/ui'
-import { Plus, Eye, Trash2, CheckCircle } from 'lucide-react'
+import { Plus, Eye, Trash2, CheckCircle, Lock } from 'lucide-react'
 
 export default function VisitReports() {
   const [reports, setReports]   = useState([])
@@ -165,6 +165,28 @@ export default function VisitReports() {
               </div>
             )}
 
+            {/* Admin-set fields */}
+            {selectedReport.supervisor_rating > 0 && (
+              <div className="p-3 rounded-xl" style={{background:'var(--bg3)'}}>
+                <p className="text-xs font-medium mb-1" style={{color:'var(--muted)'}}>Supervisor Rating</p>
+                <span className="text-xl text-gold-400">
+                  {[1,2,3,4,5].map(s => <span key={s}>{s <= selectedReport.supervisor_rating ? '★' : '☆'}</span>)}
+                </span>
+              </div>
+            )}
+            {selectedReport.note_for_supervisor && (
+              <div className="p-3 rounded-xl" style={{background:'var(--bg3)'}}>
+                <p className="text-xs font-medium mb-1 text-blue-400">Note for Supervisor</p>
+                <p className="text-sm" style={{color:'var(--text)'}}>{selectedReport.note_for_supervisor}</p>
+              </div>
+            )}
+            {selectedReport.private_note && (
+              <div className="p-3 rounded-xl border border-red-500/20" style={{background:'var(--bg3)'}}>
+                <p className="text-xs font-medium mb-1 text-red-400 flex items-center gap-1"><Lock size={11}/>Private — Hidden from Supervisor</p>
+                <p className="text-sm" style={{color:'var(--text)'}}>{selectedReport.private_note}</p>
+              </div>
+            )}
+
             {/* Tasks with status control */}
             {selectedReport.tasks?.length > 0 && (
               <div>
@@ -233,9 +255,27 @@ export default function VisitReports() {
             </div>
             <div><label className="label">Weather</label><input className="input" value={form.weather} onChange={e => f('weather',e.target.value)} placeholder="Sunny, Rainy…"/></div>
             <div><label className="label">Labour Count</label><input type="number" className="input" value={form.labour_count||''} onChange={e => f('labour_count',e.target.value)}/></div>
-            <div><label className="label">Next Visit Date</label><input type="date" className="input" value={form.next_visit_date||''} onChange={e => f('next_visit_date',e.target.value)}/></div>
           </div>
           <div><label className="label">Description</label><textarea className="input" rows={3} value={form.description||''} onChange={e => f('description',e.target.value)}/></div>
+
+          {/* Admin-specific fields */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="label">Supervisor Rating</label>
+              <div className="flex gap-1 mt-1">
+                {[1,2,3,4,5].map(star => (
+                  <button key={star} type="button" onClick={() => f('supervisor_rating', form.supervisor_rating === star ? 0 : star)}
+                    className={`text-2xl transition-all leading-none ${form.supervisor_rating >= star ? 'text-gold-400' : 'text-gray-600 hover:text-gold-600'}`}>★</button>
+                ))}
+              </div>
+            </div>
+            <div><label className="label">Next Visit Date</label><input type="date" className="input" value={form.next_visit_date||''} onChange={e => f('next_visit_date',e.target.value)}/></div>
+          </div>
+          <div><label className="label">Note for Supervisor <span className="text-blue-400 text-xs">(visible to supervisor)</span></label><textarea className="input" rows={2} value={form.note_for_supervisor||''} onChange={e => f('note_for_supervisor',e.target.value)} placeholder="Instructions or notes for the supervisor…"/></div>
+          <div>
+            <label className="label flex items-center gap-1"><Lock size={13} className="text-red-400"/>Private Note <span className="text-red-400 text-xs">(hidden from supervisor)</span></label>
+            <textarea className="input border-red-500/20" rows={2} value={form.private_note||''} onChange={e => f('private_note',e.target.value)} placeholder="Admin-only internal notes…"/>
+          </div>
 
           {/* Tasks */}
           <div>

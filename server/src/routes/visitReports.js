@@ -1,9 +1,15 @@
 const router = require('express').Router();
-const { VisitReport, VisitTask, Site, User } = require('../models');
+const { VisitReport, VisitTask, Site, User, Notification } = require('../models');
 const { auth, supervisorOrAdmin } = require('../middleware/auth');
 const { Op } = require('sequelize');
 
 router.use(auth);
+
+const stripPrivate = (report) => {
+  const plain = report.toJSON ? report.toJSON() : { ...report };
+  delete plain.private_note;
+  return plain;
+};
 
 router.get('/', async (req, res) => {
   try {
@@ -22,6 +28,7 @@ router.get('/', async (req, res) => {
       ],
       order: [['report_date', 'DESC']]
     });
+    if (req.user.role === 'supervisor') return res.json(reports.map(stripPrivate));
     res.json(reports);
   } catch (e) { res.status(500).json({ message: e.message }); }
 });
@@ -50,6 +57,7 @@ router.get('/:id', async (req, res) => {
       ]
     });
     if (!report) return res.status(404).json({ message: 'Not found' });
+    if (req.user.role === 'supervisor') return res.json(stripPrivate(report));
     res.json(report);
   } catch (e) { res.status(500).json({ message: e.message }); }
 });
@@ -84,6 +92,16 @@ router.patch('/tasks/:taskId', supervisorOrAdmin, async (req, res) => {
     const task = await VisitTask.findByPk(req.params.taskId);
     if (!task) return res.status(404).json({ message: 'Not found' });
     await task.update(req.body);
+    // Notify admin when supervisor marks task done
+    if (req.body.status === 'done' && req.user.role === 'supervisor') {
+      await Notification.create({
+        title: 'Task Completed',
+        message: `Task "${task.task}" completed by ${req.user.name}`,
+        type: 'success',
+        target_role: 'admin',
+        sent_by: req.user.id,
+      });
+    }
     res.json(task);
   } catch (e) { res.status(500).json({ message: e.message }); }
 });
