@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, FileText, Camera, CheckCircle, Clock } from 'lucide-react'
+import { Plus, FileText, Camera, CheckCircle, Clock, BarChart2, Download, Printer } from 'lucide-react'
 import api from '../../utils/api'
 import { LoadingPage, EmptyState, StatusBadge, Modal } from '../../components/ui'
 import { useAuth } from '../../context/AuthContext'
@@ -17,15 +17,25 @@ export default function VisitReports() {
   const navigate = useNavigate()
 
   // Photo proof completion state
-  const [completeTask, setCompleteTask] = useState(null) // task being completed
-  const [proofPhoto, setProofPhoto] = useState(null)     // uploaded URL
-  const [proofPreview, setProofPreview] = useState(null) // local preview
+  const [completeTask, setCompleteTask] = useState(null)
+  const [proofPhoto, setProofPhoto] = useState(null)
+  const [proofPreview, setProofPreview] = useState(null)
   const [proofUploading, setProofUploading] = useState(false)
   const [completing, setCompleting] = useState(false)
   const fileRef = useRef()
 
+  // Daily report state
+  const [reportModal, setReportModal] = useState(false)
+  const [reportSiteId, setReportSiteId] = useState('')
+  const [reportDate, setReportDate] = useState(new Date().toISOString().split('T')[0])
+  const [dailySummary, setDailySummary] = useState(null)
+  const [reportLoading, setReportLoading] = useState(false)
+
   useEffect(() => {
-    api.get('/sites').then(r => setSites(r.data)).catch(() => {})
+    api.get('/sites').then(r => {
+      setSites(r.data)
+      if (r.data.length > 0) setReportSiteId(r.data[0].id)
+    }).catch(() => {})
   }, [])
 
   const loadReports = () => {
@@ -50,6 +60,7 @@ export default function VisitReports() {
 
   const selectedReport = reports.find(r => r.id === viewModal)
 
+  // Photo proof handlers
   const handlePhotoCapture = async (file) => {
     if (!file) return
     setProofUploading(true)
@@ -103,11 +114,67 @@ export default function VisitReports() {
     setProofPreview(null)
   }
 
+  // Daily report handlers
+  const generateReport = async () => {
+    if (!reportSiteId) return
+    setReportLoading(true)
+    setDailySummary(null)
+    try {
+      const { data } = await api.get(`/visit-reports/daily-summary/${reportSiteId}?date=${reportDate}`)
+      setDailySummary(data)
+    } catch {}
+    setReportLoading(false)
+  }
+
+  const exportCSV = () => {
+    if (!dailySummary) return
+    const s = dailySummary
+    const rows = [
+      [`DGSystem Daily Report`],
+      [`Site: ${s.site?.name}`, `Date: ${s.date}`],
+      [],
+      ['ATTENDANCE'],
+      ['Status', 'Count'],
+      ['Present', s.attendance.present],
+      ['Half Day', s.attendance.half_day],
+      ['Absent', s.attendance.absent],
+      ['Total', s.attendance.total],
+      [],
+      ['LABOUR DETAILS'],
+      ['Name', 'Status'],
+      ...s.attendance.records.map(r => [r.name || '', r.status]),
+      [],
+      ['MATERIALS USED'],
+      ['Material', 'Details'],
+      ...(s.materials.length > 0 ? s.materials.map(m => [m.material_name, m.details]) : [['—', '']]),
+      [],
+      ['TASKS'],
+      ['Task', 'Status', 'Deadline'],
+      ...(s.tasks.items.length > 0 ? s.tasks.items.map(t => [t.task, t.status, t.deadline || '']) : [['—', '', '']]),
+    ]
+    const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n')
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `DG-Report-${s.site?.name}-${s.date}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const exportPDF = () => window.print()
+
   return (
     <div className="page-content space-y-4">
-      <button onClick={() => navigate('/reports/add')} className="btn-primary w-full">
-        <Plus size={18} /> New Visit Report
-      </button>
+      <div className="flex gap-2">
+        <button onClick={() => navigate('/reports/add')} className="btn-primary flex-1">
+          <Plus size={18} /> New Report
+        </button>
+        <button onClick={() => { setReportModal(true); setDailySummary(null) }}
+          className="flex items-center gap-2 px-4 py-3 rounded-xl bg-green-500/20 text-green-400 font-medium text-sm active:scale-95 transition-transform">
+          <BarChart2 size={18} /> Daily Report
+        </button>
+      </div>
 
       {pendingTasks.length > 0 && (
         <div className="p-3 bg-orange-500/10 border border-orange-500/20 rounded-xl">
@@ -309,6 +376,103 @@ export default function VisitReports() {
             </button>
           </div>
         )}
+      </Modal>
+
+      {/* Daily Report Generator Modal */}
+      <Modal open={reportModal} onClose={() => setReportModal(false)} title="Generate Daily Report">
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="label">Site</label>
+              <select className="select" value={reportSiteId} onChange={e => setReportSiteId(e.target.value)}>
+                <option value="">Select site</option>
+                {sites.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="label">Date</label>
+              <input type="date" className="input" value={reportDate} onChange={e => setReportDate(e.target.value)}
+                max={new Date().toISOString().split('T')[0]} />
+            </div>
+          </div>
+          <button onClick={generateReport} disabled={!reportSiteId || reportLoading}
+            className="btn-primary w-full">
+            {reportLoading ? 'Generating...' : '📊 Generate Report'}
+          </button>
+
+          {dailySummary && (
+            <div className="space-y-3 print:text-black">
+              <div className="p-3 bg-surface-400 rounded-xl">
+                <p className="text-white font-bold">{dailySummary.site?.name}</p>
+                <p className="text-gray-400 text-xs">📅 {dailySummary.date}</p>
+              </div>
+
+              {/* Attendance */}
+              <div>
+                <p className="text-white font-semibold text-sm mb-2">👷 Attendance</p>
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="p-2 bg-green-500/10 border border-green-500/20 rounded-xl text-center">
+                    <p className="text-green-400 font-bold text-lg">{dailySummary.attendance.present}</p>
+                    <p className="text-gray-400 text-xs">Present</p>
+                  </div>
+                  <div className="p-2 bg-primary-500/10 border border-primary-500/20 rounded-xl text-center">
+                    <p className="text-primary-400 font-bold text-lg">{dailySummary.attendance.half_day}</p>
+                    <p className="text-gray-400 text-xs">Half Day</p>
+                  </div>
+                  <div className="p-2 bg-red-500/10 border border-red-500/20 rounded-xl text-center">
+                    <p className="text-red-400 font-bold text-lg">{dailySummary.attendance.absent}</p>
+                    <p className="text-gray-400 text-xs">Absent</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Materials */}
+              <div>
+                <p className="text-white font-semibold text-sm mb-2">🧱 Materials Used</p>
+                {dailySummary.materials.length > 0 ? (
+                  <div className="space-y-1">
+                    {dailySummary.materials.map((m, i) => (
+                      <div key={i} className="flex justify-between text-sm p-2 bg-surface-400 rounded-lg">
+                        <span className="text-white">{m.material_name}</span>
+                        <span className="text-gray-400">{m.details}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : <p className="text-gray-500 text-sm">No materials logged today</p>}
+              </div>
+
+              {/* Tasks */}
+              <div>
+                <p className="text-white font-semibold text-sm mb-2">
+                  📋 Tasks — {dailySummary.tasks.done}/{dailySummary.tasks.total} done
+                </p>
+                {dailySummary.tasks.items.length > 0 ? (
+                  <div className="space-y-1">
+                    {dailySummary.tasks.items.map((t, i) => (
+                      <div key={i} className="flex items-center gap-2 text-sm p-2 bg-surface-400 rounded-lg">
+                        <span className={`w-2 h-2 rounded-full flex-shrink-0 ${t.status === 'done' ? 'bg-green-400' : t.status === 'in_progress' ? 'bg-primary-400' : 'bg-gray-400'}`} />
+                        <span className="text-white flex-1 truncate">{t.task}</span>
+                        <span className="text-gray-400 text-xs capitalize">{t.status.replace('_', ' ')}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : <p className="text-gray-500 text-sm">No tasks for today</p>}
+              </div>
+
+              {/* Export buttons */}
+              <div className="flex gap-2 pt-2">
+                <button onClick={exportPDF}
+                  className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-red-500/20 text-red-400 font-medium text-sm active:scale-95 transition-transform">
+                  <Printer size={16} /> Export PDF
+                </button>
+                <button onClick={exportCSV}
+                  className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-green-500/20 text-green-400 font-medium text-sm active:scale-95 transition-transform">
+                  <Download size={16} /> Export Excel
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
       </Modal>
     </div>
   )
