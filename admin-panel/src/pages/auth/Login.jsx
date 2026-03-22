@@ -1,29 +1,103 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useAuth } from '../../context/AuthContext'
 import toast from 'react-hot-toast'
 import { Loader2, Eye, EyeOff } from 'lucide-react'
+import api from '../../utils/api'
 
 export default function Login() {
   const [email, setEmail] = useState('dgsystem8810@gmail.com')
   const [password, setPassword] = useState('admin123')
   const [showPw, setShowPw] = useState(false)
   const [rememberMe, setRememberMe] = useState(false)
-  const { login, loading } = useAuth()
+  const [loading, setLoading] = useState(false)
+
+  // OTP state
+  const [showOtp, setShowOtp] = useState(false)
+  const [otpEmail, setOtpEmail] = useState('')
+  const [otp, setOtp] = useState(['', '', '', '', '', ''])
+  const [otpLoading, setOtpLoading] = useState(false)
+  const [countdown, setCountdown] = useState(0)
+  const otpRefs = [useRef(), useRef(), useRef(), useRef(), useRef(), useRef()]
+
   const navigate = useNavigate()
+
+  useEffect(() => {
+    if (countdown <= 0) return
+    const t = setTimeout(() => setCountdown(c => c - 1), 1000)
+    return () => clearTimeout(t)
+  }, [countdown])
+
+  const saveToken = (token, user) => {
+    if (rememberMe) {
+      localStorage.setItem('dg_token', token)
+      localStorage.setItem('dg_user', JSON.stringify(user))
+    } else {
+      sessionStorage.setItem('dg_token', token)
+      sessionStorage.setItem('dg_user', JSON.stringify(user))
+    }
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    setLoading(true)
     try {
-      await login(email, password)
-      if (!rememberMe) {
-        const token = localStorage.getItem('dg_token')
-        if (token) { sessionStorage.setItem('dg_token', token); localStorage.removeItem('dg_token') }
+      const { data } = await api.post('/auth/login', { email, password })
+      if (data.requires_otp) {
+        setOtpEmail(data.email)
+        setShowOtp(true)
+        setCountdown(60)
+        toast.success('OTP sent to your email')
+      } else {
+        saveToken(data.token, data.user)
+        window.location.href = '/dashboard'
       }
-      toast.success('Welcome back!')
-      navigate('/dashboard')
     } catch (err) {
       toast.error(err.response?.data?.message || 'Login failed')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleOtpChange = (i, val) => {
+    if (!/^\d*$/.test(val)) return
+    const next = [...otp]
+    next[i] = val.slice(-1)
+    setOtp(next)
+    if (val && i < 5) otpRefs[i + 1].current?.focus()
+  }
+
+  const handleOtpKey = (i, e) => {
+    if (e.key === 'Backspace' && !otp[i] && i > 0) otpRefs[i - 1].current?.focus()
+  }
+
+  const handleVerify = async () => {
+    const code = otp.join('')
+    if (code.length < 6) return toast.error('Enter all 6 digits')
+    setOtpLoading(true)
+    try {
+      const { data } = await api.post('/auth/verify-otp', { email: otpEmail, otp_code: code })
+      saveToken(data.token, data.user)
+      toast.success('Welcome back!')
+      window.location.href = '/dashboard'
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Invalid OTP')
+      setOtp(['', '', '', '', '', ''])
+      otpRefs[0].current?.focus()
+    } finally {
+      setOtpLoading(false)
+    }
+  }
+
+  const handleResend = async () => {
+    if (countdown > 0) return
+    try {
+      await api.post('/auth/login', { email, password })
+      setOtp(['', '', '', '', '', ''])
+      setCountdown(60)
+      toast.success('OTP resent to your email')
+      otpRefs[0].current?.focus()
+    } catch {
+      toast.error('Failed to resend OTP')
     }
   }
 
@@ -43,40 +117,76 @@ export default function Login() {
         </div>
 
         <div className="card shadow-2xl">
-          <form onSubmit={handleSubmit} className="space-y-5">
-            <div>
-              <label className="label">Email Address</label>
-              <input
-                type="email" value={email} onChange={e => setEmail(e.target.value)}
-                className="input" placeholder="admin@example.com" required
-              />
-            </div>
-            <div>
-              <label className="label">Password</label>
-              <div className="relative">
+          {!showOtp ? (
+            <form onSubmit={handleSubmit} className="space-y-5">
+              <div>
+                <label className="label">Email Address</label>
                 <input
-                  type={showPw ? 'text' : 'password'} value={password}
-                  onChange={e => setPassword(e.target.value)}
-                  className="input pr-12" placeholder="••••••••" required
+                  type="email" value={email} onChange={e => setEmail(e.target.value)}
+                  className="input" placeholder="admin@example.com" required
                 />
-                <button type="button" onClick={() => setShowPw(!showPw)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white">
-                  {showPw ? <EyeOff size={18} /> : <Eye size={18} />}
-                </button>
               </div>
+              <div>
+                <label className="label">Password</label>
+                <div className="relative">
+                  <input
+                    type={showPw ? 'text' : 'password'} value={password}
+                    onChange={e => setPassword(e.target.value)}
+                    className="input pr-12" placeholder="••••••••" required
+                  />
+                  <button type="button" onClick={() => setShowPw(!showPw)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white">
+                    {showPw ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
+              </div>
+              <label className="flex items-center gap-2 cursor-pointer select-none">
+                <input
+                  type="checkbox" checked={rememberMe} onChange={e => setRememberMe(e.target.checked)}
+                  className="w-4 h-4 rounded cursor-pointer accent-[#D4AF37]"
+                />
+                <span className="text-sm text-gray-400">Remember me</span>
+              </label>
+              <button type="submit" disabled={loading} className="btn-gold w-full justify-center py-3">
+                {loading ? <Loader2 size={18} className="animate-spin" /> : null}
+                {loading ? 'Signing in...' : 'Sign In'}
+              </button>
+            </form>
+          ) : (
+            <div className="space-y-5">
+              <div className="text-center">
+                <p className="text-white font-medium">Enter OTP</p>
+                <p className="text-gray-400 text-sm mt-1">Sent to <span className="text-gold-400">{otpEmail}</span></p>
+              </div>
+              <div className="flex gap-2 justify-center">
+                {otp.map((digit, i) => (
+                  <input
+                    key={i}
+                    ref={otpRefs[i]}
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={1}
+                    value={digit}
+                    onChange={e => handleOtpChange(i, e.target.value)}
+                    onKeyDown={e => handleOtpKey(i, e)}
+                    className="w-11 h-14 text-center text-xl font-bold bg-dark-800 border border-dark-600 focus:border-gold-500 rounded-lg text-white outline-none transition-colors"
+                  />
+                ))}
+              </div>
+              <button onClick={handleVerify} disabled={otpLoading} className="btn-gold w-full justify-center py-3">
+                {otpLoading ? <Loader2 size={18} className="animate-spin" /> : null}
+                {otpLoading ? 'Verifying...' : 'Verify OTP'}
+              </button>
+              <button
+                type="button"
+                onClick={handleResend}
+                disabled={countdown > 0}
+                className="w-full text-sm text-center text-gray-400 hover:text-gold-400 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              >
+                {countdown > 0 ? `Resend OTP in ${countdown}s` : 'Resend OTP'}
+              </button>
             </div>
-            <label className="flex items-center gap-2 cursor-pointer select-none">
-              <input
-                type="checkbox" checked={rememberMe} onChange={e => setRememberMe(e.target.checked)}
-                className="w-4 h-4 rounded cursor-pointer accent-[#D4AF37]"
-              />
-              <span className="text-sm text-gray-400">Remember me</span>
-            </label>
-            <button type="submit" disabled={loading} className="btn-gold w-full justify-center py-3">
-              {loading ? <Loader2 size={18} className="animate-spin" /> : null}
-              {loading ? 'Signing in...' : 'Sign In'}
-            </button>
-          </form>
+          )}
         </div>
 
         <p className="text-center text-gray-600 text-xs mt-6">
