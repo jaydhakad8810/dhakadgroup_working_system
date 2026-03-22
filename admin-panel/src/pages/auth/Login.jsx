@@ -8,6 +8,7 @@ export default function Login() {
   const [email, setEmail] = useState('dgsystem8810@gmail.com')
   const [password, setPassword] = useState('admin123')
   const [showPw, setShowPw] = useState(false)
+  const [rememberMe, setRememberMe] = useState(false)
   const { login, loading } = useAuth()
   const navigate = useNavigate()
 
@@ -15,6 +16,10 @@ export default function Login() {
     e.preventDefault()
     try {
       await login(email, password)
+      if (!rememberMe) {
+        const token = localStorage.getItem('dg_token')
+        if (token) { sessionStorage.setItem('dg_token', token); localStorage.removeItem('dg_token') }
+      }
       toast.success('Welcome back!')
       navigate('/dashboard')
     } catch (err) {
@@ -60,6 +65,13 @@ export default function Login() {
                 </button>
               </div>
             </div>
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <input
+                type="checkbox" checked={rememberMe} onChange={e => setRememberMe(e.target.checked)}
+                className="w-4 h-4 rounded cursor-pointer accent-[#D4AF37]"
+              />
+              <span className="text-sm text-gray-400">Remember me</span>
+            </label>
             <button type="submit" disabled={loading} className="btn-gold w-full justify-center py-3">
               {loading ? <Loader2 size={18} className="animate-spin" /> : null}
               {loading ? 'Signing in...' : 'Sign In'}
