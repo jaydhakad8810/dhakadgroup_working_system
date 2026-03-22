@@ -8,6 +8,7 @@ export default function Login() {
   const [identifier, setIdentifier] = useState('')
   const [password, setPassword] = useState('')
   const [showPw, setShowPw] = useState(false)
+  const [rememberMe, setRememberMe] = useState(false)
   const [loading, setLoading] = useState(false)
   const { login } = useAuth()
   const navigate = useNavigate()
@@ -17,6 +18,10 @@ export default function Login() {
     setLoading(true)
     try {
       await login(identifier, password)
+      if (!rememberMe) {
+        const token = localStorage.getItem('sv_token')
+        if (token) { sessionStorage.setItem('sv_token', token); localStorage.removeItem('sv_token') }
+      }
       toast.success('Welcome back!')
       navigate('/')
     } catch (err) {
@@ -59,6 +64,13 @@ export default function Login() {
                 </button>
               </div>
             </div>
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <input
+                type="checkbox" checked={rememberMe} onChange={e => setRememberMe(e.target.checked)}
+                className="w-4 h-4 rounded cursor-pointer accent-orange-500"
+              />
+              <span className="text-sm text-gray-400">Remember me</span>
+            </label>
             <button onClick={handleSubmit} disabled={loading || !identifier || !password}
               className="btn-primary w-full py-4 text-base mt-2">
               {loading ? <Loader2 size={20} className="animate-spin" /> : null}
