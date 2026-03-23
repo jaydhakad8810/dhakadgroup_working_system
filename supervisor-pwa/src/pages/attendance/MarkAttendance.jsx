@@ -115,9 +115,6 @@ export default function MarkAttendance() {
   const [reportSaving, setReportSaving] = useState(false)
   const [reportDone, setReportDone] = useState(false)
   const [transferring, setTransferring] = useState(false)
-  const [materials, setMaterials] = useState([{ material_name: '', quantity: '', unit: 'nos' }])
-  const [photoLabour, setPhotoLabour] = useState(null)
-  const [uploadingPhoto, setUploadingPhoto] = useState(false)
   const cameraRef = useRef()
   const fileRef = useRef()
 
@@ -581,13 +578,6 @@ export default function MarkAttendance() {
               {transferring ? <Loader2 size={16} className="animate-spin" /> : <ArrowRightLeft size={16} />}
               {transferring ? 'Transferring...' : 'Transfer'}
             </button>
-      await api.post('/attendance/transfer', { labour_id:transferLabour.id, from_site_id:filterSite, to_site_id:transferForm.to_site_id, reason:transferForm.reason, duration_days:transferForm.duration_days, transfer_date:date })
-      toast.success(transferLabour.name+' transferred!'); setTransferModal(false)
-      const l = await api.get('/labour?site_id='+filterSite+'&is_active=true'); setLabour(l.data)
-    } catch (err) { toast.error(err.response?.data?.message||'Failed') }
-    setTransferring(false)
-  }
-
   const presentCount = Object.values(attendance).filter(v=>v==='present').length
   const halfCount = Object.values(attendance).filter(v=>v==='half_day').length
   const absentCount = Object.values(attendance).filter(v=>v==='absent').length
