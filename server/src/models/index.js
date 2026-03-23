@@ -72,6 +72,7 @@ MachineRequest.belongsTo(Machine, { foreignKey: 'machine_id', as: 'machine' });
 // Drivers & Vehicles
 Vehicle.belongsTo(Driver, { foreignKey: 'assigned_driver_id', as: 'driver' });
 Driver.hasMany(Vehicle, { foreignKey: 'assigned_driver_id', as: 'vehicles' });
+Driver.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
 Trip.belongsTo(Vehicle, { foreignKey: 'vehicle_id', as: 'vehicle' });
 Trip.belongsTo(Driver, { foreignKey: 'driver_id', as: 'driver' });
 

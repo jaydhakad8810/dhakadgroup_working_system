@@ -1,6 +1,7 @@
 const router = require('express').Router();
 const { VisitReport, VisitTask, Site, User, Notification, Attendance, Labour, DailyExpense } = require('../models');
 const { auth, supervisorOrAdmin, adminOnly } = require('../middleware/auth');
+const { auth, supervisorOrAdmin } = require('../middleware/auth');
 const { Op } = require('sequelize');
 const https = require('https');
 const http = require('http');
@@ -313,6 +314,13 @@ router.patch('/tasks/:taskId', supervisorOrAdmin, async (req, res) => {
         target_role: 'admin',
         sent_by: req.user.id,
       }).catch(() => {});
+      await Notification.create({
+        title: 'Task Completed',
+        message: `Task "${task.task}" completed by ${req.user.name}`,
+        type: 'success',
+        target_role: 'admin',
+        sent_by: req.user.id,
+      });
     }
     res.json(task);
   } catch (e) { res.status(500).json({ message: e.message }); }

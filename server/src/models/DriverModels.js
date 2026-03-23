@@ -66,6 +66,7 @@ const Trip = sequelize.define('Trip', {
   delivery_confirmed_at: { type: DataTypes.DATE, allowNull: true },
   delivery_confirmed_by: { type: DataTypes.UUID, allowNull: true },
   master_card_number: { type: DataTypes.STRING(50), allowNull: true, unique: false },
+  deadline: { type: DataTypes.DATE, allowNull: true },
 }, { tableName: 'trips' });
 
 module.exports = { Driver, Vehicle, Trip };

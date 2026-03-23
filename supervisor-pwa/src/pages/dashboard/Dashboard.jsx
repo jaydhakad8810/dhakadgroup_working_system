@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Building2, Users, ClipboardCheck, FileText, Plus, ChevronRight, TrendingUp, Package, ArrowRightLeft } from 'lucide-react'
+import { Building2, Users, ClipboardCheck, FileText, Plus, ChevronRight, TrendingUp, Package, ArrowRightLeft, Wrench } from 'lucide-react'
 import api from '../../utils/api'
 import { LoadingPage, StatusBadge } from '../../components/ui'
 import { useAuth } from '../../context/AuthContext'
@@ -37,7 +37,8 @@ export default function Dashboard() {
     { label: 'Add Expense',     icon: TrendingUp,      color: 'bg-blue-500/20 text-blue-400',      to: '/expenses/add' },
     { label: 'Machines',        icon: Package,         color: 'bg-purple-500/20 text-purple-400',  to: '/machines' },
     { label: 'Material Request',icon: Package,         color: 'bg-orange-500/20 text-orange-400',  to: '/godown' },
-    { label: 'Salary',          icon: TrendingUp,      color: 'bg-gold-500/20 text-yellow-400',    to: '/salary' },
+    { label: 'Salary', icon: TrendingUp, color: 'bg-gold-500/20 text-yellow-400', to: '/salary' },
+    { label: 'Machines', icon: Wrench, color: 'bg-orange-500/20 text-orange-400', to: '/machines' },
   ]
 
   return (

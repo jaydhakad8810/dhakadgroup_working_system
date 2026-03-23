@@ -49,8 +49,105 @@ router.get('/', async (req, res) => {
 });
 
 router.post('/', adminOnly, async (req, res) => {
-  try { res.status(201).json(await Godown.create(req.body)); }
+  try {
+    const body = { ...req.body };
+    // Auto-generate godown_code if not provided
+    if (!body.godown_code) {
+      const count = await Godown.count();
+      const prefix = (body.city || body.name || 'GD').slice(0, 3).toUpperCase().replace(/\s/g, '');
+      body.godown_code = `${prefix}-${String(count + 1).padStart(3, '0')}`;
+    }
+    res.status(201).json(await Godown.create(body));
+  }
   catch (e) { res.status(500).json({ message: e.message }); }
+});
+
+// Aliases for frontend compatibility — must be before /:id
+router.get('/category', async (_req, res) => {
+  try { res.json(await MaterialCategory.findAll({ order: [['name', 'ASC']] })); }
+  catch (e) { res.status(500).json({ message: e.message }); }
+});
+
+router.post('/category', adminOnly, async (req, res) => {
+  try { res.status(201).json(await MaterialCategory.create(req.body)); }
+  catch (e) { res.status(500).json({ message: e.message }); }
+});
+
+router.get('/stock/:id', async (req, res) => {
+  try {
+    const stocks = await GodownStock.findAll({
+      where: { godown_id: req.params.id },
+      include: [{ model: MaterialCategory, as: 'category' }]
+    });
+    res.json(stocks);
+  } catch (e) { res.status(500).json({ message: e.message }); }
+});
+
+router.get('/history/:id', async (req, res) => {
+  try {
+    const history = await StockHistory.findAll({
+      where: { godown_id: req.params.id },
+      include: [{ model: MaterialCategory, as: 'category' }],
+      order: [['createdAt', 'DESC']], limit: 100
+    });
+    res.json(history);
+  } catch (e) { res.status(500).json({ message: e.message }); }
+});
+
+router.post('/stock-in', supervisorOrAdmin, async (req, res) => {
+  try {
+    const { godown_id, category_id, category_name, quantity, unit_price, bill_amount, received_from, notes, photo } = req.body;
+    let cat_id = category_id;
+    if (!cat_id && category_name) {
+      const [cat] = await MaterialCategory.findOrCreate({ where: { name: category_name }, defaults: { name: category_name, unit: req.body.unit || 'units' } });
+      cat_id = cat.id;
+    }
+    let stock = await GodownStock.findOne({ where: { godown_id, category_id: cat_id } });
+    if (!stock) stock = await GodownStock.create({ godown_id, category_id: cat_id, quantity: 0, unit_price: unit_price || 0 });
+    const newQty = parseFloat(stock.quantity) + parseFloat(quantity);
+    await stock.update({ quantity: newQty, ...(unit_price ? { unit_price } : {}) });
+    await StockHistory.create({ godown_id, category_id: cat_id, type: 'in', quantity, unit_price: unit_price || bill_amount || null, notes: [received_from ? `From: ${received_from}` : '', notes || ''].filter(Boolean).join(' | '), photo: photo || null, created_by: req.user.id });
+    res.json(stock);
+  } catch (e) { res.status(500).json({ message: e.message }); }
+});
+
+router.post('/stock-out', supervisorOrAdmin, async (req, res) => {
+  try {
+    const { godown_id, category_id, category_name, quantity, notes, photo, destination_type, site_id, to_godown_id } = req.body;
+    let cat_id = category_id;
+    if (!cat_id && category_name) {
+      const [cat] = await MaterialCategory.findOrCreate({ where: { name: category_name }, defaults: { name: category_name } });
+      cat_id = cat.id;
+    }
+    const stock = await GodownStock.findOne({ where: { godown_id, category_id: cat_id } });
+    if (!stock || parseFloat(stock.quantity) < parseFloat(quantity)) return res.status(400).json({ message: 'Insufficient stock' });
+    const newQty = Math.max(0, parseFloat(stock.quantity) - parseFloat(quantity));
+    await stock.update({ quantity: newQty });
+    const dest = destination_type === 'site' ? `To site: ${site_id}` : destination_type === 'godown' ? `To godown: ${to_godown_id}` : '';
+    await StockHistory.create({ godown_id, category_id: cat_id, type: 'out', quantity, notes: [dest, notes || ''].filter(Boolean).join(' | '), photo: photo || null, created_by: req.user.id });
+    res.json(stock);
+  } catch (e) { res.status(500).json({ message: e.message }); }
+});
+
+router.post('/transfer', supervisorOrAdmin, async (req, res) => {
+  try {
+    const { from_godown_id, to_godown_id, category_id, category_name, quantity, notes } = req.body;
+    if (!from_godown_id || !to_godown_id || !quantity) return res.status(400).json({ message: 'from_godown_id, to_godown_id, quantity required' });
+    let cat_id = category_id;
+    if (!cat_id && category_name) {
+      const [cat] = await MaterialCategory.findOrCreate({ where: { name: category_name }, defaults: { name: category_name } });
+      cat_id = cat.id;
+    }
+    const fromStock = await GodownStock.findOne({ where: { godown_id: from_godown_id, category_id: cat_id } });
+    if (!fromStock || parseFloat(fromStock.quantity) < parseFloat(quantity)) return res.status(400).json({ message: 'Insufficient stock' });
+    await fromStock.update({ quantity: parseFloat(fromStock.quantity) - parseFloat(quantity) });
+    await StockHistory.create({ godown_id: from_godown_id, category_id: cat_id, type: 'out', quantity, notes: `Transfer to godown${notes ? ': ' + notes : ''}`, created_by: req.user.id });
+    let toStock = await GodownStock.findOne({ where: { godown_id: to_godown_id, category_id: cat_id } });
+    if (!toStock) toStock = await GodownStock.create({ godown_id: to_godown_id, category_id: cat_id, quantity: 0 });
+    await toStock.update({ quantity: parseFloat(toStock.quantity) + parseFloat(quantity) });
+    await StockHistory.create({ godown_id: to_godown_id, category_id: cat_id, type: 'in', quantity, notes: `Transfer from godown${notes ? ': ' + notes : ''}`, created_by: req.user.id });
+    res.json({ message: 'Transfer successful' });
+  } catch (e) { res.status(500).json({ message: e.message }); }
 });
 
 router.get('/:id', async (req, res) => {
@@ -247,6 +344,51 @@ router.patch('/requests/:id/status', supervisorOrAdmin, async (req, res) => {
     const request = await MaterialRequest.findByPk(req.params.id);
     if (!request) return res.status(404).json({ message: 'Not found' });
     await request.update({ status: req.body.status, ...(req.body.status === 'approved' ? { approved_by: req.user.id } : {}), ...(req.body.status === 'dispatched' ? { dispatched_by: req.user.id } : {}) });
+    res.json(request);
+  } catch (e) { res.status(500).json({ message: e.message }); }
+});
+
+// Check stock availability
+router.get('/stock/check', async (req, res) => {
+  try {
+    const { material_name, quantity } = req.query;
+    const cats = await MaterialCategory.findAll({ where: { name: { [Op.iLike]: '%'+material_name+'%' } } });
+    if (!cats.length) return res.json({ available: false, quantity: 0 });
+    const stocks = await GodownStock.findAll({
+      where: { category_id: { [Op.in]: cats.map(c => c.id) } },
+      include: [{ model: Godown, as: 'godown', attributes: ['id', 'name'] }]
+    });
+    const totalQty = stocks.reduce((s, st) => s + parseFloat(st.quantity || 0), 0);
+    res.json({ available: totalQty >= parseFloat(quantity || 0), quantity: totalQty, stocks: stocks.map(s => ({ godown_name: s.godown?.name, quantity: s.quantity })) });
+  } catch (e) { res.status(500).json({ message: e.message }); }
+});
+
+// Admin creates trip from material request
+router.post('/requests/:id/create-trip', async (req, res) => {
+  try {
+    const { MaterialRequest } = require('../models');
+    const { Trip, Notification } = require('../models');
+    const request = await MaterialRequest.findByPk(req.params.id, { include: [{ model: Site, as: 'site' }] });
+    if (!request) return res.status(404).json({ message: 'Request not found' });
+    const { driver_id, vehicle_id, notes } = req.body;
+    const today = new Date().toISOString().split('T')[0];
+    const count = await Trip.count({ where: { trip_date: today } });
+    const masterCard = 'DG-' + today.replace(/-/g,'') + '-' + String(count+1).padStart(3,'0');
+    const trip = await Trip.create({ driver_id, vehicle_id, trip_date: today, master_card_number: masterCard, pickup_location: 'Main Godown', delivery_location: request.site?.name||'Site', purpose: 'Material: '+request.material_name+' x'+request.quantity, status: 'assigned', notes: notes||'' });
+    await request.update({ status: 'dispatched', trip_id: trip.id });
+    await Notification.create({ title: 'New Trip: '+masterCard, message: 'Deliver '+request.material_name+' to '+request.site?.name, type: 'info', target_role: 'driver', sent_by: req.user.id }).catch(()=>{});
+    res.status(201).json({ trip, master_card: masterCard });
+  } catch (e) { res.status(500).json({ message: e.message }); }
+});
+
+// Supervisor confirms delivery
+router.patch('/requests/:id/confirm-delivery', supervisorOrAdmin, async (req, res) => {
+  try {
+    const { MaterialRequest } = require('../models');
+    const request = await MaterialRequest.findByPk(req.params.id);
+    if (!request) return res.status(404).json({ message: 'Not found' });
+    await request.update({ status: 'received', ...req.body, received_at: new Date() });
+    await Notification.create({ title: 'Delivery Confirmed', message: request.material_name+' received by supervisor', type: 'success', target_role: 'admin', sent_by: req.user.id }).catch(()=>{});
     res.json(request);
   } catch (e) { res.status(500).json({ message: e.message }); }
 });
