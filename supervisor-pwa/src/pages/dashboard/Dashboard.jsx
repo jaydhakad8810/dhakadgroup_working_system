@@ -35,7 +35,7 @@ export default function Dashboard() {
     { label: 'Mark Attendance', icon: ClipboardCheck, color: 'bg-primary-500/20 text-primary-400', to: '/attendance' },
     { label: 'Add Labour',      icon: Plus,            color: 'bg-green-500/20 text-green-400',    to: '/labour/add' },
     { label: 'Add Expense',     icon: TrendingUp,      color: 'bg-blue-500/20 text-blue-400',      to: '/expenses/add' },
-    { label: 'New Report',      icon: FileText,        color: 'bg-purple-500/20 text-purple-400',  to: '/reports/add' },
+    { label: 'Machines',        icon: Package,         color: 'bg-purple-500/20 text-purple-400',  to: '/machines' },
     { label: 'Material Request',icon: Package,         color: 'bg-orange-500/20 text-orange-400',  to: '/godown' },
     { label: 'Salary',          icon: TrendingUp,      color: 'bg-gold-500/20 text-yellow-400',    to: '/salary' },
   ]

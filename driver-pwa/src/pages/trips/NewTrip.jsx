@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Loader2, MapPin } from 'lucide-react'
+import { Loader2, MapPin, Camera } from 'lucide-react'
 import api from '../../utils/api'
 import toast from 'react-hot-toast'
 
@@ -9,6 +9,9 @@ export default function NewTrip() {
   const [vehicles, setVehicles] = useState([])
   const [driverInfo, setDriverInfo] = useState(null)
   const [saving, setSaving] = useState(false)
+  const [startPhotoUrl, setStartPhotoUrl] = useState('')
+  const [uploadingPhoto, setUploadingPhoto] = useState(false)
+  const photoRef = useRef()
   const [form, setForm] = useState({
     trip_date: new Date().toISOString().split('T')[0],
     from_location: '',
@@ -17,6 +20,20 @@ export default function NewTrip() {
     odometer_start: '',
   })
   const f = (k, v) => setForm(p => ({ ...p, [k]: v }))
+
+  const handleStartPhoto = async (e) => {
+    const file = e.target.files[0]; if (!file) return
+    setUploadingPhoto(true)
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      fd.append('folder', 'dgsystem/trips')
+      const r = await api.post('/upload/single', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
+      setStartPhotoUrl(r.data.url)
+      toast.success('Start photo uploaded')
+    } catch { toast.error('Photo upload failed') }
+    setUploadingPhoto(false)
+  }
 
   useEffect(() => {
     api.get('/dashboard/driver').then(r => {
@@ -47,7 +64,7 @@ export default function NewTrip() {
     if (!form.from_location) return toast.error('From location is required')
     setSaving(true)
     try {
-      const trip = await api.post('/trips', { ...form, status: 'ongoing' })
+      const trip = await api.post('/trips', { ...form, status: 'ongoing', pickup_photo: startPhotoUrl || null })
       toast.success('Trip started!')
       navigate(`/trips/${trip.data.id}`)
     } catch (err) { toast.error(err.response?.data?.message || 'Failed') }
@@ -99,6 +116,24 @@ export default function NewTrip() {
         <div>
           <label className="label">Starting Odometer (km)</label>
           <input type="number" className="input" placeholder="Current odometer reading" value={form.odometer_start} onChange={e => f('odometer_start', e.target.value)} />
+        </div>
+
+        <div>
+          <label className="label">Start Photo (Odometer / Vehicle)</label>
+          <input ref={photoRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleStartPhoto} />
+          {startPhotoUrl ? (
+            <div className="relative">
+              <img src={startPhotoUrl} className="w-full h-32 object-cover rounded-xl" alt="Start" />
+              <button type="button" onClick={() => photoRef.current?.click()}
+                className="absolute bottom-2 right-2 bg-black/60 text-white text-xs px-2 py-1 rounded-lg">Retake</button>
+            </div>
+          ) : (
+            <button type="button" onClick={() => photoRef.current?.click()} disabled={uploadingPhoto}
+              className="w-full h-24 rounded-xl border-2 border-dashed border-gray-600 flex flex-col items-center justify-center gap-2 text-gray-400 active:scale-95 transition-transform">
+              {uploadingPhoto ? <Loader2 size={22} className="animate-spin" /> : <Camera size={22} />}
+              <span className="text-sm">{uploadingPhoto ? 'Uploading...' : 'Take Start Photo'}</span>
+            </button>
+          )}
         </div>
 
         <button type="submit" disabled={saving} className="btn-primary w-full py-4">

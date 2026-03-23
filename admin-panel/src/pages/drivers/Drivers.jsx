@@ -83,7 +83,10 @@ export default function Drivers() {
                   <h3 className="text-white font-semibold truncate">{d.name}</h3>
                   <p className="text-gray-400 text-sm">{d.phone}</p>
                 </div>
-                <span className={d.is_active ? 'badge-green' : 'badge-red'}>{d.is_active ? 'Active' : 'Off'}</span>
+                <div className="flex flex-col items-end gap-1">
+                  <span className={d.is_active ? 'badge-green' : 'badge-red'}>{d.is_active ? 'Active' : 'Off'}</span>
+                  {d.is_busy && <span className="text-xs bg-red-500/20 text-red-400 px-2 py-0.5 rounded-full font-semibold">● Busy</span>}
+                </div>
               </div>
               <div className="text-sm text-gray-400 space-y-1 mb-3">
                 {d.license_number && <p>🪪 {d.license_number} (exp: {d.license_expiry})</p>}

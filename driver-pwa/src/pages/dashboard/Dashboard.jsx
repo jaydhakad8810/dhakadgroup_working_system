@@ -8,16 +8,29 @@ import { useAuth } from '../../context/AuthContext'
 export default function Dashboard() {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [busyToggling, setBusyToggling] = useState(false)
   const { user } = useAuth()
   const navigate = useNavigate()
 
-  useEffect(() => {
-    api.get('/dashboard/driver').then(r => setData(r.data)).catch(() => {}).finally(() => setLoading(false))
-  }, [])
+  const load = () => api.get('/dashboard/driver').then(r => setData(r.data)).catch(() => {}).finally(() => setLoading(false))
+
+  useEffect(() => { load() }, [])
+
+  const toggleBusy = async () => {
+    const driver = data?.driver
+    if (!driver) return
+    setBusyToggling(true)
+    try {
+      await api.patch(`/drivers/${driver.id}/busy`)
+      load()
+    } catch {}
+    setBusyToggling(false)
+  }
 
   if (loading) return <LoadingPage />
 
-  const driver = data?.driver
+  const driver     = data?.driver
+  const isBusy     = driver?.is_busy
   const ongoingTrip = data?.ongoingTrip
   const todayTrips = data?.todayTrips || []
   const totalTrips = data?.totalTrips || 0
@@ -33,20 +46,28 @@ export default function Dashboard() {
 
       {/* Ongoing Trip Alert */}
       {ongoingTrip && (
-        <button onClick={() => navigate(`/trips/${ongoingTrip.id}`)}
-          className="w-full p-4 bg-green-500/10 border border-green-500/30 rounded-2xl text-left active:scale-95 transition-transform">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-green-500/20 flex items-center justify-center flex-shrink-0">
-              <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse" />
+        <div className="space-y-2">
+          <button onClick={() => navigate(`/trips/${ongoingTrip.id}`)}
+            className="w-full p-4 bg-green-500/10 border border-green-500/30 rounded-2xl text-left active:scale-95 transition-transform">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-green-500/20 flex items-center justify-center flex-shrink-0">
+                <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse" />
+              </div>
+              <div className="flex-1">
+                <p className="text-green-400 font-semibold text-sm">Trip In Progress</p>
+                <p className="text-white font-medium">{ongoingTrip.from_location} → {ongoingTrip.to_location || '...'}</p>
+                <p className="text-gray-400 text-xs">{ongoingTrip.vehicle?.registration_number}</p>
+              </div>
+              <ChevronRight size={16} className="text-green-400" />
             </div>
-            <div className="flex-1">
-              <p className="text-green-400 font-semibold text-sm">Trip In Progress</p>
-              <p className="text-white font-medium">{ongoingTrip.from_location} → {ongoingTrip.to_location || '...'}</p>
-              <p className="text-gray-400 text-xs">{ongoingTrip.vehicle?.registration_number}</p>
-            </div>
-            <ChevronRight size={16} className="text-green-400" />
-          </div>
-        </button>
+          </button>
+          {/* Mark as Busy toggle */}
+          <button onClick={toggleBusy} disabled={busyToggling}
+            className={`w-full py-3 rounded-2xl border font-semibold text-sm flex items-center justify-center gap-2 active:scale-95 transition-all ${isBusy ? 'bg-red-500/20 border-red-500/40 text-red-400' : 'bg-gray-500/10 border-gray-600/40 text-gray-400'}`}>
+            <div className={`w-3 h-3 rounded-full ${isBusy ? 'bg-red-400 animate-pulse' : 'bg-gray-500'}`} />
+            {busyToggling ? 'Updating...' : isBusy ? 'Busy — Tap to Clear' : 'Mark as Busy'}
+          </button>
+        </div>
       )}
 
       {/* Stats */}
