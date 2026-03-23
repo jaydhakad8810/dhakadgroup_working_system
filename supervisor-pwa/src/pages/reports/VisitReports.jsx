@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from 'react'
+import { FileText, ChevronRight, Camera, Upload, CheckCircle, Clock, AlertCircle, Loader2 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { Plus, FileText, ChevronRight, Camera, Upload, CheckCircle, Clock, AlertCircle, Loader2 } from 'lucide-react'
 import api from '../../utils/api'
@@ -17,12 +18,12 @@ export default function VisitReports() {
   const [taskModal, setTaskModal] = useState(null)
   const [proofPhoto, setProofPhoto] = useState(null)
   const [proofPreview, setProofPreview] = useState(null)
+  const [completionNote, setCompletionNote] = useState('')
   const [completing, setCompleting] = useState(false)
   const [updatingTask, setUpdatingTask] = useState(null)
   const fileRef = useRef()
   const cameraRef = useRef()
   const { user } = useAuth()
-  const navigate = useNavigate()
 
   useEffect(() => { api.get('/sites').then(r => setSites(r.data)).catch(() => {}) }, [])
 
@@ -58,6 +59,10 @@ export default function VisitReports() {
     setCompleting(true)
     try {
       const fd = new FormData(); fd.append('file', proofPhoto); fd.append('folder', 'dgsystem/task-proof')
+      const { data: uploaded } = await api.post('/upload/single', fd)
+      await api.patch('/visit-reports/tasks/'+taskModal.id, { status: 'done', completion_photo: uploaded.url, completion_note: completionNote })
+      toast.success('Task completed with photo proof!')
+      setTaskModal(null); setProofPhoto(null); setProofPreview(null); setCompletionNote(''); load()
       const { data: uploaded } = await api.post('/upload', fd)
       await api.patch('/visit-reports/tasks/'+taskModal.id, { status: 'done', completion_photo: uploaded.url })
       toast.success('Task completed with photo proof!')
@@ -178,12 +183,17 @@ export default function VisitReports() {
         )}
       </Modal>
 
+      <Modal open={!!taskModal} onClose={()=>{setTaskModal(null);setProofPhoto(null);setProofPreview(null);setCompletionNote('')}} title="Complete Task">
       <Modal open={!!taskModal} onClose={()=>{setTaskModal(null);setProofPhoto(null);setProofPreview(null)}} title="Complete Task">
         {taskModal && (
           <div className="space-y-4">
             <div className="p-3 bg-surface-400 rounded-xl">
               <p className="text-white font-semibold">{taskModal.task}</p>
               {taskModal.deadline && <p className="text-xs text-gray-500 mt-1">Deadline: {new Date(taskModal.deadline).toLocaleDateString()}</p>}
+            </div>
+            <div>
+              <p className="text-white text-sm font-semibold mb-1">Completion Notes</p>
+              <textarea className="input w-full text-sm" rows={3} placeholder="Describe what was done..." value={completionNote} onChange={e => setCompletionNote(e.target.value)} />
             </div>
             <div>
               <p className="text-white text-sm font-semibold mb-1">📸 Photo Proof <span className="text-red-400">*Required</span></p>

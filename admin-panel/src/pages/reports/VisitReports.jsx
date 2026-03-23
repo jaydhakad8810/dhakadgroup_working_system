@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import toast from 'react-hot-toast'
 import api from '../../utils/api'
 import { PageHeader, LoadingPage, Modal, StatusBadge } from '../../components/ui'
+import { MultiPhotoUpload } from '../../components/ui/PhotoUpload'
+import { Plus, Eye, Trash2, Lock, FileDown } from 'lucide-react'
 import { Plus, Eye, Trash2, CheckCircle, Lock } from 'lucide-react'
 
 export default function VisitReports() {
@@ -14,9 +16,10 @@ export default function VisitReports() {
   const [filterSite, setFilterSite]     = useState('')
   const [filterStatus, setFilterStatus] = useState('')
   const [filterSup, setFilterSup]       = useState('')
-  const [form, setForm]   = useState({ report_date: new Date().toISOString().split('T')[0], status: 'open', weather: '' })
+  const [form, setForm]   = useState({ report_date: new Date().toISOString().split('T')[0], status: 'open', photos: [] })
   const [tasks, setTasks] = useState([{ task: '', deadline: '', status: 'pending' }])
   const [saving, setSaving] = useState(false)
+  const [exportingPdf, setExportingPdf] = useState(false)
   const f = (k,v) => setForm(p => ({...p,[k]:v}))
 
   const load = async () => {
@@ -43,7 +46,7 @@ export default function VisitReports() {
       const validTasks = tasks.filter(t => t.task.trim())
       await api.post('/visit-reports', { ...form, tasks: validTasks })
       toast.success('Report created'); setAddModal(false)
-      setForm({ report_date: new Date().toISOString().split('T')[0], status: 'open', weather: '' })
+      setForm({ report_date: new Date().toISOString().split('T')[0], status: 'open', photos: [] })
       setTasks([{ task: '', deadline: '', status: 'pending' }])
       load()
     } catch { toast.error('Failed') }
@@ -73,6 +76,19 @@ export default function VisitReports() {
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a'); a.href=url; a.download='visit-reports.csv'; a.click()
     toast.success('CSV exported!')
+  }
+
+  const exportPDF = async (reportId) => {
+    setExportingPdf(true)
+    try {
+      const res = await api.get(`/visit-reports/${reportId}/pdf`, { responseType: 'blob' })
+      const url = URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }))
+      const a = document.createElement('a')
+      a.href = url; a.download = `visit-report-${reportId}.pdf`; a.click()
+      URL.revokeObjectURL(url)
+      toast.success('PDF exported!')
+    } catch { toast.error('PDF export failed') }
+    setExportingPdf(false)
   }
 
   const deleteReport = async (id) => {
@@ -155,13 +171,20 @@ export default function VisitReports() {
       <Modal open={!!viewModal} onClose={() => setViewModal(null)} title="Visit Report Detail" size="lg">
         {selectedReport && (
           <div className="space-y-4">
+            {/* Export PDF button */}
+            <div className="flex justify-end">
+              <button onClick={() => exportPDF(selectedReport.id)} disabled={exportingPdf}
+                className="btn-outline text-sm py-1.5 flex items-center gap-2">
+                <FileDown size={14}/>{exportingPdf ? 'Exporting...' : 'Export PDF'}
+              </button>
+            </div>
+
             {/* Info */}
             <div className="grid grid-cols-2 gap-3 text-sm">
               {[
                 ['Date', selectedReport.report_date],
                 ['Site', selectedReport.site?.name],
                 ['Supervisor', selectedReport.supervisor?.name || 'Admin'],
-                ['Weather', selectedReport.weather],
                 ['Labour Count', selectedReport.labour_count],
                 ['Next Visit', selectedReport.next_visit_date],
               ].filter(([,v])=>v).map(([l,v]) => (
@@ -175,6 +198,20 @@ export default function VisitReports() {
               <div className="p-3 rounded-xl" style={{background:'var(--bg3)'}}>
                 <p className="text-xs font-medium mb-1" style={{color:'var(--muted)'}}>Description</p>
                 <p className="text-sm" style={{color:'var(--text)'}}>{selectedReport.description}</p>
+              </div>
+            )}
+
+            {/* Photos */}
+            {selectedReport.photos?.length > 0 && (
+              <div>
+                <p className="text-xs font-medium mb-2" style={{color:'var(--muted)'}}>Site Photos</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {selectedReport.photos.map((url, i) => (
+                    <a key={i} href={url} target="_blank" rel="noreferrer">
+                      <img src={url} alt={`Photo ${i+1}`} className="w-full h-36 object-cover rounded-xl border border-dark-600 hover:opacity-90 transition-opacity"/>
+                    </a>
+                  ))}
+                </div>
               </div>
             )}
 
@@ -216,6 +253,11 @@ export default function VisitReports() {
                         <p className="text-sm" style={{color:'var(--text)'}}>{t.task}</p>
                         {t.deadline && <p className="text-xs mt-0.5" style={{color:'var(--muted)'}}>Due: {t.deadline}</p>}
                         {t.completion_note && <p className="text-xs text-green-400 mt-0.5">Note: {t.completion_note}</p>}
+                        {t.completion_photo && (
+                          <a href={t.completion_photo} target="_blank" rel="noreferrer">
+                            <img src={t.completion_photo} alt="Proof" className="mt-2 w-full max-h-32 object-cover rounded-lg border border-dark-600"/>
+                          </a>
+                        )}
                       </div>
                       {/* Admin can update task status */}
                       <div className="flex gap-1">
@@ -266,10 +308,15 @@ export default function VisitReports() {
                 <option value="open">Open</option><option value="in_progress">In Progress</option><option value="closed">Closed</option>
               </select>
             </div>
-            <div><label className="label">Weather</label><input className="input" value={form.weather} onChange={e => f('weather',e.target.value)} placeholder="Sunny, Rainy…"/></div>
             <div><label className="label">Labour Count</label><input type="number" className="input" value={form.labour_count||''} onChange={e => f('labour_count',e.target.value)}/></div>
           </div>
           <div><label className="label">Description</label><textarea className="input" rows={3} value={form.description||''} onChange={e => f('description',e.target.value)}/></div>
+
+          {/* Site Photos */}
+          <div>
+            <label className="label">Site Photos</label>
+            <MultiPhotoUpload value={form.photos} onChange={v => f('photos', v)} folder="dgsystem/visit-reports" label="Add Photo" max={8} />
+          </div>
 
           {/* Admin-specific fields */}
           <div className="grid grid-cols-2 gap-4">

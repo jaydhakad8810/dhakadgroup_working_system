@@ -11,7 +11,7 @@ export default function AddReport() {
   const [tasks, setTasks] = useState([{ task: '', deadline: '', status: 'pending' }])
   const [form, setForm] = useState({
     report_date: new Date().toISOString().split('T')[0],
-    status: 'open', weather: '', labour_count: ''
+    status: 'open', labour_count: ''
   })
 
   useEffect(() => {
@@ -65,15 +65,9 @@ export default function AddReport() {
             </select>
           </div>
         </div>
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="label">Weather</label>
-            <input className="input" value={form.weather} onChange={e => f('weather', e.target.value)} placeholder="Sunny, Rainy..." />
-          </div>
-          <div>
-            <label className="label">Labour Count</label>
-            <input type="number" className="input" value={form.labour_count} onChange={e => f('labour_count', e.target.value)} placeholder="0" />
-          </div>
+        <div>
+          <label className="label">Labour Count</label>
+          <input type="number" className="input" value={form.labour_count} onChange={e => f('labour_count', e.target.value)} placeholder="0" />
         </div>
         <div>
           <label className="label">Description</label>
@@ -83,11 +77,6 @@ export default function AddReport() {
           <label className="label">Private Note (Admin only)</label>
           <textarea className="input" rows={2} value={form.private_note || ''} onChange={e => f('private_note', e.target.value)} placeholder="Internal notes..." />
         </div>
-        <div>
-          <label className="label">Next Visit Date</label>
-          <input type="date" className="input" value={form.next_visit_date || ''} onChange={e => f('next_visit_date', e.target.value)} />
-        </div>
-
         {/* Tasks */}
         <div>
           <div className="flex items-center justify-between mb-2">
