@@ -92,6 +92,16 @@ router.patch('/:id/toggle', adminOnly, async (req, res) => {
   } catch (e) { res.status(500).json({ message: e.message }); }
 });
 
+// Driver toggles their own busy status
+router.patch('/:id/busy', auth, async (req, res) => {
+  try {
+    const driver = await Driver.findByPk(req.params.id);
+    if (!driver) return res.status(404).json({ message: 'Not found' });
+    await driver.update({ is_busy: !driver.is_busy });
+    res.json({ is_busy: driver.is_busy });
+  } catch (e) { res.status(500).json({ message: e.message }); }
+});
+
 router.delete('/:id', adminOnly, async (req, res) => {
   try {
     await Driver.destroy({ where: { id: req.params.id } });

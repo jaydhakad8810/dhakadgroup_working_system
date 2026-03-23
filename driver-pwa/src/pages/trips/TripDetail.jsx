@@ -58,8 +58,25 @@ export default function TripDetail() {
   const [pickupForm, setPickupForm] = React.useState({ pickup_photo: '', notes: '' })
   const [deliverForm, setDeliverForm] = React.useState({ delivery_photo: '', notes: '' })
   const [submitting, setSubmitting] = React.useState(false)
+  const [endPhotoUrl, setEndPhotoUrl] = React.useState('')
+  const [uploadingEndPhoto, setUploadingEndPhoto] = React.useState(false)
+  const endPhotoRef = React.useRef()
   const [form, setForm] = React.useState({ odometer_end: '', fuel_cost: '', other_expenses: '', notes: '' })
   const f = (k, v) => setForm(p => ({ ...p, [k]: v }))
+
+  const handleEndPhoto = async (e) => {
+    const file = e.target.files[0]; if (!file) return
+    setUploadingEndPhoto(true)
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      fd.append('folder', 'dgsystem/trips')
+      const r = await api.post('/upload/single', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
+      setEndPhotoUrl(r.data.url)
+      toast.success('End photo uploaded')
+    } catch { toast.error('Upload failed') }
+    setUploadingEndPhoto(false)
+  }
 
   const load = () => {
     api.get(`/trips/${id}`).then(r => { setTrip(r.data); setForm(p => ({ ...p, odometer_end: r.data.odometer_end || '' })) })
@@ -80,7 +97,7 @@ export default function TripDetail() {
     e.preventDefault()
     setCompleting(true)
     try {
-      await api.patch(`/trips/${id}/complete`, form)
+      await api.patch(`/trips/${id}/complete`, { ...form, delivery_photo: endPhotoUrl || null })
       toast.success('Trip completed! 🎉')
       setCompleteModal(false); load()
     } catch { toast.error('Failed to complete trip') }
@@ -313,6 +330,23 @@ export default function TripDetail() {
           <div>
             <label className="label">Notes</label>
             <textarea className="input" rows={2} placeholder="Any remarks..." value={form.notes} onChange={e => f('notes', e.target.value)} />
+          </div>
+          <div>
+            <label className="label">End Photo (Odometer / Final Location)</label>
+            <input ref={endPhotoRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleEndPhoto} />
+            {endPhotoUrl ? (
+              <div className="relative">
+                <img src={endPhotoUrl} className="w-full h-28 object-cover rounded-xl" alt="End" />
+                <button type="button" onClick={() => endPhotoRef.current?.click()}
+                  className="absolute bottom-2 right-2 bg-black/60 text-white text-xs px-2 py-1 rounded-lg">Retake</button>
+              </div>
+            ) : (
+              <button type="button" onClick={() => endPhotoRef.current?.click()} disabled={uploadingEndPhoto}
+                className="w-full h-20 rounded-xl border-2 border-dashed border-gray-600 flex items-center justify-center gap-2 text-gray-400 active:scale-95 transition-transform">
+                {uploadingEndPhoto ? <Loader2 size={20} className="animate-spin" /> : <Camera size={20} />}
+                <span className="text-sm">{uploadingEndPhoto ? 'Uploading...' : 'Take End Photo'}</span>
+              </button>
+            )}
           </div>
           <button type="submit" disabled={completing} className="btn-success w-full py-4">
             {completing ? <Loader2 size={18} className="animate-spin" /> : <CheckCircle size={18} />}

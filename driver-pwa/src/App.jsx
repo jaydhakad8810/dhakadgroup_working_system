@@ -12,6 +12,7 @@ import TripDetail       from './pages/trips/TripDetail'
 import MyVehicle        from './pages/vehicle/MyVehicle'
 import MaterialRequests from './pages/material/MaterialRequests'
 import DriverSalary     from './pages/salary/DriverSalary'
+import DriverExpenses   from './pages/expenses/DriverExpenses'
 import Notifications    from './pages/notifications/Notifications'
 import Profile          from './pages/profile/Profile'
 
@@ -48,6 +49,7 @@ export default function App() {
           <Route path="/vehicle"       element={<Guard><AppLayout><MyVehicle /></AppLayout></Guard>} />
           <Route path="/material"      element={<Guard><AppLayout><MaterialRequests /></AppLayout></Guard>} />
           <Route path="/salary"        element={<Guard><AppLayout><DriverSalary /></AppLayout></Guard>} />
+          <Route path="/expenses"      element={<Guard><AppLayout><DriverExpenses /></AppLayout></Guard>} />
           <Route path="/notifications" element={<Guard><AppLayout><Notifications /></AppLayout></Guard>} />
           <Route path="/profile"       element={<Guard><AppLayout><Profile /></AppLayout></Guard>} />
           <Route path="*" element={<Navigate to="/" replace />} />

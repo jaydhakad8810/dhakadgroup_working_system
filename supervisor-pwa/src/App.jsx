@@ -21,6 +21,7 @@ import Notifications   from './pages/notifications/Notifications'
 import Profile         from './pages/profile/Profile'
 import GodownSupervisor from './pages/godown/GodownSupervisor'
 import DeliveryConfirmation from './pages/godown/DeliveryConfirmation'
+import MachineSupervisor from './pages/machines/MachineSupervisor'
 
 function Guard({ children }) {
   const { user } = useAuth()
@@ -62,6 +63,7 @@ export default function App() {
           <Route path="/reports"            element={<Guard><AppLayout><VisitReports /></AppLayout></Guard>} />
           <Route path="/godown"             element={<Guard><AppLayout><GodownSupervisor /></AppLayout></Guard>} />
           <Route path="/deliveries"         element={<Guard><AppLayout><DeliveryConfirmation /></AppLayout></Guard>} />
+          <Route path="/machines"           element={<Guard><AppLayout><MachineSupervisor /></AppLayout></Guard>} />
           <Route path="/notifications"      element={<Guard><AppLayout><Notifications /></AppLayout></Guard>} />
           <Route path="/profile"            element={<Guard><AppLayout><Profile /></AppLayout></Guard>} />
           <Route path="*" element={<Navigate to="/" replace />} />

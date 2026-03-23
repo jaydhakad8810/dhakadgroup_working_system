@@ -18,6 +18,7 @@ const Driver = sequelize.define('Driver', {
   license_expiry: { type: DataTypes.DATEONLY, allowNull: true },
   license_photo: { type: DataTypes.TEXT, allowNull: true },
   is_active: { type: DataTypes.BOOLEAN, defaultValue: true },
+  is_busy: { type: DataTypes.BOOLEAN, defaultValue: false },
 }, { tableName: 'drivers' });
 
 const Vehicle = sequelize.define('Vehicle', {
