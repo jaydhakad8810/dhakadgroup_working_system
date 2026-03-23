@@ -4,7 +4,6 @@ import api from '../../utils/api'
 import { PageHeader, LoadingPage, Modal, StatusBadge } from '../../components/ui'
 import { MultiPhotoUpload } from '../../components/ui/PhotoUpload'
 import { Plus, Eye, Trash2, Lock, FileDown } from 'lucide-react'
-import { Plus, Eye, Trash2, CheckCircle, Lock } from 'lucide-react'
 
 export default function VisitReports() {
   const [reports, setReports]   = useState([])
