@@ -109,6 +109,7 @@ const VisitReport = sequelize.define('VisitReport', {
   weather: { type: DataTypes.STRING(50), allowNull: true },
   labour_count: { type: DataTypes.INTEGER, allowNull: true },
   description: { type: DataTypes.TEXT, allowNull: true },
+  note_for_supervisor: { type: DataTypes.TEXT, allowNull: true },
   private_note: { type: DataTypes.TEXT, allowNull: true },
   supervisor_rating: { type: DataTypes.INTEGER, defaultValue: 0 },
   next_visit_date: { type: DataTypes.DATEONLY, allowNull: true },

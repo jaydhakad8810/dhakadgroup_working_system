@@ -15,6 +15,7 @@ const Labour = sequelize.define('Labour', {
   aadhar_number: { type: DataTypes.STRING(15), allowNull: true },
   aadhar_photo: { type: DataTypes.TEXT, allowNull: true },
   pan_number: { type: DataTypes.STRING(12), allowNull: true },
+  pan_photo: { type: DataTypes.TEXT, allowNull: true },
   custom_doc_name: { type: DataTypes.STRING(100), allowNull: true },
   custom_doc_photo: { type: DataTypes.TEXT, allowNull: true },
   bank_account: { type: DataTypes.STRING(20), allowNull: true },

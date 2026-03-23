@@ -36,6 +36,7 @@ export default function GodownSupervisor() {
       setGodowns(g.data); setAllGodowns(all.data)
       setRequests(r.data); setSites(s.data)
       if (!selected && g.data.length) setSelected(g.data[0].id)
+      if (s.data.length === 1) setReqForm(p => ({ ...p, site_id: s.data[0].id }))
     } catch {}
     setLoading(false)
   }

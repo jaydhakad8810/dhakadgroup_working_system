@@ -48,12 +48,17 @@
   .badge-blue { @apply bg-blue-500/20 text-blue-400 text-xs font-semibold px-2.5 py-0.5 rounded-full; }
   .badge-gray { @apply bg-gray-500/20 text-gray-400 text-xs font-semibold px-2.5 py-0.5 rounded-full; }
   .stat-card { @apply card flex items-center gap-4; }
-  .table-container { @apply overflow-x-auto rounded-xl border; border-color: var(--border); }
-  table { @apply w-full text-sm; }
+  .table-container { @apply overflow-x-auto rounded-xl border; border-color: var(--border); -webkit-overflow-scrolling: touch; }
+  table { @apply w-full text-sm; min-width: 500px; }
   thead { border-bottom: 1px solid var(--border); background: var(--bg3); }
-  th { @apply text-left px-4 py-3 font-medium; color: var(--muted); }
+  th { @apply text-left px-4 py-3 font-medium whitespace-nowrap; color: var(--muted); }
   tbody tr { border-bottom: 1px solid var(--border); }
   tbody tr:hover { background: var(--bg3); }
   tbody tr:last-child { border-bottom: none; }
   td { @apply px-4 py-3; color: var(--text); }
+  /* Mobile: tighter card padding */
+  @media (max-width: 640px) {
+    .card { @apply rounded-xl p-4 border; }
+    .btn-gold, .btn-outline, .btn-ghost { @apply px-3 py-2 text-sm; }
+  }
 }

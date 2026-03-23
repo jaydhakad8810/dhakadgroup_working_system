@@ -1,0 +1,24 @@
+name: Deploy Backend
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'server/**'
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Deploy to VPS
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            cd /var/www/dgsystem
+            git pull origin main
+            cd server && npm install --production
+            pm2 restart dgsystem-api
+            pm2 save
+            echo "Backend deployed"

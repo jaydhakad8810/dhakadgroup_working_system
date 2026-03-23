@@ -4,6 +4,7 @@ import api from '../../utils/api'
 import { PageHeader, LoadingPage, Modal, StatusBadge } from '../../components/ui'
 import { MultiPhotoUpload } from '../../components/ui/PhotoUpload'
 import { Plus, Eye, Trash2, Lock, FileDown } from 'lucide-react'
+import { Plus, Eye, Trash2, CheckCircle, Lock } from 'lucide-react'
 
 export default function VisitReports() {
   const [reports, setReports]   = useState([])
@@ -63,6 +64,7 @@ export default function VisitReports() {
       }
     } catch { toast.error('Failed') }
   }
+
 
   const exportCSV = () => {
     const rows = [['Date','Title','Site','Supervisor','Labour','Status','Tasks Done','Tasks Pending']]
@@ -307,7 +309,6 @@ export default function VisitReports() {
               </select>
             </div>
             <div><label className="label">Labour Count</label><input type="number" className="input" value={form.labour_count||''} onChange={e => f('labour_count',e.target.value)}/></div>
-            <div><label className="label">Next Visit Date</label><input type="date" className="input" value={form.next_visit_date||''} onChange={e => f('next_visit_date',e.target.value)}/></div>
           </div>
           <div><label className="label">Description</label><textarea className="input" rows={3} value={form.description||''} onChange={e => f('description',e.target.value)}/></div>
 
@@ -328,6 +329,7 @@ export default function VisitReports() {
                 ))}
               </div>
             </div>
+            <div><label className="label">Next Visit Date</label><input type="date" className="input" value={form.next_visit_date||''} onChange={e => f('next_visit_date',e.target.value)}/></div>
           </div>
           <div><label className="label">Note for Supervisor <span className="text-blue-400 text-xs">(visible to supervisor)</span></label><textarea className="input" rows={2} value={form.note_for_supervisor||''} onChange={e => f('note_for_supervisor',e.target.value)} placeholder="Instructions or notes for the supervisor…"/></div>
           <div>

@@ -1,5 +1,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { FileText, ChevronRight, Camera, Upload, CheckCircle, Clock, AlertCircle, Loader2 } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { Plus, FileText, ChevronRight, Camera, Upload, CheckCircle, Clock, AlertCircle, Loader2 } from 'lucide-react'
 import api from '../../utils/api'
 import { LoadingPage, EmptyState, StatusBadge, Modal } from '../../components/ui'
 import { useAuth } from '../../context/AuthContext'
@@ -61,6 +63,10 @@ export default function VisitReports() {
       await api.patch('/visit-reports/tasks/'+taskModal.id, { status: 'done', completion_photo: uploaded.url, completion_note: completionNote })
       toast.success('Task completed with photo proof!')
       setTaskModal(null); setProofPhoto(null); setProofPreview(null); setCompletionNote(''); load()
+      const { data: uploaded } = await api.post('/upload', fd)
+      await api.patch('/visit-reports/tasks/'+taskModal.id, { status: 'done', completion_photo: uploaded.url })
+      toast.success('Task completed with photo proof!')
+      setTaskModal(null); setProofPhoto(null); setProofPreview(null); load()
     } catch (err) { toast.error(err.response?.data?.message || 'Failed') }
     setCompleting(false)
   }
@@ -73,6 +79,8 @@ export default function VisitReports() {
 
   return (
     <div className="page-content space-y-4">
+      <button onClick={() => navigate('/reports/add')} className="btn-primary w-full"><Plus size={18}/>New Visit Report</button>
+
       {pendingTasks.length > 0 && (
         <div className="p-3 bg-orange-500/10 border border-orange-500/20 rounded-xl">
           <p className="text-orange-400 font-semibold text-sm">📋 {pendingTasks.length} pending task{pendingTasks.length>1?'s':''} assigned to you</p>
@@ -176,6 +184,7 @@ export default function VisitReports() {
       </Modal>
 
       <Modal open={!!taskModal} onClose={()=>{setTaskModal(null);setProofPhoto(null);setProofPreview(null);setCompletionNote('')}} title="Complete Task">
+      <Modal open={!!taskModal} onClose={()=>{setTaskModal(null);setProofPhoto(null);setProofPreview(null)}} title="Complete Task">
         {taskModal && (
           <div className="space-y-4">
             <div className="p-3 bg-surface-400 rounded-xl">

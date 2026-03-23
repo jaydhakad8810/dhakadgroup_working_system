@@ -143,9 +143,6 @@ export default function Drivers() {
             <div className="grid grid-cols-2 gap-4">
               <div><label className="label">License Number</label><input className="input" value={driverForm.license_number || ''} onChange={e => df('license_number', e.target.value)} /></div>
               <div><label className="label">License Expiry</label><input type="date" className="input" value={driverForm.license_expiry || ''} onChange={e => df('license_expiry', e.target.value)} /></div>
-              <div className="col-span-2"><label className="label">License Photo</label>
-                <DocUpload value={driverForm.license_photo} onChange={v => df('license_photo', v)} folder="dgsystem/driver-docs" label="Upload license" />
-              </div>
             </div>
           </div>
 
@@ -171,11 +168,6 @@ export default function Drivers() {
             <div><label className="label">Make</label><input className="input" value={vehicleForm.make || ''} onChange={e => vf('make', e.target.value)} /></div>
             <div><label className="label">Model</label><input className="input" value={vehicleForm.model || ''} onChange={e => vf('model', e.target.value)} /></div>
             <div><label className="label">Year</label><input type="number" className="input" value={vehicleForm.year || ''} onChange={e => vf('year', e.target.value)} /></div>
-            <div><label className="label">Assign Driver</label>
-              <select className="select" value={vehicleForm.assigned_driver_id || ''} onChange={e => vf('assigned_driver_id', e.target.value)}>
-                <option value="">None</option>{drivers.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
-              </select>
-            </div>
             <div><label className="label">Insurance Expiry</label><input type="date" className="input" value={vehicleForm.insurance_expiry || ''} onChange={e => vf('insurance_expiry', e.target.value)} /></div>
           </div>
 

@@ -3,7 +3,9 @@ import toast from 'react-hot-toast'
 import api from '../../utils/api'
 import { PageHeader, LoadingPage, Modal, StatusBadge, ConfirmDialog } from '../../components/ui'
 import { MultiPhotoUpload, DocUpload } from '../../components/ui/PhotoUpload'
-import { Plus, Trash2, CheckCircle, Edit } from 'lucide-react'
+import { Plus, Trash2, CheckCircle, Edit, Tag } from 'lucide-react'
+
+const DEFAULT_CATS = ['Compressor', 'Mixer', 'Scaffolding', 'Power Tools', 'Generator', 'Excavator', 'Crane', 'Pump']
 
 export default function Machines() {
   const [machines, setMachines] = useState([])
@@ -17,14 +19,22 @@ export default function Machines() {
   const [form, setForm] = useState({ status: 'available', photos: [] })
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(null)
+  const [newCatName, setNewCatName] = useState('')
+  const [showNewCat, setShowNewCat] = useState(false)
+  const [savingCat, setSavingCat] = useState(false)
   const f = (k, v) => setForm(p => ({ ...p, [k]: v }))
 
   const load = async () => {
     setLoading(true)
     try {
-      const [m, c, s, r] = await Promise.all([api.get('/machines'), api.get('/machines/categories'), api.get('/sites'), api.get('/machines/requests/all')])
+      const [m, c, s, r] = await Promise.all([
+        api.get('/machines'),
+        api.get('/machines/categories'),
+        api.get('/sites'),
+        api.get('/machines/requests/all')
+      ])
       setMachines(m.data); setCats(c.data); setSites(s.data); setRequests(r.data)
-    } catch {}
+    } catch (e) { toast.error('Failed to load') }
     setLoading(false)
   }
   useEffect(() => { load() }, [])
@@ -52,6 +62,35 @@ export default function Machines() {
     catch { toast.error('Failed') }
   }
 
+  const handleCreateCat = async () => {
+    if (!newCatName.trim()) return
+    setSavingCat(true)
+    try {
+      const r = await api.post('/machines/categories', { name: newCatName.trim() })
+      setCats(prev => [...prev, r.data])
+      f('category_id', r.data.id)
+      setNewCatName(''); setShowNewCat(false)
+      toast.success('Category created')
+    } catch { toast.error('Failed to create category') }
+    setSavingCat(false)
+  }
+
+  const seedDefaultCats = async () => {
+    setSavingCat(true)
+    try {
+      const results = await Promise.all(
+        DEFAULT_CATS.map(name => api.post('/machines/categories', { name }).catch(() => null))
+      )
+      const created = results.filter(Boolean).map(r => r.data)
+      setCats(prev => {
+        const existing = new Set(prev.map(c => c.name))
+        return [...prev, ...created.filter(c => !existing.has(c.name))]
+      })
+      toast.success('Default categories added')
+    } catch { toast.error('Failed') }
+    setSavingCat(false)
+  }
+
   if (loading) return <LoadingPage />
 
   return (
@@ -66,7 +105,7 @@ export default function Machines() {
       </div>
 
       {tab === 'machines' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
           {machines.map(m => (
             <div key={m.id} className="card">
               {m.photos?.[0] && <img src={m.photos[0]} className="w-full h-36 object-cover rounded-xl mb-3" alt={m.name} />}
@@ -111,39 +150,74 @@ export default function Machines() {
 
       <Modal open={modal} onClose={() => setModal(false)} title={editing ? 'Edit Machine' : 'Add Machine'} size="lg">
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Machine photos */}
           <div>
             <label className="label">Machine Photos</label>
             <MultiPhotoUpload value={form.photos} onChange={v => f('photos', v)} folder="dgsystem/machines" label="Add" max={5} />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="col-span-2"><label className="label">Name *</label><input className="input" required value={form.name || ''} onChange={e => f('name', e.target.value)} /></div>
-            <div><label className="label">Category</label>
+
+            {/* Category with inline create */}
+            <div className="col-span-2">
+              <div className="flex items-center justify-between mb-1">
+                <label className="label mb-0">Category</label>
+                <div className="flex gap-2">
+                  {!cats.length && (
+                    <button type="button" onClick={seedDefaultCats} disabled={savingCat}
+                      className="text-xs text-gold-400 hover:text-gold-300 transition-colors">
+                      + Add defaults
+                    </button>
+                  )}
+                  <button type="button" onClick={() => setShowNewCat(!showNewCat)}
+                    className="text-xs text-gold-400 hover:text-gold-300 transition-colors flex items-center gap-1">
+                    <Tag size={11} />{showNewCat ? 'Cancel' : 'New category'}
+                  </button>
+                </div>
+              </div>
+              {showNewCat && (
+                <div className="flex gap-2 mb-2">
+                  <input className="input flex-1" placeholder="Category name" value={newCatName} onChange={e => setNewCatName(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), handleCreateCat())} />
+                  <button type="button" onClick={handleCreateCat} disabled={savingCat} className="btn-gold px-3 text-sm">
+                    {savingCat ? '...' : 'Create'}
+                  </button>
+                </div>
+              )}
               <select className="select" value={form.category_id || ''} onChange={e => f('category_id', e.target.value)}>
-                <option value="">Select</option>{cats.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                <option value="">Select category</option>
+                {cats.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </div>
+
             <div><label className="label">Status</label>
               <select className="select" value={form.status} onChange={e => f('status', e.target.value)}>
-                <option value="available">Available</option><option value="in_use">In Use</option>
-                <option value="maintenance">Maintenance</option><option value="retired">Retired</option>
+                <option value="available">Available</option>
+                <option value="in_use">In Use</option>
+                <option value="retired">Retired</option>
+                {editing && <option value="maintenance">Maintenance</option>}
               </select>
             </div>
             <div><label className="label">Serial Number</label><input className="input" value={form.serial_number || ''} onChange={e => f('serial_number', e.target.value)} /></div>
             <div><label className="label">Purchase Cost (₹)</label><input type="number" className="input" value={form.purchase_cost || ''} onChange={e => f('purchase_cost', e.target.value)} /></div>
             <div><label className="label">Purchase Date</label><input type="date" className="input" value={form.purchase_date || ''} onChange={e => f('purchase_date', e.target.value)} /></div>
-            <div><label className="label">Assign Site</label>
+            <div className="col-span-2"><label className="label">Assign Site</label>
               <select className="select" value={form.assigned_site_id || ''} onChange={e => f('assigned_site_id', e.target.value)}>
                 <option value="">None</option>{sites.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
               </select>
             </div>
-            <div className="col-span-2">
-              <label className="label">Maintenance Photo</label>
-              <DocUpload value={form.maintenance_photo} onChange={v => f('maintenance_photo', v)} folder="dgsystem/machines" label="Upload maintenance photo" />
-            </div>
+            {/* Maintenance photo only when editing */}
+            {editing && (
+              <div className="col-span-2">
+                <label className="label">Maintenance Photo</label>
+                <DocUpload value={form.maintenance_photo} onChange={v => f('maintenance_photo', v)} folder="dgsystem/machines" label="Upload maintenance photo" />
+              </div>
+            )}
             <div className="col-span-2"><label className="label">Notes</label><textarea className="input" rows={2} value={form.notes || ''} onChange={e => f('notes', e.target.value)} /></div>
           </div>
-          <div className="flex gap-3 justify-end"><button type="button" onClick={() => setModal(false)} className="btn-ghost">Cancel</button><button type="submit" disabled={saving} className="btn-gold">{saving ? 'Saving...' : editing ? 'Save' : 'Add Machine'}</button></div>
+          <div className="flex gap-3 justify-end">
+            <button type="button" onClick={() => setModal(false)} className="btn-ghost">Cancel</button>
+            <button type="submit" disabled={saving} className="btn-gold">{saving ? 'Saving...' : editing ? 'Save' : 'Add Machine'}</button>
+          </div>
         </form>
       </Modal>
       <ConfirmDialog open={!!deleting} onClose={() => setDeleting(null)} onConfirm={() => handleDelete(deleting)} title="Delete Machine" message="Cannot be undone." />

@@ -161,7 +161,7 @@ export default function Attendance() {
                   <td>{r.labour?.name}</td>
                   <td style={{ color: 'var(--muted)' }}>{r.site?.name}</td>
                   <td style={{ color: 'var(--muted)' }}>{r.date}</td>
-                  <td><StatusBadge status={r.status} /></td>
+                  <td><StatusBadge status={r.status} /></td><td>{r.checkin_photo ? <a href={r.checkin_photo} target="_blank" rel="noreferrer"><img src={r.checkin_photo} className="w-10 h-10 rounded-lg object-cover hover:opacity-80"/></a> : <span style={{color:"var(--muted)"}}>—</span>}</td>
                   <td style={{ color: 'var(--muted)' }}>{r.check_in_time ? new Date(r.check_in_time).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : '—'}</td>
                   <td style={{ color: 'var(--muted)' }}>{r.check_out_time ? new Date(r.check_out_time).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : '—'}</td>
                 </tr>

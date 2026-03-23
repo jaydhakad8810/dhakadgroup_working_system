@@ -1,5 +1,6 @@
 const router = require('express').Router();
 const { Labour, Site, User, Attendance, AdvancePayment, SiteLedger, SalaryRecord, Notification } = require('../models');
+const { Labour, Site, User, Attendance, AdvancePayment, SiteLedger, SalaryRecord } = require('../models');
 const { auth, adminOnly, supervisorOrAdmin } = require('../middleware/auth');
 const { Op } = require('sequelize');
 
@@ -163,6 +164,8 @@ router.post('/:id/advances', supervisorOrAdmin, async (req, res) => {
     const isSupervisor = req.user.role === 'supervisor';
 
     // Supervisor advances require admin approval; admin advances are immediate
+
+    // Create advance and immediately mark as deducted
     const adv = await AdvancePayment.create({
       ...req.body,
       labour_id: req.params.id,
@@ -202,6 +205,32 @@ router.post('/:id/advances', supervisorOrAdmin, async (req, res) => {
         target_role: 'admin',
         sent_by: req.user.id,
       }).catch(() => {});
+      deducted: true,
+      deducted_month: currentMonth,
+      deducted_year: currentYear,
+    });
+
+    // Add SiteLedger debit entry if labour has an assigned site
+    if (labour.assigned_site_id) {
+      await SiteLedger.create({
+        site_id: labour.assigned_site_id,
+        entry_date: now.toISOString().split('T')[0],
+        type: 'debit',
+        category: 'Labour Advance',
+        amount: req.body.amount,
+        description: `Advance to ${labour.name}${req.body.notes ? ': ' + req.body.notes : ''}`,
+        created_by: req.user.id,
+      });
+    }
+
+    // Update existing SalaryRecord for current month if present
+    const salaryRecord = await SalaryRecord.findOne({
+      where: { labour_id: req.params.id, month: currentMonth, year: currentYear }
+    });
+    if (salaryRecord) {
+      const newDeduction = parseFloat(salaryRecord.advance_deduction || 0) + parseFloat(req.body.amount);
+      const newNet = Math.max(0, parseFloat(salaryRecord.gross_salary) - newDeduction);
+      await salaryRecord.update({ advance_deduction: newDeduction, net_salary: newNet });
     }
 
     res.status(201).json(adv);
