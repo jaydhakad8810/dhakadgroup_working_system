@@ -4,7 +4,6 @@ import {
   CheckCircle, XCircle, Clock, Save, Loader2, ArrowRightLeft,
   Camera, Upload, Plus, Trash2, ClipboardCheck, Package, FileText
 } from 'lucide-react'
-import { CheckCircle, XCircle, Clock, Save, Loader2, ArrowRightLeft, Plus, Trash2, Camera, CheckSquare } from 'lucide-react'
 import api from '../../utils/api'
 import toast from 'react-hot-toast'
 import { LoadingPage, EmptyState, Modal } from '../../components/ui'
@@ -115,14 +114,6 @@ export default function MarkAttendance() {
   const [taskDone, setTaskDone] = useState(false)
   const [reportSaving, setReportSaving] = useState(false)
   const [reportDone, setReportDone] = useState(false)
-
-  // transfer modal
-  const [filterSite, setFilterSite] = useState(searchParams.get('site_id') || '')
-  const [date, setDate] = useState(new Date().toISOString().split('T')[0])
-  const [step, setStep] = useState('attendance')
-  const [transferModal, setTransferModal] = useState(false)
-  const [transferLabour, setTransferLabour] = useState(null)
-  const [transferForm, setTransferForm] = useState({ to_site_id: '', reason: '', duration_days: 1 })
   const [transferring, setTransferring] = useState(false)
   const [materials, setMaterials] = useState([{ material_name: '', quantity: '', unit: 'nos' }])
   const [photoLabour, setPhotoLabour] = useState(null)
@@ -162,12 +153,6 @@ export default function MarkAttendance() {
   const presentCount = Object.values(attendance).filter(v => v === 'present').length
   const halfCount    = Object.values(attendance).filter(v => v === 'half_day').length
   const absentCount  = Object.values(attendance).filter(v => v === 'absent').length
-  const otherSites   = sites.filter(s => s.id !== filterSite)
-  const setStatus = (id, s) => setAttendance(p => ({ ...p, [id]: p[id]===s?undefined:s }))
-  const markAll = (s) => { const m = {}; labour.forEach(l => { m[l.id] = s }); setAttendance(m) }
-  const addMaterial = () => setMaterials(p => [...p, { material_name:'',quantity:'',unit:'nos' }])
-  const removeMaterial = (i) => setMaterials(p => p.filter((_,idx) => idx!==i))
-  const updateMaterial = (i,key,val) => setMaterials(p => p.map((m,idx) => idx===i?{...m,[key]:val}:m))
 
   const handlePhotoCapture = async (e) => {
     const file = e.target.files[0]; if (!file || !photoLabour) return
@@ -282,15 +267,6 @@ export default function MarkAttendance() {
   }
 
   // ── transfer ───────────────────────────────────────────────────────────────
-  const openTransfer = (l) => { setTransferLabour(l); setTransferForm({ to_site_id: '', reason: '', duration_days: 1 }); setTransferModal(true) }
-      await api.post('/attendance/bulk', { site_id:filterSite, date, records, material_usage:validMaterials })
-      toast.success('Day saved for '+records.length+' workers!')
-      setStep('complete')
-    } catch { toast.error('Failed') }
-    setSaving(false)
-  }
-
-  const openTransfer = (l) => { setTransferLabour(l); setTransferForm({to_site_id:'',reason:'',duration_days:1}); setTransferModal(true) }
   const handleTransfer = async () => {
     if (!transferForm.to_site_id) return toast.error('Select site')
     setTransferring(true)

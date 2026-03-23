@@ -1,7 +1,6 @@
 import { useEffect, useState, useRef } from 'react'
-import { FileText, ChevronRight, Camera, Upload, CheckCircle, Clock, AlertCircle, Loader2 } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
 import { Plus, FileText, ChevronRight, Camera, Upload, CheckCircle, Clock, AlertCircle, Loader2 } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import api from '../../utils/api'
 import { LoadingPage, EmptyState, StatusBadge, Modal } from '../../components/ui'
 import { useAuth } from '../../context/AuthContext'
@@ -61,10 +60,6 @@ export default function VisitReports() {
       const fd = new FormData(); fd.append('file', proofPhoto); fd.append('folder', 'dgsystem/task-proof')
       const { data: uploaded } = await api.post('/upload/single', fd)
       await api.patch('/visit-reports/tasks/'+taskModal.id, { status: 'done', completion_photo: uploaded.url, completion_note: completionNote })
-      toast.success('Task completed with photo proof!')
-      setTaskModal(null); setProofPhoto(null); setProofPreview(null); setCompletionNote(''); load()
-      const { data: uploaded } = await api.post('/upload', fd)
-      await api.patch('/visit-reports/tasks/'+taskModal.id, { status: 'done', completion_photo: uploaded.url })
       toast.success('Task completed with photo proof!')
       setTaskModal(null); setProofPhoto(null); setProofPreview(null); load()
     } catch (err) { toast.error(err.response?.data?.message || 'Failed') }
@@ -224,6 +219,7 @@ export default function VisitReports() {
           </div>
         )}
       </Modal>
+    </div>
     </div>
   )
 }
