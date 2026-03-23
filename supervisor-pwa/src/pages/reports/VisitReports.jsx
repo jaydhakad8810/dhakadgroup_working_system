@@ -179,7 +179,6 @@ export default function VisitReports() {
       </Modal>
 
       <Modal open={!!taskModal} onClose={()=>{setTaskModal(null);setProofPhoto(null);setProofPreview(null);setCompletionNote('')}} title="Complete Task">
-      <Modal open={!!taskModal} onClose={()=>{setTaskModal(null);setProofPhoto(null);setProofPreview(null)}} title="Complete Task">
         {taskModal && (
           <div className="space-y-4">
             <div className="p-3 bg-surface-400 rounded-xl">
@@ -219,7 +218,6 @@ export default function VisitReports() {
           </div>
         )}
       </Modal>
-    </div>
     </div>
   )
 }
