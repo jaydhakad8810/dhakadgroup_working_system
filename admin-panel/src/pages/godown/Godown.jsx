@@ -1,66 +1,9 @@
-import { useState, useEffect, useRef } from 'react';
-import Layout from '../components/layout/Layout';
-import api from '../api/axios';
-import { Plus, Package, ArrowDown, ArrowUp, ArrowLeftRight, Search, Trash2, X, Upload, Camera } from 'lucide-react';
-
-const GOLD = '#C9A84C';
-const GOLD_GRAD = 'linear-gradient(135deg, #C9A84C, #a8863d)';
-const UNITS = ['kg', 'liter', 'bag', 'piece', 'box', 'bundle', 'bucket', 'roll'];
-const inputCls = "w-full px-3 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-yellow-300 text-gray-800";
-const selectCls = "w-full px-3 py-2.5 border border-gray-200 rounded-xl focus:outline-none text-gray-800";
-const labelCls = "block text-sm font-medium text-gray-700 mb-1";
-const modalBg = { background: '#00000088' };
-
-const PhotoInput = ({ label, name, optional = true, onFileChange }) => {
-  const uploadRef = useRef();
-  const cameraRef = useRef();
-  const [fileName, setFileName] = useState('');
-  const handleFile = (e) => {
-    const file = e.target.files[0];
-    if (file) { setFileName(file.name); onFileChange(name, file); }
-  };
-  return (
-    <div>
-      <label className={labelCls}>{label} {optional && <span className="text-gray-400 text-xs">(optional)</span>}</label>
-      {fileName && <p className="text-xs text-green-600 mb-1 truncate">✅ {fileName}</p>}
-      <div className="flex gap-2">
-        <button type="button" onClick={() => cameraRef.current.click()} className="flex items-center gap-1.5 px-3 py-2 border border-gray-200 rounded-xl text-sm text-gray-600 hover:border-yellow-400 flex-1 justify-center"><Camera size={14} /> Camera</button>
-        <button type="button" onClick={() => uploadRef.current.click()} className="flex items-center gap-1.5 px-3 py-2 border border-gray-200 rounded-xl text-sm text-gray-600 hover:border-yellow-400 flex-1 justify-center"><Upload size={14} /> Upload</button>
-      </div>
-      <input ref={cameraRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleFile} />
-      <input ref={uploadRef} type="file" accept="image/*" className="hidden" onChange={handleFile} />
-    </div>
-  );
-};
-
-const StockTable = ({ stockList }) => (
-  stockList.length === 0
-    ? <div className="text-center py-6 text-gray-400 text-sm">No stock found</div>
-    : <table className="w-full">
-      <thead><tr style={{ background: '#0a0a0a' }}>
-        {['Material', 'Type', 'Quantity', 'Unit', 'Status'].map(h => (
-          <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: GOLD }}>{h}</th>
-        ))}
-      </tr></thead>
-      <tbody className="divide-y divide-gray-100">
-        {stockList.map(s => (
-          <tr key={s.id} className="hover:bg-gray-50">
-            <td className="px-4 py-3 font-medium text-gray-900">{s.MaterialCategory?.name || '—'}</td>
-            <td className="px-4 py-3 text-gray-500 text-sm capitalize">{s.MaterialCategory?.category_type || '—'}</td>
-            <td className="px-4 py-3 font-bold text-lg" style={{ color: s.quantity <= (s.low_stock_threshold || 10) ? '#ef4444' : '#111' }}>
-              {parseFloat(s.quantity || 0).toFixed(2)}
-            </td>
-            <td className="px-4 py-3 text-gray-500 text-sm">{s.unit || '—'}</td>
-            <td className="px-4 py-3">
-              {s.quantity <= (s.low_stock_threshold || 10)
-                ? <span className="px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-700">🔴 Low Stock</span>
-                : <span className="px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">✅ OK</span>}
-            </td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-);
+import { useEffect, useState } from 'react'
+import toast from 'react-hot-toast'
+import api from '../../utils/api'
+import { PageHeader, LoadingPage, Modal, StatusBadge, ConfirmDialog } from '../../components/ui'
+import { DocUpload } from '../../components/ui/PhotoUpload'
+import { Plus, ArrowUp, ArrowDown, ArrowRightLeft, AlertTriangle, Search, Package } from 'lucide-react'
 
 export default function Godown() {
   const [godowns, setGodowns] = useState([]);
