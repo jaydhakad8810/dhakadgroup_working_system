@@ -17,6 +17,55 @@ router.delete('/categories/:id', adminOnly, async (req, res) => {
   catch (e) { res.status(500).json({ message: e.message }); }
 });
 
+router.get('/requests/all', async (req, res) => {
+  try {
+    const where = {};
+    if (req.user.role === 'supervisor') where.requested_by = req.user.id;
+    const requests = await MachineRequest.findAll({
+      where,
+      include: [
+        { model: Machine, as: 'machine', attributes: ['id', 'name', 'status'] },
+        { model: Site, as: 'site', attributes: ['id', 'name'] },
+        { model: User, as: 'requester', attributes: ['id', 'name'] }
+      ],
+      order: [['createdAt', 'DESC']]
+    });
+    res.json(requests);
+  } catch (e) { res.status(500).json({ message: e.message }); }
+});
+
+router.post('/requests', supervisorOrAdmin, async (req, res) => {
+  try {
+    const request = await MachineRequest.create({
+      ...req.body, requested_by: req.user.id,
+      request_date: new Date().toISOString().split('T')[0]
+    });
+    await Notification.create({
+      title: 'Machine Request',
+      message: `${req.user.name} requested a machine — Purpose: ${req.body.notes || 'Not specified'}`,
+      type: 'info', target_role: 'admin', sent_by: req.user.id
+    }).catch(() => {});
+    res.status(201).json(request);
+  } catch (e) { res.status(500).json({ message: e.message }); }
+});
+
+router.patch('/requests/:id/status', adminOnly, async (req, res) => {
+  try {
+    const r = await MachineRequest.findByPk(req.params.id);
+    if (!r) return res.status(404).json({ message: 'Not found' });
+    await r.update({ status: req.body.status });
+    if (req.body.status === 'approved' && r.machine_id) {
+      await Machine.update({ status: 'in_use', assigned_site_id: r.site_id }, { where: { id: r.machine_id } });
+    }
+    res.json(r);
+  } catch (e) { res.status(500).json({ message: e.message }); }
+});
+
+router.delete('/requests/:id', async (req, res) => {
+  try { await MachineRequest.destroy({ where: { id: req.params.id } }); res.json({ message: 'Deleted' }); }
+  catch (e) { res.status(500).json({ message: e.message }); }
+});
+
 router.get('/', async (req, res) => {
   try {
     const where = {};
@@ -71,7 +120,7 @@ router.post('/:id/maintenance', supervisorOrAdmin, async (req, res) => {
   try {
     const machine = await Machine.findByPk(req.params.id);
     if (!machine) return res.status(404).json({ message: 'Machine not found' });
-    const { purpose, completion_date, photo, receipt_photo, amount } = req.body;
+    const { purpose, photo, amount } = req.body;
     await machine.update({ status: 'maintenance', maintenance_photo: photo || machine.maintenance_photo, notes: purpose });
     await Notification.create({
       title: 'Machine Maintenance Logged',
@@ -80,55 +129,6 @@ router.post('/:id/maintenance', supervisorOrAdmin, async (req, res) => {
     }).catch(() => {});
     res.status(201).json({ message: 'Maintenance logged successfully' });
   } catch (e) { res.status(500).json({ message: e.message }); }
-});
-
-router.get('/requests/all', async (req, res) => {
-  try {
-    const where = {};
-    if (req.user.role === 'supervisor') where.requested_by = req.user.id;
-    const requests = await MachineRequest.findAll({
-      where,
-      include: [
-        { model: Machine, as: 'machine', attributes: ['id', 'name', 'status'] },
-        { model: Site, as: 'site', attributes: ['id', 'name'] },
-        { model: User, as: 'requester', attributes: ['id', 'name'] }
-      ],
-      order: [['createdAt', 'DESC']]
-    });
-    res.json(requests);
-  } catch (e) { res.status(500).json({ message: e.message }); }
-});
-
-router.post('/requests', supervisorOrAdmin, async (req, res) => {
-  try {
-    const request = await MachineRequest.create({
-      ...req.body, requested_by: req.user.id,
-      request_date: new Date().toISOString().split('T')[0]
-    });
-    await Notification.create({
-      title: 'Machine Request',
-      message: `${req.user.name} requested a machine — Purpose: ${req.body.notes || 'Not specified'}`,
-      type: 'info', target_role: 'admin', sent_by: req.user.id
-    }).catch(() => {});
-    res.status(201).json(request);
-  } catch (e) { res.status(500).json({ message: e.message }); }
-});
-
-router.patch('/requests/:id/status', adminOnly, async (req, res) => {
-  try {
-    const r = await MachineRequest.findByPk(req.params.id);
-    if (!r) return res.status(404).json({ message: 'Not found' });
-    await r.update({ status: req.body.status });
-    if (req.body.status === 'approved' && r.machine_id) {
-      await Machine.update({ status: 'in_use', assigned_site_id: r.site_id }, { where: { id: r.machine_id } });
-    }
-    res.json(r);
-  } catch (e) { res.status(500).json({ message: e.message }); }
-});
-
-router.delete('/requests/:id', async (req, res) => {
-  try { await MachineRequest.destroy({ where: { id: req.params.id } }); res.json({ message: 'Deleted' }); }
-  catch (e) { res.status(500).json({ message: e.message }); }
 });
 
 module.exports = router;

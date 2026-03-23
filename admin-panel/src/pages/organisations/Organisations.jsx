@@ -3,6 +3,7 @@ import toast from 'react-hot-toast'
 import api from '../../utils/api'
 import { PageHeader, LoadingPage, Modal, ConfirmDialog } from '../../components/ui'
 import { Plus, Trash2, Edit, FileText, Building2, Phone, Mail, MapPin, User } from 'lucide-react'
+import { DocUpload } from '../../components/ui/PhotoUpload'
 
 export default function Organisations() {
   const [orgs, setOrgs] = useState([])
@@ -49,8 +50,10 @@ export default function Organisations() {
           <div key={org.id} className="card overflow-hidden hover:border-gold-500/30 transition-all">
             <div className="flex items-start justify-between mb-4">
               <div className="flex items-center gap-3">
-                <div className="w-11 h-11 rounded-xl bg-gold-500/15 flex items-center justify-center">
-                  <Building2 size={20} className="text-gold-400"/>
+                <div className="w-11 h-11 rounded-xl bg-gold-500/15 flex items-center justify-center overflow-hidden">
+                  {org.document_url && org.document_url.match(/\.(jpg|jpeg|png|gif|webp)$/i)
+                    ? <img src={org.document_url} alt={org.name} className="w-11 h-11 object-cover rounded-xl"/>
+                    : <Building2 size={20} className="text-gold-400"/>}
                 </div>
                 <div>
                   <h3 className="font-bold text-white">{org.name}</h3>
@@ -109,7 +112,9 @@ export default function Organisations() {
             <div><label className="label">Email</label><input type="email" className="input" value={form.email||''} onChange={e=>setForm({...form,email:e.target.value})}/></div>
           </div>
           <div><label className="label">Address</label><textarea className="input" rows={2} value={form.address||''} onChange={e=>setForm({...form,address:e.target.value})}/></div>
-          <div><label className="label">Document URL (PDF/Image link)</label><input className="input" placeholder="https://..." value={form.document_url||''} onChange={e=>setForm({...form,document_url:e.target.value})}/></div>
+          <div><label className="label">Organisation Image / Document</label>
+            <DocUpload value={form.document_url||''} onChange={v=>setForm({...form,document_url:v})} folder="dgsystem/organisations" label="Upload image or PDF" />
+          </div>
           <div className="flex gap-3 justify-end">
             <button type="button" onClick={()=>{setModal(false);setEditing(null);setForm({})}} className="btn-ghost">Cancel</button>
             <button type="submit" disabled={saving} className="btn-gold">{saving?'Saving...':editing?'Save Changes':'Create'}</button>

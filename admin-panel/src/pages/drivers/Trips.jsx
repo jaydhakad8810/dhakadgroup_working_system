@@ -25,7 +25,7 @@ const EMPTY_FORM = {
   from_location: '',
   to_location: '',
   notes: '',
-  odometer_start: '',
+  deadline: '',
 }
 
 export default function Trips() {
@@ -133,7 +133,7 @@ export default function Trips() {
               <label className="label">Driver *</label>
               <select className="select" value={form.driver_id} onChange={e => handleDriverChange(e.target.value)} required>
                 <option value="">Select driver</option>
-                {drivers.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                {drivers.map(d => <option key={d.id} value={d.id}>{d.name}{d.user?.employee_id ? ` (${d.user.employee_id})` : ''}</option>)}
               </select>
             </div>
             <div>
@@ -157,7 +157,7 @@ export default function Trips() {
               <input className="input" required value={form.to_location} onChange={e => f('to_location', e.target.value)} placeholder="Site name or Godown name" />
             </div>
             <div><label className="label">Scheduled Date</label><input type="date" className="input" value={form.trip_date} onChange={e => f('trip_date', e.target.value)} /></div>
-            <div><label className="label">Odometer Start</label><input type="number" className="input" value={form.odometer_start} onChange={e => f('odometer_start', e.target.value)} /></div>
+            <div><label className="label">Deadline</label><input type="datetime-local" className="input" value={form.deadline} onChange={e => f('deadline', e.target.value)} /></div>
             <div className="col-span-2"><label className="label">Notes / Instructions</label><textarea className="input" rows={2} value={form.notes} onChange={e => f('notes', e.target.value)} /></div>
           </div>
           <div className="flex gap-3 justify-end">
