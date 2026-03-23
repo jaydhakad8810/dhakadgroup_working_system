@@ -11,7 +11,10 @@ router.get('/', async (req, res) => {
     if (req.query.is_active !== undefined) where.is_active = req.query.is_active === 'true';
     const drivers = await Driver.findAll({
       where,
-      include: [{ model: Vehicle, as: 'vehicles' }],
+      include: [
+        { model: Vehicle, as: 'vehicles' },
+        { model: User, as: 'user', attributes: ['id', 'employee_id'] }
+      ],
       order: [['createdAt', 'DESC']]
     });
     res.json(drivers);

@@ -10,7 +10,12 @@ const MaterialCategory = sequelize.define('MaterialCategory', {
 const Godown = sequelize.define('Godown', {
   id: { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
   name: { type: DataTypes.STRING(100), allowNull: false },
+  godown_code: { type: DataTypes.STRING(30), allowNull: true },
   location: { type: DataTypes.STRING(200), allowNull: true },
+  address: { type: DataTypes.TEXT, allowNull: true },
+  city: { type: DataTypes.STRING(80), allowNull: true },
+  location_url: { type: DataTypes.TEXT, allowNull: true },
+  site_id: { type: DataTypes.UUID, allowNull: true },
   incharge_id: { type: DataTypes.UUID, allowNull: true },
 }, { tableName: 'godowns' });
 
