@@ -3,7 +3,7 @@ import toast from 'react-hot-toast'
 import api from '../../utils/api'
 import { PageHeader, LoadingPage, Modal, ConfirmDialog } from '../../components/ui'
 import { PhotoUpload, DocUpload } from '../../components/ui/PhotoUpload'
-import { Plus, Trash2, ToggleLeft, ToggleRight, Eye, Edit } from 'lucide-react'
+import { Plus, Trash2, ToggleLeft, ToggleRight, Eye, EyeOff, Edit } from 'lucide-react'
 
 const EMPTY = {
   role: 'supervisor', name: '', employee_id: '', password: '', phone: '',
@@ -66,6 +66,7 @@ export default function Users() {
   const toggleUser  = async (id) => { try { await api.patch(`/users/${id}/toggle`); load() } catch { toast.error('Failed') } }
   const handleDelete = async (id) => { try { await api.delete(`/users/${id}`); toast.success('Deleted'); setDeleting(null); load() } catch { toast.error('Failed') } }
 
+  const [showPwd, setShowPwd] = useState({})
   const roleColors = { admin: 'badge-gold', supervisor: 'badge-blue', driver: 'badge-green' }
   const viewUser = users.find(u => u.id === viewModal)
   if (loading) return <LoadingPage />
@@ -87,7 +88,7 @@ export default function Users() {
 
       <div className="table-container">
         <table>
-          <thead><tr><th>User</th><th>Role</th><th>Employee ID</th><th>Phone</th><th>Last Login</th><th>Status</th><th>Actions</th></tr></thead>
+          <thead><tr><th>User</th><th>Role</th><th>Employee ID</th><th>Password</th><th>Phone</th><th>Last Login</th><th>Status</th><th>Actions</th></tr></thead>
           <tbody>
             {users.map(u => (
               <tr key={u.id}>
@@ -100,6 +101,14 @@ export default function Users() {
                 </td>
                 <td><span className={roleColors[u.role]}>{u.role}</span></td>
                 <td><span className="text-gold-400 font-mono font-semibold text-sm">{u.employee_id || '—'}</span></td>
+                <td>
+                  <div className="flex items-center gap-1">
+                    <span className="font-mono text-sm text-gray-300">{showPwd[u.id] ? (u.plain_password || '—') : '••••••'}</span>
+                    <button onClick={() => setShowPwd(p => ({ ...p, [u.id]: !p[u.id] }))} className="btn-ghost p-1">
+                      {showPwd[u.id] ? <EyeOff size={13} /> : <Eye size={13} />}
+                    </button>
+                  </div>
+                </td>
                 <td className="text-gray-400">{u.phone || '—'}</td>
                 <td className="text-gray-400">{u.last_login ? new Date(u.last_login).toLocaleDateString('en-IN') : 'Never'}</td>
                 <td><span className={u.is_active ? 'badge-green' : 'badge-red'}>{u.is_active ? 'Active' : 'Inactive'}</span></td>
@@ -203,7 +212,20 @@ export default function Users() {
               <div><h3 className="text-white font-bold text-xl">{viewUser.name}</h3><span className={roleColors[viewUser.role]}>{viewUser.role}</span></div>
             </div>
             <div className="grid grid-cols-2 gap-2 text-sm">
-              {[['Employee ID', viewUser.employee_id], ['Phone', viewUser.phone],
+              <div className="bg-dark-800 rounded-lg p-2.5">
+                <p className="text-gray-400 text-xs">Employee ID</p>
+                <p className="text-gold-400 font-mono font-semibold">{viewUser.employee_id || '—'}</p>
+              </div>
+              <div className="bg-dark-800 rounded-lg p-2.5">
+                <p className="text-gray-400 text-xs mb-1">Password</p>
+                <div className="flex items-center gap-1">
+                  <span className="font-mono text-white">{showPwd['view'] ? (viewUser.plain_password || '—') : '••••••••'}</span>
+                  <button onClick={() => setShowPwd(p => ({ ...p, view: !p.view }))} className="btn-ghost p-1">
+                    {showPwd['view'] ? <EyeOff size={13} /> : <Eye size={13} />}
+                  </button>
+                </div>
+              </div>
+              {[['Phone', viewUser.phone],
                 ['Aadhar', viewUser.aadhar_number], ['Emergency', viewUser.emergency_contact],
                 ['License', viewUser.license_number], ['Lic. Expiry', viewUser.license_expiry],
                 ['Bank', viewUser.bank_name], ['Account', viewUser.bank_account], ['IFSC', viewUser.bank_ifsc],

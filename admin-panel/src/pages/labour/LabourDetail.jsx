@@ -80,11 +80,13 @@ export default function LabourDetail() {
           </div>
 
           {/* Documents */}
-          {(labour.aadhar_photo || labour.custom_doc_photo) && (
+          {(labour.aadhar_photo || labour.pan_photo || labour.bank_passbook_photo || labour.custom_doc_photo) && (
             <div className="card">
               <h3 className="text-white font-semibold mb-3">Documents</h3>
               <div className="grid grid-cols-2 gap-4">
                 {labour.aadhar_photo && <div><p className="text-gray-400 text-xs mb-1">Aadhar Photo</p><img src={labour.aadhar_photo} className="w-full h-28 object-cover rounded-xl" /></div>}
+                {labour.pan_photo && <div><p className="text-gray-400 text-xs mb-1">PAN Card Photo</p><img src={labour.pan_photo} className="w-full h-28 object-cover rounded-xl" /></div>}
+                {labour.bank_passbook_photo && <div><p className="text-gray-400 text-xs mb-1">Bank Passbook</p><img src={labour.bank_passbook_photo} className="w-full h-28 object-cover rounded-xl" /></div>}
                 {labour.custom_doc_photo && <div><p className="text-gray-400 text-xs mb-1">{labour.custom_doc_name || 'Document'}</p><img src={labour.custom_doc_photo} className="w-full h-28 object-cover rounded-xl" /></div>}
               </div>
             </div>
@@ -173,6 +175,7 @@ export default function LabourDetail() {
             <p className="text-white font-medium mb-3">Document Photos</p>
             <div className="grid grid-cols-2 gap-4">
               <div><label className="label">Aadhar Photo</label><DocUpload value={form.aadhar_photo} onChange={v => f('aadhar_photo', v)} folder="dgsystem/labour-docs" label="Upload Aadhar" /></div>
+              <div><label className="label">PAN Card Photo</label><DocUpload value={form.pan_photo} onChange={v => f('pan_photo', v)} folder="dgsystem/labour-docs" label="Upload PAN card" /></div>
               <div>
                 <label className="label">Custom Doc Name</label>
                 <input className="input mb-2" value={form.custom_doc_name || ''} onChange={e => f('custom_doc_name', e.target.value)} placeholder="e.g. Driving License" />

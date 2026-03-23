@@ -1,5 +1,5 @@
 const router = require('express').Router();
-const { Labour, Site, User, Attendance, AdvancePayment } = require('../models');
+const { Labour, Site, User, Attendance, AdvancePayment, SiteLedger, SalaryRecord } = require('../models');
 const { auth, adminOnly, supervisorOrAdmin } = require('../middleware/auth');
 const { Op } = require('sequelize');
 
@@ -96,11 +96,46 @@ router.get('/:id/advances', async (req, res) => {
 
 router.post('/:id/advances', supervisorOrAdmin, async (req, res) => {
   try {
+    const labour = await Labour.findByPk(req.params.id);
+    if (!labour) return res.status(404).json({ message: 'Labour not found' });
+
+    const now = new Date();
+    const currentMonth = now.getMonth() + 1;
+    const currentYear = now.getFullYear();
+
+    // Create advance and immediately mark as deducted
     const adv = await AdvancePayment.create({
       ...req.body,
       labour_id: req.params.id,
-      given_by: req.user.id
+      given_by: req.user.id,
+      deducted: true,
+      deducted_month: currentMonth,
+      deducted_year: currentYear,
     });
+
+    // Add SiteLedger debit entry if labour has an assigned site
+    if (labour.assigned_site_id) {
+      await SiteLedger.create({
+        site_id: labour.assigned_site_id,
+        entry_date: now.toISOString().split('T')[0],
+        type: 'debit',
+        category: 'Labour Advance',
+        amount: req.body.amount,
+        description: `Advance to ${labour.name}${req.body.notes ? ': ' + req.body.notes : ''}`,
+        created_by: req.user.id,
+      });
+    }
+
+    // Update existing SalaryRecord for current month if present
+    const salaryRecord = await SalaryRecord.findOne({
+      where: { labour_id: req.params.id, month: currentMonth, year: currentYear }
+    });
+    if (salaryRecord) {
+      const newDeduction = parseFloat(salaryRecord.advance_deduction || 0) + parseFloat(req.body.amount);
+      const newNet = Math.max(0, parseFloat(salaryRecord.gross_salary) - newDeduction);
+      await salaryRecord.update({ advance_deduction: newDeduction, net_salary: newNet });
+    }
+
     res.status(201).json(adv);
   } catch (e) { res.status(500).json({ message: e.message }); }
 });

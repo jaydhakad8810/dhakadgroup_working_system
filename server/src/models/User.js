@@ -20,9 +20,12 @@ const User = sequelize.define('User', {
   bank_account: { type: DataTypes.STRING(20), allowNull: true },
   bank_ifsc: { type: DataTypes.STRING(15), allowNull: true },
   bank_name: { type: DataTypes.STRING(80), allowNull: true },
+claude/setup-deploy-workflow-8buVv
+  plain_password: { type: DataTypes.STRING(255), allowNull: true },
   otp_code: { type: DataTypes.STRING(6), allowNull: true },
   otp_expires_at: { type: DataTypes.DATE, allowNull: true },
   active_session_token: { type: DataTypes.TEXT, allowNull: true },
+ main
 }, { tableName: 'users' });
 
 module.exports = User;

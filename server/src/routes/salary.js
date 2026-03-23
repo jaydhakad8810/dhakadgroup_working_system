@@ -27,7 +27,7 @@ router.post('/generate', supervisorOrAdmin, async (req, res) => {
     });
 
     const gross_salary = total_days * parseFloat(labour.daily_wage);
-    const advances = await AdvancePayment.findAll({ where: { labour_id, deducted: false } });
+    const advances = await AdvancePayment.findAll({ where: { labour_id, deducted: true, deducted_month: month, deducted_year: year } });
     const advance_deduction = advances.reduce((sum, a) => sum + parseFloat(a.amount), 0);
     const net_salary = Math.max(0, gross_salary - advance_deduction);
 
@@ -68,7 +68,7 @@ router.post('/generate-range', supervisorOrAdmin, async (req, res) => {
       });
 
       const gross_salary = total_days * parseFloat(labour.daily_wage);
-      const advances = await AdvancePayment.findAll({ where: { labour_id: labour.id, deducted: false } });
+      const advances = await AdvancePayment.findAll({ where: { labour_id: labour.id, deducted: true, createdAt: { [Op.between]: [from_date + ' 00:00:00', to_date + ' 23:59:59'] } } });
       const advance_deduction = advances.reduce((sum, a) => sum + parseFloat(a.amount), 0);
       const net_salary = Math.max(0, gross_salary - advance_deduction);
 
@@ -109,7 +109,7 @@ router.post('/generate-bulk', supervisorOrAdmin, async (req, res) => {
         else if (a.status === 'half_day') total_days += 0.5;
       });
       const gross_salary = total_days * parseFloat(labour.daily_wage);
-      const advances = await AdvancePayment.findAll({ where: { labour_id: labour.id, deducted: false } });
+      const advances = await AdvancePayment.findAll({ where: { labour_id: labour.id, deducted: true, deducted_month: month, deducted_year: year } });
       const advance_deduction = advances.reduce((sum, a) => sum + parseFloat(a.amount), 0);
       const net_salary = Math.max(0, gross_salary - advance_deduction);
       const [record] = await SalaryRecord.findOrCreate({

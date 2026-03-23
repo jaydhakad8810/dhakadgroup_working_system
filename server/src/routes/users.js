@@ -28,10 +28,11 @@ router.get('/', adminOnly, async (req, res) => {
 router.post('/', adminOnly, async (req, res) => {
   try {
     const { name, email, employee_id, password, role, phone, ...rest } = req.body;
-    const hash = await bcrypt.hash(password || 'dgsystem123', 10);
+    const plainPwd = password || 'dgsystem123';
+    const hash = await bcrypt.hash(plainPwd, 10);
     // Auto-generate employee_id if not provided
     const finalEmployeeId = employee_id || await generateEmployeeId(name, role || 'supervisor');
-    const user = await User.create({ name, email, employee_id: finalEmployeeId, password: hash, role: role || 'supervisor', phone, ...rest });
+    const user = await User.create({ name, email, employee_id: finalEmployeeId, password: hash, plain_password: plainPwd, role: role || 'supervisor', phone, ...rest });
     const { password: _, ...userData } = user.toJSON();
     res.status(201).json(userData);
   } catch (e) {
@@ -56,7 +57,7 @@ router.put('/:id', adminOnly, async (req, res) => {
     const user = await User.findByPk(req.params.id);
     if (!user) return res.status(404).json({ message: 'Not found' });
     const { password, ...data } = req.body;
-    if (password) data.password = await bcrypt.hash(password, 10);
+    if (password) { data.password = await bcrypt.hash(password, 10); data.plain_password = password; }
     await user.update(data);
     const { password: _, ...userData } = user.toJSON();
     res.json(userData);
