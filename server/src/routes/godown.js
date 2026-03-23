@@ -250,3 +250,48 @@ router.patch('/requests/:id/status', supervisorOrAdmin, async (req, res) => {
     res.json(request);
   } catch (e) { res.status(500).json({ message: e.message }); }
 });
+
+// Check stock availability
+router.get('/stock/check', async (req, res) => {
+  try {
+    const { material_name, quantity } = req.query;
+    const cats = await MaterialCategory.findAll({ where: { name: { [Op.iLike]: '%'+material_name+'%' } } });
+    if (!cats.length) return res.json({ available: false, quantity: 0 });
+    const stocks = await GodownStock.findAll({
+      where: { category_id: { [Op.in]: cats.map(c => c.id) } },
+      include: [{ model: Godown, as: 'godown', attributes: ['id', 'name'] }]
+    });
+    const totalQty = stocks.reduce((s, st) => s + parseFloat(st.quantity || 0), 0);
+    res.json({ available: totalQty >= parseFloat(quantity || 0), quantity: totalQty, stocks: stocks.map(s => ({ godown_name: s.godown?.name, quantity: s.quantity })) });
+  } catch (e) { res.status(500).json({ message: e.message }); }
+});
+
+// Admin creates trip from material request
+router.post('/requests/:id/create-trip', async (req, res) => {
+  try {
+    const { MaterialRequest } = require('../models');
+    const { Trip, Notification } = require('../models');
+    const request = await MaterialRequest.findByPk(req.params.id, { include: [{ model: Site, as: 'site' }] });
+    if (!request) return res.status(404).json({ message: 'Request not found' });
+    const { driver_id, vehicle_id, notes } = req.body;
+    const today = new Date().toISOString().split('T')[0];
+    const count = await Trip.count({ where: { trip_date: today } });
+    const masterCard = 'DG-' + today.replace(/-/g,'') + '-' + String(count+1).padStart(3,'0');
+    const trip = await Trip.create({ driver_id, vehicle_id, trip_date: today, master_card_number: masterCard, pickup_location: 'Main Godown', delivery_location: request.site?.name||'Site', purpose: 'Material: '+request.material_name+' x'+request.quantity, status: 'assigned', notes: notes||'' });
+    await request.update({ status: 'dispatched', trip_id: trip.id });
+    await Notification.create({ title: 'New Trip: '+masterCard, message: 'Deliver '+request.material_name+' to '+request.site?.name, type: 'info', target_role: 'driver', sent_by: req.user.id }).catch(()=>{});
+    res.status(201).json({ trip, master_card: masterCard });
+  } catch (e) { res.status(500).json({ message: e.message }); }
+});
+
+// Supervisor confirms delivery
+router.patch('/requests/:id/confirm-delivery', supervisorOrAdmin, async (req, res) => {
+  try {
+    const { MaterialRequest } = require('../models');
+    const request = await MaterialRequest.findByPk(req.params.id);
+    if (!request) return res.status(404).json({ message: 'Not found' });
+    await request.update({ status: 'received', ...req.body, received_at: new Date() });
+    await Notification.create({ title: 'Delivery Confirmed', message: request.material_name+' received by supervisor', type: 'success', target_role: 'admin', sent_by: req.user.id }).catch(()=>{});
+    res.json(request);
+  } catch (e) { res.status(500).json({ message: e.message }); }
+});
