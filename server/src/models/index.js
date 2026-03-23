@@ -32,6 +32,7 @@ Labour.hasMany(Attendance, { foreignKey: 'labour_id', as: 'attendance' });
 SalaryRecord.belongsTo(Labour, { foreignKey: 'labour_id', as: 'labour' });
 SalaryRecord.belongsTo(Site, { foreignKey: 'site_id', as: 'site' });
 AdvancePayment.belongsTo(Labour, { foreignKey: 'labour_id', as: 'labour' });
+AdvancePayment.belongsTo(User, { foreignKey: 'given_by', as: 'givenBy' });
 
 // Labour Transfer
 LabourTransfer.belongsTo(Labour, { foreignKey: 'labour_id', as: 'labour' });
