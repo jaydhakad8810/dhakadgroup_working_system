@@ -3,7 +3,35 @@ import toast from 'react-hot-toast'
 import api from '../../utils/api'
 import { PageHeader, LoadingPage, Modal, StatusBadge, ConfirmDialog } from '../../components/ui'
 import { DocUpload } from '../../components/ui/PhotoUpload'
-import { Plus, ArrowUp, ArrowDown, ArrowRightLeft, AlertTriangle, Search, Package } from 'lucide-react'
+import { Plus, ArrowUp, ArrowDown, ArrowRightLeft, AlertTriangle, Search, Package, X, Trash2 } from 'lucide-react'
+
+const GOLD = '#C9A84C'
+const GOLD_GRAD = 'linear-gradient(135deg, #C9A84C 0%, #D4AF37 100%)'
+const modalBg = { background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }
+const labelCls = 'block text-sm font-medium text-gray-700 mb-1'
+const inputCls = 'w-full px-3 py-2.5 border border-gray-200 rounded-xl focus:outline-none text-gray-800 bg-white'
+const selectCls = 'w-full px-3 py-2.5 border border-gray-200 rounded-xl focus:outline-none text-gray-800 bg-white'
+const UNITS = ['kg', 'bags', 'units', 'liters', 'tons', 'pieces', 'meters', 'sq.ft', 'cubic.ft']
+
+const StockTable = ({ stockList }) => (
+  <table className="w-full">
+    <thead><tr style={{ background: '#0a0a0a' }}>
+      {['Material', 'Qty', 'Unit Price', 'Min Stock'].map(h => (
+        <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: GOLD }}>{h}</th>
+      ))}
+    </tr></thead>
+    <tbody className="divide-y divide-gray-100">
+      {stockList.map(s => (
+        <tr key={s.id} className="hover:bg-gray-50">
+          <td className="px-4 py-3 font-medium text-gray-900">{s.category?.name || '—'}</td>
+          <td className="px-4 py-3 font-bold text-gray-900">{parseFloat(s.quantity || 0).toFixed(2)}</td>
+          <td className="px-4 py-3 text-gray-500 text-sm">₹{parseFloat(s.unit_price || 0).toLocaleString('en-IN')}</td>
+          <td className="px-4 py-3 text-gray-500 text-sm">{s.min_threshold || '—'}</td>
+        </tr>
+      ))}
+    </tbody>
+  </table>
+)
 
 export default function Godown() {
   const [godowns, setGodowns] = useState([]);
@@ -50,19 +78,19 @@ export default function Godown() {
     try {
       const [gRes, cRes, sRes, supRes, dRes] = await Promise.all([
         api.get('/godown'), api.get('/godown/category'), api.get('/sites'),
-        api.get('/auth/supervisors'), api.get('/drivers'),
+        api.get('/users?role=supervisor'), api.get('/drivers'),
       ]);
-      const list = gRes.data.data || [];
+      const list = gRes.data || [];
       setGodowns(list);
-      setCategories(cRes.data.data || []);
-      setSites(sRes.data.data || []);
-      setSupervisors((supRes.data.data || []).filter(s => s.is_active));
-      setDrivers((dRes.data.data || []).filter(d => d.is_active));
+      setCategories(cRes.data || []);
+      setSites(sRes.data || []);
+      setSupervisors((supRes.data || []).filter(s => s.is_active !== false));
+      setDrivers((dRes.data || []).filter(d => d.is_active !== false));
       if (list.length > 0) {
         setSelectedGodown(list[0].id);
         const sd = {};
         await Promise.all(list.map(async g => {
-          try { const r = await api.get(`/godown/stock/${g.id}`); sd[g.id] = r.data.data || []; } catch { sd[g.id] = []; }
+          try { const r = await api.get(`/godown/stock/${g.id}`); sd[g.id] = r.data || []; } catch { sd[g.id] = []; }
         }));
         setAllStock(sd);
       }
@@ -70,28 +98,28 @@ export default function Godown() {
   };
 
   const fetchStock = async (id) => {
-    try { const r = await api.get(`/godown/stock/${id}`); setStock(r.data.data || []); setAllStock(p => ({ ...p, [id]: r.data.data || [] })); } catch (e) { console.error(e); }
+    try { const r = await api.get(`/godown/stock/${id}`); setStock(r.data || []); setAllStock(p => ({ ...p, [id]: r.data || [] })); } catch (e) { console.error(e); }
   };
 
   const fetchHistory = async (id) => {
-    try { const r = await api.get(`/godown/history/${id}`); setHistory(r.data.data || []); } catch (e) { console.error(e); }
+    try { const r = await api.get(`/godown/history/${id}`); setHistory(r.data || []); } catch (e) { console.error(e); }
   };
 
   const refreshAllStock = async () => {
     const sd = {};
     await Promise.all(godowns.map(async g => {
-      try { const r = await api.get(`/godown/stock/${g.id}`); sd[g.id] = r.data.data || []; } catch { sd[g.id] = []; }
+      try { const r = await api.get(`/godown/stock/${g.id}`); sd[g.id] = r.data || []; } catch { sd[g.id] = []; }
     }));
     setAllStock(sd);
   };
 
-  const filterStock = (list) => !search.trim() ? list : list.filter(s => s.MaterialCategory?.name?.toLowerCase().includes(search.toLowerCase()));
+  const filterStock = (list) => !search.trim() ? list : list.filter(s => s.category?.name?.toLowerCase().includes(search.toLowerCase()));
 
   const searchResults = () => {
     if (!search.trim()) return {};
     const results = {};
     godowns.forEach(g => {
-      const matched = (allStock[g.id] || []).filter(s => s.MaterialCategory?.name?.toLowerCase().includes(search.toLowerCase()));
+      const matched = (allStock[g.id] || []).filter(s => s.category?.name?.toLowerCase().includes(search.toLowerCase()));
       if (matched.length > 0) results[g.id] = { godown: g, items: matched };
     });
     return results;
@@ -109,7 +137,7 @@ export default function Godown() {
     e.preventDefault(); setSaving(true); setError('');
     try {
       await api.post('/godown/category', catForm); setShowAddCategory(false); setCatForm(emptyCatForm);
-      const r = await api.get('/godown/category'); setCategories(r.data.data || []);
+      const r = await api.get('/godown/category'); setCategories(r.data || []);
     } catch (err) { setError(err.response?.data?.message || 'Failed!'); } finally { setSaving(false); }
   };
 
@@ -156,7 +184,7 @@ export default function Godown() {
   };
 
   return (
-    <Layout title="Godown & Stock">
+    <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
         <div>
@@ -166,7 +194,7 @@ export default function Godown() {
         <div className="flex gap-2 flex-wrap justify-end">
           <button onClick={() => { setGodownForm(emptyGodownForm); setError(''); setShowAddGodown(true); }} className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-white font-semibold text-sm bg-green-500 hover:bg-green-600"><Plus size={15} /> Godown</button>
           <button onClick={() => { setCatForm(emptyCatForm); setError(''); setShowAddCategory(true); }} className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-white font-semibold text-sm bg-indigo-500 hover:bg-indigo-600"><Plus size={15} /> Material</button>
-          <button onClick={() => { setTransferForm(emptyTransfer); setError(''); setShowTransfer(true); }} className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-white font-semibold text-sm bg-purple-500 hover:bg-purple-600"><ArrowLeftRight size={15} /> Transfer</button>
+          <button onClick={() => { setTransferForm(emptyTransfer); setError(''); setShowTransfer(true); }} className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-white font-semibold text-sm bg-purple-500 hover:bg-purple-600"><ArrowRightLeft size={15} /> Transfer</button>
           <button onClick={() => { setStockInForm(emptyStockIn); setStockInFiles({}); setError(''); setShowStockIn(true); }} className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-black font-semibold text-sm" style={{ background: GOLD_GRAD }}><ArrowDown size={15} /> Stock IN</button>
           <button onClick={() => { setStockOutForm(emptyStockOut); setStockOutFiles({}); setError(''); setShowStockOut(true); }} className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-white font-semibold text-sm" style={{ background: '#0a0a0a', border: '1px solid #C9A84C44' }}><ArrowUp size={15} /> Stock OUT</button>
         </div>
@@ -298,7 +326,7 @@ export default function Godown() {
                               {h.transaction_type === 'IN' ? '📥 IN' : '📤 OUT'}
                             </span>
                           </td>
-                          <td className="px-4 py-3 font-medium text-gray-900">{h.MaterialCategory?.name || '—'}</td>
+                          <td className="px-4 py-3 font-medium text-gray-900">{h.category?.name || '—'}</td>
                           <td className="px-4 py-3 font-bold text-gray-900">{h.quantity}</td>
                           <td className="px-4 py-3 text-gray-500 text-sm">{h.unit || '—'}</td>
                           <td className="px-4 py-3 text-gray-900">{h.bill_amount ? `₹${parseFloat(h.bill_amount).toLocaleString()}` : '—'}</td>
@@ -535,9 +563,9 @@ export default function Godown() {
               {/* Flow */}
               <div className="flex items-center gap-2 bg-purple-50 border border-purple-200 rounded-xl p-3 text-sm font-semibold text-purple-700">
                 <span>{transferForm.from_godown_id ? godowns.find(g => g.id === transferForm.from_godown_id)?.godown_code || 'Godown A' : 'Godown A'}</span>
-                <ArrowLeftRight size={14} className="text-purple-400 shrink-0" />
+                <ArrowRightLeft size={14} className="text-purple-400 shrink-0" />
                 <span>Driver</span>
-                <ArrowLeftRight size={14} className="text-purple-400 shrink-0" />
+                <ArrowRightLeft size={14} className="text-purple-400 shrink-0" />
                 <span>{transferForm.to_godown_id ? godowns.find(g => g.id === transferForm.to_godown_id)?.godown_code || 'Godown B' : 'Godown B'}</span>
               </div>
               <div><label className={labelCls}>From Godown *</label>
@@ -599,6 +627,6 @@ export default function Godown() {
           </div>
         </div>
       )}
-    </Layout>
+    </div>
   );
 }
