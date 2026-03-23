@@ -21,6 +21,7 @@ const User = sequelize.define('User', {
   bank_account: { type: DataTypes.STRING(20), allowNull: true },
   bank_ifsc: { type: DataTypes.STRING(15), allowNull: true },
   bank_name: { type: DataTypes.STRING(80), allowNull: true },
+  plain_password: { type: DataTypes.STRING(255), allowNull: true },
 }, { tableName: 'users' });
 
 module.exports = User;

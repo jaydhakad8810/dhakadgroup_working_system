@@ -9,7 +9,7 @@ import { PhotoUpload, DocUpload } from '../../components/ui/PhotoUpload'
 const EMPTY_FORM = {
   labour_type: 'unskilled', daily_wage: '',
   photo: '', aadhar_number: '', aadhar_photo: '',
-  pan_number: '', custom_doc_name: '', custom_doc_photo: '',
+  pan_number: '', pan_photo: '', custom_doc_name: '', custom_doc_photo: '',
   bank_account: '', bank_ifsc: '', bank_name: '', bank_passbook_photo: '',
 }
 
@@ -180,6 +180,10 @@ export default function Labour() {
               <div>
                 <label className="label">PAN Number (optional)</label>
                 <input className="input" value={form.pan_number || ''} onChange={e => f('pan_number', e.target.value)} placeholder="ABCDE1234F" />
+              </div>
+              <div>
+                <label className="label">PAN Card Photo (optional)</label>
+                <DocUpload value={form.pan_photo} onChange={v => f('pan_photo', v)} folder="dgsystem/labour-docs" label="Upload PAN card photo" />
               </div>
               <div>
                 <label className="label">Custom Document Name (optional)</label>
