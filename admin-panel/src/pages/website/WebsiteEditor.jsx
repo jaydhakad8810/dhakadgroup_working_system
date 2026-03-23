@@ -6,10 +6,10 @@ import { MultiPhotoUpload, PhotoUpload } from '../../components/ui/PhotoUpload'
 import { Plus, Trash2, Edit, Globe, Save } from 'lucide-react'
 
 const DEFAULT_HERO = {
-  badge_text: 'Trusted Construction Partner Since 2010',
-  title_line1: "Building Tomorrow's",
-  title_highlight: 'Infrastructure Today',
-  subtitle: 'Dhakad Group delivers excellence in construction across India.',
+  badge_text: 'Premium Asian Paints Applicator Since 2002',
+  title_line1: 'Transforming Spaces With',
+  title_highlight: 'Color & Craft',
+  subtitle: 'Dhakad Group brings world-class painting solutions to Nashik. 500+ projects. Trusted since 2002.',
   btn_primary_text: 'View Projects',
   btn_secondary_text: 'Contact Us',
   hero_dark_mode: 'dark',
@@ -48,7 +48,7 @@ const DEFAULT_SERVICES = {
 
 const DEFAULT_CONTACT = {
   contact_address: 'Dhakad Group, Pune, Maharashtra, India',
-  contact_phone: '+91 98225 XXXXX',
+  contact_phone: '+91 98225 11483',
   contact_email: 'info@dhakadgroup.in',
   contact_hours: 'Mon–Sat: 9:00 AM – 7:00 PM',
   contact_maps_url: '',

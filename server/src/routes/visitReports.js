@@ -1,5 +1,5 @@
 const router = require('express').Router();
-const { VisitReport, VisitTask, Site, User, Notification } = require('../models');
+const { VisitReport, VisitTask, Site, User, Notification, Attendance, Labour, DailyExpense } = require('../models');
 const { auth, supervisorOrAdmin } = require('../middleware/auth');
 const { Op } = require('sequelize');
 
@@ -44,6 +44,45 @@ router.post('/', supervisorOrAdmin, async (req, res) => {
     }
     const full = await VisitReport.findByPk(report.id, { include: [{ model: VisitTask, as: 'tasks' }] });
     res.status(201).json(full);
+  } catch (e) { res.status(500).json({ message: e.message }); }
+});
+
+// Daily summary — must be before /:id
+router.get('/daily-summary/:site_id', async (req, res) => {
+  try {
+    const { site_id } = req.params;
+    const date = req.query.date || new Date().toISOString().split('T')[0];
+
+    const [site, attendanceRecords, materials, reports] = await Promise.all([
+      Site.findByPk(site_id, { attributes: ['id', 'name'] }),
+      Attendance.findAll({
+        where: { site_id, date },
+        include: [{ model: Labour, as: 'labour', attributes: ['id', 'name'] }]
+      }),
+      DailyExpense.findAll({ where: { site_id, expense_date: date, payment_mode: 'material' } }),
+      VisitReport.findAll({ where: { site_id, report_date: date }, include: [{ model: VisitTask, as: 'tasks' }] }),
+    ]);
+
+    const allTasks = reports.flatMap(r => r.tasks || []);
+    res.json({
+      date,
+      site: site?.toJSON(),
+      attendance: {
+        total: attendanceRecords.length,
+        present: attendanceRecords.filter(r => r.status === 'present').length,
+        half_day: attendanceRecords.filter(r => r.status === 'half_day').length,
+        absent: attendanceRecords.filter(r => r.status === 'absent').length,
+        records: attendanceRecords.map(r => ({ name: r.labour?.name, status: r.status })),
+      },
+      materials: materials.map(m => ({ material_name: m.category_name, details: m.description })),
+      tasks: {
+        total: allTasks.length,
+        done: allTasks.filter(t => t.status === 'done').length,
+        in_progress: allTasks.filter(t => t.status === 'in_progress').length,
+        pending: allTasks.filter(t => t.status === 'pending').length,
+        items: allTasks.map(t => ({ task: t.task, status: t.status, deadline: t.deadline })),
+      },
+    });
   } catch (e) { res.status(500).json({ message: e.message }); }
 });
 

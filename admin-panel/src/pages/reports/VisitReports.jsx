@@ -62,6 +62,19 @@ export default function VisitReports() {
     } catch { toast.error('Failed') }
   }
 
+
+  const exportCSV = () => {
+    const rows = [['Date','Title','Site','Supervisor','Labour','Status','Tasks Done','Tasks Pending']]
+    reports.forEach(r => {
+      rows.push([r.report_date, r.title, r.site?.name||'', r.supervisor?.name||'Admin', r.labour_count||0, r.status, r.tasks?.filter(t=>t.status==='done').length||0, r.tasks?.filter(t=>t.status!=='done').length||0])
+    })
+    const csv = rows.map(r=>r.join(',')).join('\n')
+    const blob = new Blob([csv], {type:'text/csv'})
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a'); a.href=url; a.download='visit-reports.csv'; a.click()
+    toast.success('CSV exported!')
+  }
+
   const deleteReport = async (id) => {
     if (!confirm('Delete this report?')) return
     try { await api.delete(`/visit-reports/${id}`); toast.success('Deleted'); load() }
@@ -76,7 +89,7 @@ export default function VisitReports() {
     <div className="space-y-6">
       <PageHeader title="Visit Reports"
         subtitle={`${reports.length} reports`}
-        action={<button onClick={() => setAddModal(true)} className="btn-gold"><Plus size={16}/>Create Report</button>}
+        action={<div className="flex gap-2"><button onClick={exportCSV} className="btn-outline text-sm py-2">📊 Export CSV</button><button onClick={() => setAddModal(true)} className="btn-gold"><Plus size={16}/>Create Report</button></div>}
       />
 
       {/* Filters */}

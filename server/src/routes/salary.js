@@ -157,4 +157,38 @@ router.patch('/:id/pay', supervisorOrAdmin, async (req, res) => {
   } catch (e) { res.status(500).json({ message: e.message }); }
 });
 
+
+
+// Get all advance payments
+router.get('/advances', async (req, res) => {
+  try {
+    const where = {};
+    if (req.query.labour_id) where.labour_id = req.query.labour_id;
+    if (req.query.site_id) where.site_id = req.query.site_id;
+    const advances = await AdvancePayment.findAll({
+      where,
+      include: [{ model: Labour, as: 'labour', attributes: ['id', 'name'] }],
+      order: [['createdAt', 'DESC']]
+    });
+    res.json(advances);
+  } catch (e) { res.status(500).json({ message: e.message }); }
+});
+
+// Record new advance payment
+router.post('/advance', async (req, res) => {
+  try {
+    const { labour_id, amount, date, reason, payment_mode, site_id } = req.body;
+    if (!labour_id || !amount) return res.status(400).json({ message: 'Labour and amount required' });
+    const advance = await AdvancePayment.create({
+      labour_id, amount: parseFloat(amount),
+      date: date || new Date().toISOString().split('T')[0],
+      reason, payment_mode: payment_mode || 'cash',
+      site_id: site_id || null,
+      deducted: false,
+      recorded_by: req.user.id
+    });
+    res.status(201).json(advance);
+  } catch (e) { res.status(500).json({ message: e.message }); }
+});
+
 module.exports = router;
