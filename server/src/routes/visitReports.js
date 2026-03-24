@@ -1,7 +1,6 @@
 const router = require('express').Router();
 const { VisitReport, VisitTask, Site, User, Notification, Attendance, Labour, DailyExpense } = require('../models');
 const { auth, supervisorOrAdmin, adminOnly } = require('../middleware/auth');
-const { auth, supervisorOrAdmin } = require('../middleware/auth');
 const { Op } = require('sequelize');
 const https = require('https');
 const http = require('http');
