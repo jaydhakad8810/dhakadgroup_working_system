@@ -110,6 +110,7 @@ export default function MarkAttendance() {
   const [matForm, setMatForm] = useState({ item_name: '', quantity: '', unit: '' })
   const [checkOutPhoto, setCheckOutPhoto] = useState('')
   const [checkingOut, setCheckingOut] = useState(false)
+  const [taskStatus, setTaskStatus] = useState('completed')
 
   // step 5
   const [taskDone, setTaskDone] = useState(false)
@@ -227,13 +228,12 @@ export default function MarkAttendance() {
 
   // ── STEP 4: check-out ──────────────────────────────────────────────────────
   const handleCheckOut = async () => {
-    const hasMaterials = materials.length > 0
-    if (hasMaterials && !checkOutPhoto) return toast.error('Checkout photo required when materials are used')
+    if (!checkOutPhoto) return toast.error('Checkout photo is required')
     setCheckingOut(true)
     try {
       const presentIds = labour.filter(l => attendance[l.id] === 'present' || attendance[l.id] === 'half_day').map(l => attendanceIds[l.id]).filter(Boolean)
       for (const attId of presentIds) {
-        await api.patch(`/attendance/${attId}/checkout`, { check_out_photo: checkOutPhoto || null })
+        await api.patch(`/attendance/${attId}/checkout`, { check_out_photo: checkOutPhoto, task_status: taskStatus })
       }
       toast.success('Labour checked out!')
       setStep(5)
@@ -478,22 +478,57 @@ export default function MarkAttendance() {
             </div>
           )}
 
-          {/* Check-Out */}
+          {/* Checkout Photo */}
           {taskCheckedIn && (
             <div className="card space-y-3">
-              <p className="text-white font-semibold text-sm">Labour Check-Out</p>
-              {materials.length > 0 && (
-                <>
-                  <p className="text-gray-400 text-xs">Checkout photo required (materials were used)</p>
-                  <PhotoCapture value={checkOutPhoto} onChange={setCheckOutPhoto} label="Checkout site photo" />
-                </>
-              )}
-              <button onClick={handleCheckOut} disabled={checkingOut}
-                className="w-full py-4 rounded-2xl bg-green-500/20 border border-green-500/30 text-green-400 font-semibold flex items-center justify-center gap-2 active:scale-95 transition-transform">
-                {checkingOut ? <Loader2 size={18} className="animate-spin" /> : <CheckCircle size={18} />}
-                {checkingOut ? 'Processing...' : 'Record Labour Check-Out'}
-              </button>
+              <p className="text-white font-semibold text-sm">📸 Checkout Photo <span className="text-red-400 text-xs">*Required</span></p>
+              <PhotoCapture value={checkOutPhoto} onChange={setCheckOutPhoto} label="Take Photo" />
             </div>
+          )}
+
+          {/* Task Status */}
+          {taskCheckedIn && (
+            <div className="card space-y-3">
+              <p className="text-white font-semibold text-sm">✅ Task Status</p>
+              <div className="flex gap-3">
+                <button onClick={() => setTaskStatus('completed')}
+                  className={`flex-1 py-3 rounded-xl font-semibold text-sm transition-all active:scale-95 ${taskStatus === 'completed' ? 'bg-green-500 text-white' : 'bg-surface-300 text-gray-400'}`}>
+                  <CheckCircle size={16} className="inline mr-1" /> Completed
+                </button>
+                <button onClick={() => setTaskStatus('pending')}
+                  className={`flex-1 py-3 rounded-xl font-semibold text-sm transition-all active:scale-95 ${taskStatus === 'pending' ? 'bg-orange-500/80 text-white' : 'bg-surface-300 text-gray-400'}`}>
+                  <Clock size={16} className="inline mr-1" /> Pending
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Material Usage Summary */}
+          {taskCheckedIn && (
+            <div className="card space-y-3">
+              <p className="text-white font-semibold text-sm">📦 Material Usage Summary</p>
+              {materials.length === 0 ? (
+                <p className="text-gray-500 text-sm">No materials logged</p>
+              ) : (
+                <div className="space-y-1.5">
+                  {materials.map((m, i) => (
+                    <div key={i} className="flex items-center justify-between p-2 bg-surface-400 rounded-xl">
+                      <p className="text-white text-sm font-medium">{m.item_name}</p>
+                      <p className="text-orange-400 text-sm">{m.quantity} {m.unit}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Complete Day & Save */}
+          {taskCheckedIn && (
+            <button onClick={handleCheckOut} disabled={checkingOut}
+              className="w-full py-4 rounded-2xl bg-green-500/20 border border-green-500/30 text-green-400 font-semibold flex items-center justify-center gap-2 active:scale-95 transition-transform sticky bottom-24 shadow-xl shadow-green-500/10">
+              {checkingOut ? <Loader2 size={18} className="animate-spin" /> : <CheckCircle size={18} />}
+              {checkingOut ? 'Processing...' : 'Complete Day & Save'}
+            </button>
           )}
         </div>
       )}
@@ -511,7 +546,7 @@ export default function MarkAttendance() {
               <CheckCircle size={48} className="text-green-400 mx-auto" />
               <p className="text-green-400 font-bold text-lg">Report Submitted!</p>
               <p className="text-gray-400 text-sm">Daily report saved and admin notified.</p>
-              <button onClick={() => { setStep(1); setFilterSite(''); setLabour([]); setAttendance({}); setCheckInPhoto(''); setCheckOutPhoto(''); setMaterials([]); setTaskCheckedIn(false); setTaskDone(false); setReportDone(false) }}
+              <button onClick={() => { setStep(1); setFilterSite(''); setLabour([]); setAttendance({}); setCheckInPhoto(''); setCheckOutPhoto(''); setMaterials([]); setTaskCheckedIn(false); setTaskDone(false); setReportDone(false); setTaskStatus('completed') }}
                 className="btn-primary mx-auto">Start New Day</button>
             </div>
           ) : (
