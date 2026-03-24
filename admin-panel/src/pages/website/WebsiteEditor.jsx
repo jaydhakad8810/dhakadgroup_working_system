@@ -74,7 +74,7 @@ export default function WebsiteEditor() {
   const [tab, setTab] = useState('projects')
   const [projectModal, setProjectModal] = useState(false)
   const [editingProject, setEditingProject] = useState(null)
-  const [pForm, setPForm] = useState({ title: '', description: '', location: '', status: 'ongoing', client_name: '', cover_photo: '', photos: [] })
+  const [pForm, setPForm] = useState({ title: '', description: '', location: '', status: 'ongoing', client_name: '', cover_photo: '', photos: [], before_photo: '', after_photo: '' })
   const pf = (k, v) => setPForm(p => ({ ...p, [k]: v }))
 
   const load = async () => {
@@ -117,8 +117,8 @@ export default function WebsiteEditor() {
     setSaving(false)
   }
 
-  const openAddProject = () => { setEditingProject(null); setPForm({ title: '', description: '', location: '', status: 'ongoing', client_name: '', cover_photo: '', photos: [] }); setProjectModal(true) }
-  const openEditProject = (p) => { setEditingProject(p.id); setPForm({ ...p, photos: p.photos || [] }); setProjectModal(true) }
+  const openAddProject = () => { setEditingProject(null); setPForm({ title: '', description: '', location: '', status: 'ongoing', client_name: '', cover_photo: '', photos: [], before_photo: '', after_photo: '' }); setProjectModal(true) }
+  const openEditProject = (p) => { setEditingProject(p.id); setPForm({ ...p, photos: p.photos || [], before_photo: p.before_photo || '', after_photo: p.after_photo || '' }); setProjectModal(true) }
 
   const handleProjectSubmit = async (e) => {
     e.preventDefault(); setSaving(true)
@@ -333,6 +333,16 @@ export default function WebsiteEditor() {
             <PhotoUpload value={pForm.cover_photo} onChange={v => pf('cover_photo', v)} folder="dgsystem/website/projects" label="Cover" />
           </div>
           <div><label className="label">Additional Photos</label><MultiPhotoUpload value={pForm.photos} onChange={v => pf('photos', v)} folder="dgsystem/website/projects" label="Add" max={8} /></div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="label">Before Photo <span className="text-gray-500 font-normal">(for completed flip card)</span></label>
+              <PhotoUpload value={pForm.before_photo} onChange={v => pf('before_photo', v)} folder="dgsystem/website/projects" label="Before" />
+            </div>
+            <div>
+              <label className="label">After Photo <span className="text-gray-500 font-normal">(for completed flip card)</span></label>
+              <PhotoUpload value={pForm.after_photo} onChange={v => pf('after_photo', v)} folder="dgsystem/website/projects" label="After" />
+            </div>
+          </div>
           <div><label className="label">Project Title *</label><input className="input" required value={pForm.title} onChange={e => pf('title', e.target.value)} /></div>
           <div className="grid grid-cols-2 gap-4">
             <div><label className="label">Location</label><input className="input" value={pForm.location || ''} onChange={e => pf('location', e.target.value)} /></div>
