@@ -5,7 +5,7 @@ const Labour = require('./Labour');
 const Attendance = require('./Attendance');
 const {
   SalaryRecord, AdvancePayment, LabourTransfer, SiteLedger, ClientPayment,
-  ExpenseCategory, DailyExpense, Notification, VisitReport, VisitTask,
+  ExpenseCategory, DailyExpense, DriverExpense, Notification, VisitReport, VisitTask,
   BOQLabour, BOQMaterial,
 } = require('./FinancialModels');
 const { MaterialCategory, Godown, GodownStock, StockHistory } = require('./GodownModels');
@@ -46,6 +46,11 @@ ClientPayment.belongsTo(Site, { foreignKey: 'site_id', as: 'site' });
 DailyExpense.belongsTo(Site, { foreignKey: 'site_id', as: 'site' });
 DailyExpense.belongsTo(ExpenseCategory, { foreignKey: 'category_id', as: 'category' });
 
+// Driver Expenses
+DriverExpense.belongsTo(Driver, { foreignKey: 'driver_id', as: 'driver' });
+DriverExpense.belongsTo(Trip, { foreignKey: 'trip_id', as: 'trip' });
+Driver.hasMany(DriverExpense, { foreignKey: 'driver_id', as: 'expenses' });
+
 // Visit Reports
 VisitReport.belongsTo(Site, { foreignKey: 'site_id', as: 'site' });
 VisitReport.belongsTo(User, { foreignKey: 'supervisor_id', as: 'supervisor' });
@@ -79,7 +84,7 @@ Trip.belongsTo(Driver, { foreignKey: 'driver_id', as: 'driver' });
 module.exports = {
   User, Organisation, Site, Labour, Attendance,
   SalaryRecord, AdvancePayment, LabourTransfer, SiteLedger, ClientPayment,
-  ExpenseCategory, DailyExpense, Notification, VisitReport, VisitTask,
+  ExpenseCategory, DailyExpense, DriverExpense, Notification, VisitReport, VisitTask,
   BOQLabour, BOQMaterial,
   MaterialCategory, Godown, GodownStock, StockHistory,
   MachineCategory, Machine, MachineRequest,
