@@ -1,6 +1,5 @@
 const router = require('express').Router();
 const { Labour, Site, User, Attendance, AdvancePayment, SiteLedger, SalaryRecord, Notification } = require('../models');
-const { Labour, Site, User, Attendance, AdvancePayment, SiteLedger, SalaryRecord } = require('../models');
 const { auth, adminOnly, supervisorOrAdmin } = require('../middleware/auth');
 const { Op } = require('sequelize');
 
@@ -205,22 +204,6 @@ router.post('/:id/advances', supervisorOrAdmin, async (req, res) => {
         target_role: 'admin',
         sent_by: req.user.id,
       }).catch(() => {});
-      deducted: true,
-      deducted_month: currentMonth,
-      deducted_year: currentYear,
-    });
-
-    // Add SiteLedger debit entry if labour has an assigned site
-    if (labour.assigned_site_id) {
-      await SiteLedger.create({
-        site_id: labour.assigned_site_id,
-        entry_date: now.toISOString().split('T')[0],
-        type: 'debit',
-        category: 'Labour Advance',
-        amount: req.body.amount,
-        description: `Advance to ${labour.name}${req.body.notes ? ': ' + req.body.notes : ''}`,
-        created_by: req.user.id,
-      });
     }
 
     // Update existing SalaryRecord for current month if present
