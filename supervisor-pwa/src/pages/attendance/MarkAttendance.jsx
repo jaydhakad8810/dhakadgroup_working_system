@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useState } from 'react'
+import { Fragment, useEffect, useState, useRef } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import {
   ArrowRightLeft, Camera, CheckCircle, ChevronRight,
@@ -411,7 +411,9 @@ export default function MarkAttendance() {
           type: 'info',
           target_role: 'admin'
         })
-      } catch {}
+      } catch (err) {
+  console.error(err)
+}
       toast.success('Report generated!')
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to generate report')
@@ -801,7 +803,7 @@ ${checkoutPhotoUrl ? `<div><strong>Check-Out</strong><br/><img src="${checkoutPh
                           : <div className="w-10 h-10 rounded-xl bg-primary-500/20 flex items-center justify-center text-primary-400 font-bold text-lg flex-shrink-0">{l.name[0]}</div>}
                         <div className="flex-1 min-w-0">
                           <p className="text-white font-medium text-sm truncate">{l.name}</p>
-                          <p className="text-gray-500 text-xs">₹{parseFloat(l.daily_wage).toLocaleString('en-IN')}/day</p>
+                          <p className="text-gray-500 text-xs">₹{(parseFloat(l.daily_wage) || 0).toLocaleString('en-IN')}/day</p>
                         </div>
                         <div className="flex gap-1">
                           <button onClick={() => setStatus(l.id, 'present')}
