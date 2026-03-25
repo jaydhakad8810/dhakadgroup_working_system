@@ -8,6 +8,7 @@ export default function Login() {
   const [identifier, setIdentifier] = useState('')
   const [password, setPassword] = useState('')
   const [showPw, setShowPw] = useState(false)
+  const [rememberMe, setRememberMe] = useState(false)
   const [loading, setLoading] = useState(false)
   const { login } = useAuth()
   const navigate = useNavigate()
@@ -17,6 +18,10 @@ export default function Login() {
     setLoading(true)
     try {
       await login(identifier, password)
+      if (!rememberMe) {
+        const token = localStorage.getItem('dr_token')
+        if (token) { sessionStorage.setItem('dr_token', token); localStorage.removeItem('dr_token') }
+      }
       toast.success('Welcome!')
       navigate('/')
     } catch (err) {
@@ -42,10 +47,11 @@ export default function Login() {
 
         <div className="space-y-4">
           <div>
-            <label className="label">Email or Employee ID</label>
+            <label className="label">Employee ID</label>
             <input value={identifier} onChange={e => setIdentifier(e.target.value)}
-              className="input" placeholder="email@example.com or EMP001"
+              className="input" placeholder="Enter your Employee ID (e.g. DRV-MOHAN-001)"
               autoComplete="username" required />
+            <p className="text-gray-500 text-xs mt-1">Login with your Employee ID provided by admin</p>
           </div>
           <div>
             <label className="label">Password</label>
@@ -60,6 +66,13 @@ export default function Login() {
               </button>
             </div>
           </div>
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <input
+                type="checkbox" checked={rememberMe} onChange={e => setRememberMe(e.target.checked)}
+                className="w-4 h-4 rounded cursor-pointer accent-blue-500"
+              />
+              <span className="text-sm text-gray-400">Remember me</span>
+            </label>
           <button onClick={handleSubmit} disabled={loading || !identifier || !password}
             className="btn-primary w-full py-4 text-base mt-2">
             {loading ? <Loader2 size={20} className="animate-spin" /> : null}

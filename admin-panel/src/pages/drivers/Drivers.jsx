@@ -83,7 +83,10 @@ export default function Drivers() {
                   <h3 className="text-white font-semibold truncate">{d.name}</h3>
                   <p className="text-gray-400 text-sm">{d.phone}</p>
                 </div>
-                <span className={d.is_active ? 'badge-green' : 'badge-red'}>{d.is_active ? 'Active' : 'Off'}</span>
+                <div className="flex flex-col items-end gap-1">
+                  <span className={d.is_active ? 'badge-green' : 'badge-red'}>{d.is_active ? 'Active' : 'Off'}</span>
+                  {d.is_busy && <span className="text-xs bg-red-500/20 text-red-400 px-2 py-0.5 rounded-full font-semibold">● Busy</span>}
+                </div>
               </div>
               <div className="text-sm text-gray-400 space-y-1 mb-3">
                 {d.license_number && <p>🪪 {d.license_number} (exp: {d.license_expiry})</p>}
@@ -143,9 +146,6 @@ export default function Drivers() {
             <div className="grid grid-cols-2 gap-4">
               <div><label className="label">License Number</label><input className="input" value={driverForm.license_number || ''} onChange={e => df('license_number', e.target.value)} /></div>
               <div><label className="label">License Expiry</label><input type="date" className="input" value={driverForm.license_expiry || ''} onChange={e => df('license_expiry', e.target.value)} /></div>
-              <div className="col-span-2"><label className="label">License Photo</label>
-                <DocUpload value={driverForm.license_photo} onChange={v => df('license_photo', v)} folder="dgsystem/driver-docs" label="Upload license" />
-              </div>
             </div>
           </div>
 
@@ -171,11 +171,6 @@ export default function Drivers() {
             <div><label className="label">Make</label><input className="input" value={vehicleForm.make || ''} onChange={e => vf('make', e.target.value)} /></div>
             <div><label className="label">Model</label><input className="input" value={vehicleForm.model || ''} onChange={e => vf('model', e.target.value)} /></div>
             <div><label className="label">Year</label><input type="number" className="input" value={vehicleForm.year || ''} onChange={e => vf('year', e.target.value)} /></div>
-            <div><label className="label">Assign Driver</label>
-              <select className="select" value={vehicleForm.assigned_driver_id || ''} onChange={e => vf('assigned_driver_id', e.target.value)}>
-                <option value="">None</option>{drivers.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
-              </select>
-            </div>
             <div><label className="label">Insurance Expiry</label><input type="date" className="input" value={vehicleForm.insurance_expiry || ''} onChange={e => vf('insurance_expiry', e.target.value)} /></div>
           </div>
 

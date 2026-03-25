@@ -45,6 +45,8 @@ const WebsiteProject = sequelize.define('WebsiteProject', {
   client_name: { type: DataTypes.STRING(100), allowNull: true },
   sort_order: { type: DataTypes.INTEGER, defaultValue: 0 },
   is_featured: { type: DataTypes.BOOLEAN, defaultValue: false },
+  before_photo: { type: DataTypes.TEXT, allowNull: true },
+  after_photo: { type: DataTypes.TEXT, allowNull: true },
 }, { tableName: 'website_projects' });
 
 module.exports = { MaterialRequest, WebsiteContent, WebsiteProject };

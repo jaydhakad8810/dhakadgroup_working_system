@@ -3,13 +3,20 @@ import toast from 'react-hot-toast'
 import api from '../../utils/api'
 import { PageHeader, LoadingPage, Modal, ConfirmDialog } from '../../components/ui'
 import { PhotoUpload, DocUpload } from '../../components/ui/PhotoUpload'
-import { Plus, Trash2, ToggleLeft, ToggleRight, Eye, Edit } from 'lucide-react'
+import { Plus, Trash2, ToggleLeft, ToggleRight, Eye, EyeOff, Edit } from 'lucide-react'
 
 const EMPTY = {
-  role: 'supervisor', name: '', employee_id: '', password: '', phone: '', email: '',
+  role: 'supervisor', name: '', employee_id: '', password: '', phone: '',
   photo: '', aadhar_number: '', emergency_contact: '',
   license_number: '', license_expiry: '', license_photo: '',
   bank_account: '', bank_ifsc: '', bank_name: '',
+}
+
+const generatePreviewId = (name, role) => {
+  if (!name) return ''
+  const prefix = role === 'supervisor' ? 'SUP' : role === 'driver' ? 'DRV' : 'ADM'
+  const firstName = name.split(' ')[0].toUpperCase().slice(0, 4)
+  return `${prefix}-${firstName}-001`
 }
 
 export default function Users() {
@@ -33,7 +40,7 @@ export default function Users() {
   useEffect(() => { load() }, [filterRole])
 
   const openAdd  = () => { setEditing(null); setForm({ ...EMPTY }); setModal(true) }
-  const openEdit = (u) => { setEditing(u.id); setForm({ ...EMPTY, ...u, password: '' }); setModal(true) }
+  const openEdit = (u) => { setEditing(u.id); setForm({ ...EMPTY, ...u, password: '', email: undefined }); setModal(true) }
 
   const handleSubmit = async (e) => {
     e.preventDefault(); setSaving(true)
@@ -41,13 +48,15 @@ export default function Users() {
       if (editing) {
         const payload = { ...form }
         if (!payload.password) delete payload.password
+        delete payload.email
         await api.put(`/users/${editing}`, payload)
         toast.success('User updated')
       } else {
-        if (!form.employee_id && !form.email) { toast.error('Employee ID or Email required'); return setSaving(false) }
         if (!form.password) { toast.error('Password required'); return setSaving(false) }
-        await api.post('/users', form)
-        toast.success('User created')
+        const payload = { ...form }
+        delete payload.email
+        const r = await api.post('/users', payload)
+        toast.success(`User created! Employee ID: ${r.data.employee_id}`)
       }
       setModal(false); setEditing(null); setForm({ ...EMPTY }); load()
     } catch (err) { toast.error(err.response?.data?.message || 'Failed') }
@@ -57,6 +66,7 @@ export default function Users() {
   const toggleUser  = async (id) => { try { await api.patch(`/users/${id}/toggle`); load() } catch { toast.error('Failed') } }
   const handleDelete = async (id) => { try { await api.delete(`/users/${id}`); toast.success('Deleted'); setDeleting(null); load() } catch { toast.error('Failed') } }
 
+  const [showPwd, setShowPwd] = useState({})
   const roleColors = { admin: 'badge-gold', supervisor: 'badge-blue', driver: 'badge-green' }
   const viewUser = users.find(u => u.id === viewModal)
   if (loading) return <LoadingPage />
@@ -78,7 +88,7 @@ export default function Users() {
 
       <div className="table-container">
         <table>
-          <thead><tr><th>User</th><th>Role</th><th>Employee ID</th><th>Phone</th><th>Last Login</th><th>Status</th><th>Actions</th></tr></thead>
+          <thead><tr><th>User</th><th>Role</th><th>Employee ID</th><th>Password</th><th>Phone</th><th>Last Login</th><th>Status</th><th>Actions</th></tr></thead>
           <tbody>
             {users.map(u => (
               <tr key={u.id}>
@@ -86,11 +96,19 @@ export default function Users() {
                   <div className="flex items-center gap-2">
                     {u.photo ? <img src={u.photo} className="w-9 h-9 rounded-full object-cover border border-dark-600" />
                       : <div className="w-9 h-9 rounded-full bg-gold-500/20 flex items-center justify-center text-gold-400 text-sm font-bold">{u.name?.[0]}</div>}
-                    <div><p className="font-medium">{u.name}</p><p className="text-gray-500 text-xs">{u.email || u.employee_id}</p></div>
+                    <div><p className="font-medium">{u.name}</p></div>
                   </div>
                 </td>
                 <td><span className={roleColors[u.role]}>{u.role}</span></td>
-                <td className="text-gray-400 font-mono">{u.employee_id || '—'}</td>
+                <td><span className="text-gold-400 font-mono font-semibold text-sm">{u.employee_id || '—'}</span></td>
+                <td>
+                  <div className="flex items-center gap-1">
+                    <span className="font-mono text-sm text-gray-300">{showPwd[u.id] ? (u.plain_password || '—') : '••••••'}</span>
+                    <button onClick={() => setShowPwd(p => ({ ...p, [u.id]: !p[u.id] }))} className="btn-ghost p-1">
+                      {showPwd[u.id] ? <EyeOff size={13} /> : <Eye size={13} />}
+                    </button>
+                  </div>
+                </td>
                 <td className="text-gray-400">{u.phone || '—'}</td>
                 <td className="text-gray-400">{u.last_login ? new Date(u.last_login).toLocaleDateString('en-IN') : 'Never'}</td>
                 <td><span className={u.is_active ? 'badge-green' : 'badge-red'}>{u.is_active ? 'Active' : 'Inactive'}</span></td>
@@ -122,19 +140,27 @@ export default function Users() {
 
           {/* Basic */}
           <div className="grid grid-cols-2 gap-4">
-            <div className="col-span-2"><label className="label">Full Name *</label><input className="input" required value={form.name} onChange={e => f('name', e.target.value)} /></div>
+            <div className="col-span-2"><label className="label">Full Name *</label><input className="input" required value={form.name} onChange={e => { f('name', e.target.value); if (!editing && !form.employee_id) f('employee_id', generatePreviewId(e.target.value, form.role)) }} /></div>
             <div><label className="label">Role *</label>
-              <select className="select" value={form.role} onChange={e => f('role', e.target.value)}>
+              <select className="select" value={form.role} onChange={e => { f('role', e.target.value); if (!editing && form.name) f('employee_id', generatePreviewId(form.name, e.target.value)) }}>
                 <option value="supervisor">Supervisor</option><option value="driver">Driver</option><option value="admin">Admin</option>
               </select>
             </div>
-            <div><label className="label">Employee ID</label><input className="input" value={form.employee_id} onChange={e => f('employee_id', e.target.value)} placeholder="e.g. SUP001" /></div>
+            <div>
+              <label className="label">Employee ID (Login Credential)</label>
+              <input className="input font-mono" value={form.employee_id} onChange={e => f('employee_id', e.target.value)} placeholder="Auto-generated from name" />
+            </div>
             <div><label className="label">Phone</label><input className="input" value={form.phone} onChange={e => f('phone', e.target.value)} /></div>
-            <div><label className="label">Email (optional)</label><input type="email" className="input" value={form.email} onChange={e => f('email', e.target.value)} placeholder="Leave blank to use Employee ID" /></div>
             <div className="col-span-2"><label className="label">{editing ? 'New Password (leave blank to keep)' : 'Password *'}</label>
               <input type="password" className="input" value={form.password} onChange={e => f('password', e.target.value)} placeholder={editing ? 'Leave blank to keep current' : 'Set password'} />
             </div>
           </div>
+          {!editing && (
+            <div className="p-3 bg-blue-500/10 border border-blue-500/30 rounded-xl">
+              <p className="text-blue-400 text-sm font-medium">ℹ️ Share this Employee ID and password with the employee. They will use it to login.</p>
+              {form.employee_id && <p className="text-blue-300 text-xs mt-1 font-mono">Login ID: {form.employee_id}</p>}
+            </div>
+          )}
 
           {/* KYC */}
           <div className="border-t border-dark-700 pt-4">
@@ -186,7 +212,20 @@ export default function Users() {
               <div><h3 className="text-white font-bold text-xl">{viewUser.name}</h3><span className={roleColors[viewUser.role]}>{viewUser.role}</span></div>
             </div>
             <div className="grid grid-cols-2 gap-2 text-sm">
-              {[['Employee ID', viewUser.employee_id], ['Email', viewUser.email], ['Phone', viewUser.phone],
+              <div className="bg-dark-800 rounded-lg p-2.5">
+                <p className="text-gray-400 text-xs">Employee ID</p>
+                <p className="text-gold-400 font-mono font-semibold">{viewUser.employee_id || '—'}</p>
+              </div>
+              <div className="bg-dark-800 rounded-lg p-2.5">
+                <p className="text-gray-400 text-xs mb-1">Password</p>
+                <div className="flex items-center gap-1">
+                  <span className="font-mono text-white">{showPwd['view'] ? (viewUser.plain_password || '—') : '••••••••'}</span>
+                  <button onClick={() => setShowPwd(p => ({ ...p, view: !p.view }))} className="btn-ghost p-1">
+                    {showPwd['view'] ? <EyeOff size={13} /> : <Eye size={13} />}
+                  </button>
+                </div>
+              </div>
+              {[['Phone', viewUser.phone],
                 ['Aadhar', viewUser.aadhar_number], ['Emergency', viewUser.emergency_contact],
                 ['License', viewUser.license_number], ['Lic. Expiry', viewUser.license_expiry],
                 ['Bank', viewUser.bank_name], ['Account', viewUser.bank_account], ['IFSC', viewUser.bank_ifsc],

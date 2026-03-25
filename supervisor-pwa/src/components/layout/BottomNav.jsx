@@ -4,7 +4,7 @@ import { LayoutDashboard, Building2, Users, ClipboardCheck, Package, User } from
 const items = [
   { to: '/',           icon: LayoutDashboard, label: 'Home' },
   { to: '/sites',      icon: Building2,       label: 'Sites' },
-  { to: '/attendance', icon: ClipboardCheck,  label: 'Attendance' },
+  { to: '/attendance', icon: ClipboardCheck,  label: 'Attend' },
   { to: '/labour',     icon: Users,           label: 'Labour' },
   { to: '/godown',     icon: Package,         label: 'Godown' },
   { to: '/profile',    icon: User,            label: 'Profile' },
@@ -12,8 +12,7 @@ const items = [
 
 export default function BottomNav() {
   return (
-    <nav
-      className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md z-40 bg-surface-500/98 backdrop-blur-lg border-t border-white/5"
+    <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md z-40 bg-surface-500/98 backdrop-blur-lg border-t border-white/5"
       style={{ boxShadow: '0 -4px 20px rgba(0,0,0,0.4)' }}>
       <div className="flex items-center justify-around px-1 py-1 safe-area-pb">
         {items.map(({ to, icon: Icon, label }) => (

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Building2, Users, ClipboardCheck, FileText, Plus, ChevronRight, TrendingUp, Package, ArrowRightLeft } from 'lucide-react'
+import { Building2, Users, ClipboardCheck, FileText, Plus, ChevronRight, TrendingUp, Package, ArrowRightLeft, Wrench } from 'lucide-react'
 import api from '../../utils/api'
 import { LoadingPage, StatusBadge } from '../../components/ui'
 import { useAuth } from '../../context/AuthContext'
@@ -35,9 +35,10 @@ export default function Dashboard() {
     { label: 'Mark Attendance', icon: ClipboardCheck, color: 'bg-primary-500/20 text-primary-400', to: '/attendance' },
     { label: 'Add Labour',      icon: Plus,            color: 'bg-green-500/20 text-green-400',    to: '/labour/add' },
     { label: 'Add Expense',     icon: TrendingUp,      color: 'bg-blue-500/20 text-blue-400',      to: '/expenses/add' },
-    { label: 'New Report',      icon: FileText,        color: 'bg-purple-500/20 text-purple-400',  to: '/reports/add' },
+    { label: 'Machines',        icon: Package,         color: 'bg-purple-500/20 text-purple-400',  to: '/machines' },
     { label: 'Material Request',icon: Package,         color: 'bg-orange-500/20 text-orange-400',  to: '/godown' },
-    { label: 'Salary',          icon: TrendingUp,      color: 'bg-gold-500/20 text-yellow-400',    to: '/salary' },
+    { label: 'Salary', icon: TrendingUp, color: 'bg-gold-500/20 text-yellow-400', to: '/salary' },
+    { label: 'Machines', icon: Wrench, color: 'bg-orange-500/20 text-orange-400', to: '/machines' },
   ]
 
   return (
@@ -76,12 +77,12 @@ export default function Dashboard() {
       {/* Stats */}
       <div className="grid grid-cols-2 gap-3">
         {[
-          { label:'Active Sites',  value:s.activeSites,  icon:Building2,    color:'text-primary-400', bg:'bg-primary-500/20' },
-          { label:'Today Present', value:s.todayPresent, icon:ClipboardCheck,color:'text-green-400',   bg:'bg-green-500/20' },
-          { label:'Total Labour',  value:s.totalLabour,  icon:Users,        color:'text-blue-400',    bg:'bg-blue-500/20' },
-          { label:'Pending Tasks', value:s.pendingTasks, icon:FileText,     color:'text-orange-400',  bg:'bg-orange-500/20' },
-        ].map(({ label,value,icon:Icon,color,bg }) => (
-          <div key={label} className="card-sm flex items-center gap-3">
+          { label:'Active Sites',  value:s.activeSites,  icon:Building2,    color:'text-primary-400', bg:'bg-primary-500/20', to:'/sites' },
+          { label:'Today Present', value:s.todayPresent, icon:ClipboardCheck,color:'text-green-400',   bg:'bg-green-500/20',  to:'/attendance' },
+          { label:'Total Labour',  value:s.totalLabour,  icon:Users,        color:'text-blue-400',    bg:'bg-blue-500/20',   to:'/labour' },
+          { label:'Pending Tasks', value:s.pendingTasks, icon:FileText,     color:'text-orange-400',  bg:'bg-orange-500/20', to:'/reports' },
+        ].map(({ label,value,icon:Icon,color,bg,to }) => (
+          <button key={label} onClick={() => navigate(to)} className="card-sm flex items-center gap-3 w-full text-left active:scale-95 transition-transform cursor-pointer">
             <div className={`w-10 h-10 rounded-xl ${bg} flex items-center justify-center flex-shrink-0`}>
               <Icon size={18} className={color}/>
             </div>
@@ -89,7 +90,7 @@ export default function Dashboard() {
               <p className="text-gray-400 text-xs">{label}</p>
               <p className="text-white font-bold text-xl">{value ?? 0}</p>
             </div>
-          </div>
+          </button>
         ))}
       </div>
 

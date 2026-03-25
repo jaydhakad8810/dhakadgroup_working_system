@@ -80,11 +80,13 @@ export default function LabourDetail() {
           </div>
 
           {/* Documents */}
-          {(labour.aadhar_photo || labour.custom_doc_photo) && (
+          {(labour.aadhar_photo || labour.pan_photo || labour.bank_passbook_photo || labour.custom_doc_photo) && (
             <div className="card">
               <h3 className="text-white font-semibold mb-3">Documents</h3>
               <div className="grid grid-cols-2 gap-4">
                 {labour.aadhar_photo && <div><p className="text-gray-400 text-xs mb-1">Aadhar Photo</p><img src={labour.aadhar_photo} className="w-full h-28 object-cover rounded-xl" /></div>}
+                {labour.pan_photo && <div><p className="text-gray-400 text-xs mb-1">PAN Card Photo</p><img src={labour.pan_photo} className="w-full h-28 object-cover rounded-xl" /></div>}
+                {labour.bank_passbook_photo && <div><p className="text-gray-400 text-xs mb-1">Bank Passbook</p><img src={labour.bank_passbook_photo} className="w-full h-28 object-cover rounded-xl" /></div>}
                 {labour.custom_doc_photo && <div><p className="text-gray-400 text-xs mb-1">{labour.custom_doc_name || 'Document'}</p><img src={labour.custom_doc_photo} className="w-full h-28 object-cover rounded-xl" /></div>}
               </div>
             </div>
@@ -158,6 +160,13 @@ export default function LabourDetail() {
             <div><label className="label">Bank Account</label><input className="input" value={form.bank_account || ''} onChange={e => f('bank_account', e.target.value)} /></div>
             <div><label className="label">Bank IFSC</label><input className="input" value={form.bank_ifsc || ''} onChange={e => f('bank_ifsc', e.target.value)} /></div>
             <div><label className="label">Bank Name</label><input className="input" value={form.bank_name || ''} onChange={e => f('bank_name', e.target.value)} /></div>
+            <div className="col-span-2">
+              <label className="label">Bank Passbook Photo</label>
+              <DocUpload value={form.bank_passbook_photo} onChange={v => f('bank_passbook_photo', v)} folder="dgsystem/labour-docs" label="Upload passbook photo" />
+              {form.bank_passbook_photo && (
+                <a href={form.bank_passbook_photo} target="_blank" rel="noreferrer" className="text-blue-400 text-xs mt-1 inline-block hover:underline">View Passbook</a>
+              )}
+            </div>
             <div className="col-span-2"><label className="label">Address</label><textarea className="input" rows={2} value={form.address || ''} onChange={e => f('address', e.target.value)} /></div>
           </div>
 
@@ -166,6 +175,7 @@ export default function LabourDetail() {
             <p className="text-white font-medium mb-3">Document Photos</p>
             <div className="grid grid-cols-2 gap-4">
               <div><label className="label">Aadhar Photo</label><DocUpload value={form.aadhar_photo} onChange={v => f('aadhar_photo', v)} folder="dgsystem/labour-docs" label="Upload Aadhar" /></div>
+              <div><label className="label">PAN Card Photo</label><DocUpload value={form.pan_photo} onChange={v => f('pan_photo', v)} folder="dgsystem/labour-docs" label="Upload PAN card" /></div>
               <div>
                 <label className="label">Custom Doc Name</label>
                 <input className="input mb-2" value={form.custom_doc_name || ''} onChange={e => f('custom_doc_name', e.target.value)} placeholder="e.g. Driving License" />

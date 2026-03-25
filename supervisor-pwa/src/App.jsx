@@ -17,10 +17,11 @@ import SalaryView      from './pages/salary/SalaryView'
 import Expenses        from './pages/expenses/Expenses'
 import AddExpense      from './pages/expenses/AddExpense'
 import VisitReports    from './pages/reports/VisitReports'
-import AddReport       from './pages/reports/AddReport'
 import Notifications   from './pages/notifications/Notifications'
 import Profile         from './pages/profile/Profile'
 import GodownSupervisor from './pages/godown/GodownSupervisor'
+import DeliveryConfirmation from './pages/godown/DeliveryConfirmation'
+import MachineSupervisor from './pages/machines/MachineSupervisor'
 
 function Guard({ children }) {
   const { user } = useAuth()
@@ -60,8 +61,9 @@ export default function App() {
           <Route path="/expenses"           element={<Guard><AppLayout><Expenses /></AppLayout></Guard>} />
           <Route path="/expenses/add"       element={<Guard><AppLayout><AddExpense /></AppLayout></Guard>} />
           <Route path="/reports"            element={<Guard><AppLayout><VisitReports /></AppLayout></Guard>} />
-          <Route path="/reports/add"        element={<Guard><AppLayout><AddReport /></AppLayout></Guard>} />
           <Route path="/godown"             element={<Guard><AppLayout><GodownSupervisor /></AppLayout></Guard>} />
+          <Route path="/deliveries"         element={<Guard><AppLayout><DeliveryConfirmation /></AppLayout></Guard>} />
+          <Route path="/machines"           element={<Guard><AppLayout><MachineSupervisor /></AppLayout></Guard>} />
           <Route path="/notifications"      element={<Guard><AppLayout><Notifications /></AppLayout></Guard>} />
           <Route path="/profile"            element={<Guard><AppLayout><Profile /></AppLayout></Guard>} />
           <Route path="*" element={<Navigate to="/" replace />} />

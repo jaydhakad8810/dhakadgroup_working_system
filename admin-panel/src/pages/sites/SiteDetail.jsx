@@ -81,6 +81,15 @@ export default function SiteDetail() {
           <InfoRow label="Expected End" value={site.expected_end_date} />
           <InfoRow label="City" value={`${site.city || ''} ${site.state || ''}`.trim()} />
           {site.latitude && <InfoRow label="GPS" value={`${parseFloat(site.latitude).toFixed(4)}, ${parseFloat(site.longitude).toFixed(4)} (${site.gps_radius_meters}m radius)`} valueClass="text-green-400" />}
+          {site.latitude && site.longitude && (
+            <div className="py-2">
+              <a href={`https://www.google.com/maps?q=${site.latitude},${site.longitude}`}
+                 target="_blank" rel="noreferrer"
+                 className="btn-outline text-sm inline-flex items-center gap-1">
+                🗺️ Open in Google Maps →
+              </a>
+            </div>
+          )}
         </div>
 
         <div className="space-y-4">

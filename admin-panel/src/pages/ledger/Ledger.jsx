@@ -18,14 +18,17 @@ export default function Ledger() {
   const [form, setForm] = useState({ entry_date: new Date().toISOString().split('T')[0], type: 'debit' })
   const [payForm, setPayForm] = useState({ payment_date: new Date().toISOString().split('T')[0], payment_mode: 'bank_transfer' })
   const [saving, setSaving] = useState(false)
+  const [pendingAdvances, setPendingAdvances] = useState([])
+  const [approvingAdv, setApprovingAdv] = useState(null)
   const f = (k, v) => setForm(p => ({ ...p, [k]: v }))
   const pf = (k, v) => setPayForm(p => ({ ...p, [k]: v }))
 
   const load = async () => {
     setLoading(true)
     try {
-      const [s] = await Promise.all([api.get('/sites')])
+      const [s, adv] = await Promise.all([api.get('/sites'), api.get('/labour/advances/pending')])
       setSites(s.data)
+      setPendingAdvances(adv.data)
       if (filterSite) {
         const params = new URLSearchParams()
         if (filterFrom) params.append('from', filterFrom)
@@ -39,6 +42,16 @@ export default function Ledger() {
     setLoading(false)
   }
   useEffect(() => { load() }, [filterSite, filterFrom, filterTo])
+
+  const approveAdvance = async (advId) => {
+    setApprovingAdv(advId)
+    try {
+      await api.patch(`/labour/advances/${advId}/approve`)
+      toast.success('Advance approved and ledger updated')
+      load()
+    } catch { toast.error('Approval failed') }
+    setApprovingAdv(null)
+  }
 
   const handleEntry = async (e) => {
     e.preventDefault(); setSaving(true)
@@ -110,6 +123,35 @@ export default function Ledger() {
       )}
 
       {/* Tabs */}
+      {pendingAdvances.length > 0 && (
+        <div>
+          <h3 className="font-semibold mb-3" style={{ color: 'var(--gold)' }}>Pending Supervisor Advances ({pendingAdvances.length})</h3>
+          <div className="table-container">
+            <table>
+              <thead><tr><th>Labour</th><th>Site</th><th>Supervisor</th><th>Amount</th><th>Date</th><th>Notes</th><th>Action</th></tr></thead>
+              <tbody>
+                {pendingAdvances.map(adv => (
+                  <tr key={adv.id}>
+                    <td className="font-medium">{adv.labour?.name || '—'}</td>
+                    <td style={{ color: 'var(--muted)' }}>{adv.labour?.site?.name || '—'}</td>
+                    <td style={{ color: 'var(--muted)' }}>{adv.givenBy?.name || '—'}</td>
+                    <td className="text-orange-400 font-semibold">₹{parseFloat(adv.amount).toLocaleString('en-IN')}</td>
+                    <td style={{ color: 'var(--muted)' }}>{new Date(adv.createdAt).toLocaleDateString('en-IN')}</td>
+                    <td style={{ color: 'var(--muted)' }}>{adv.notes || '—'}</td>
+                    <td>
+                      <button onClick={() => approveAdvance(adv.id)} disabled={approvingAdv === adv.id}
+                        className="btn-gold text-xs px-3 py-1">
+                        {approvingAdv === adv.id ? 'Approving...' : 'Approve'}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
       {statement && (
         <>
           <div className="flex gap-1 p-1 rounded-xl w-fit" style={{ background: 'var(--bg2)' }}>

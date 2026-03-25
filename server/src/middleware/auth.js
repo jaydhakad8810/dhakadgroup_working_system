@@ -8,6 +8,14 @@ const auth = async (req, res, next) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const user = await User.findByPk(decoded.id);
     if (!user || !user.is_active) return res.status(401).json({ message: 'Unauthorized' });
+    if (decoded.role === 'supervisor' && decoded.session_token) {
+      if (user.active_session_token && user.active_session_token !== decoded.session_token) {
+        return res.status(401).json({
+          message: 'You have been logged out. Another device logged in.',
+          code: 'SESSION_EXPIRED'
+        });
+      }
+    }
     req.user = user;
     next();
   } catch {

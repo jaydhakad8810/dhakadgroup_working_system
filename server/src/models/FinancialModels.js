@@ -87,6 +87,18 @@ const DailyExpense = sequelize.define('DailyExpense', {
   added_by: { type: DataTypes.UUID, allowNull: true },
 }, { tableName: 'daily_expenses' });
 
+// ── Driver Expense ────────────────────────────────────────────────────────────
+const DriverExpense = sequelize.define('DriverExpense', {
+  id: { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
+  driver_id: { type: DataTypes.UUID, allowNull: false },
+  trip_id: { type: DataTypes.UUID, allowNull: true },
+  category: { type: DataTypes.STRING(30), allowNull: false },
+  amount: { type: DataTypes.DECIMAL(10, 2), allowNull: false },
+  description: { type: DataTypes.TEXT, allowNull: true },
+  expense_date: { type: DataTypes.DATEONLY, allowNull: false },
+  photo_url: { type: DataTypes.TEXT, allowNull: true },
+}, { tableName: 'driver_expenses' });
+
 // ── Notification ──────────────────────────────────────────────────────────────
 const Notification = sequelize.define('Notification', {
   id: { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
@@ -109,6 +121,7 @@ const VisitReport = sequelize.define('VisitReport', {
   weather: { type: DataTypes.STRING(50), allowNull: true },
   labour_count: { type: DataTypes.INTEGER, allowNull: true },
   description: { type: DataTypes.TEXT, allowNull: true },
+  note_for_supervisor: { type: DataTypes.TEXT, allowNull: true },
   private_note: { type: DataTypes.TEXT, allowNull: true },
   supervisor_rating: { type: DataTypes.INTEGER, defaultValue: 0 },
   next_visit_date: { type: DataTypes.DATEONLY, allowNull: true },
@@ -159,6 +172,6 @@ const BOQMaterial = sequelize.define('BOQMaterial', {
 
 module.exports = {
   SalaryRecord, AdvancePayment, LabourTransfer, SiteLedger, ClientPayment,
-  ExpenseCategory, DailyExpense, Notification, VisitReport, VisitTask,
+  ExpenseCategory, DailyExpense, DriverExpense, Notification, VisitReport, VisitTask,
   BOQLabour, BOQMaterial,
 };

@@ -5,7 +5,7 @@ const Labour = require('./Labour');
 const Attendance = require('./Attendance');
 const {
   SalaryRecord, AdvancePayment, LabourTransfer, SiteLedger, ClientPayment,
-  ExpenseCategory, DailyExpense, Notification, VisitReport, VisitTask,
+  ExpenseCategory, DailyExpense, DriverExpense, Notification, VisitReport, VisitTask,
   BOQLabour, BOQMaterial,
 } = require('./FinancialModels');
 const { MaterialCategory, Godown, GodownStock, StockHistory } = require('./GodownModels');
@@ -32,6 +32,7 @@ Labour.hasMany(Attendance, { foreignKey: 'labour_id', as: 'attendance' });
 SalaryRecord.belongsTo(Labour, { foreignKey: 'labour_id', as: 'labour' });
 SalaryRecord.belongsTo(Site, { foreignKey: 'site_id', as: 'site' });
 AdvancePayment.belongsTo(Labour, { foreignKey: 'labour_id', as: 'labour' });
+AdvancePayment.belongsTo(User, { foreignKey: 'given_by', as: 'givenBy' });
 
 // Labour Transfer
 LabourTransfer.belongsTo(Labour, { foreignKey: 'labour_id', as: 'labour' });
@@ -44,6 +45,11 @@ ClientPayment.belongsTo(Site, { foreignKey: 'site_id', as: 'site' });
 // Expenses
 DailyExpense.belongsTo(Site, { foreignKey: 'site_id', as: 'site' });
 DailyExpense.belongsTo(ExpenseCategory, { foreignKey: 'category_id', as: 'category' });
+
+// Driver Expenses
+DriverExpense.belongsTo(Driver, { foreignKey: 'driver_id', as: 'driver' });
+DriverExpense.belongsTo(Trip, { foreignKey: 'trip_id', as: 'trip' });
+Driver.hasMany(DriverExpense, { foreignKey: 'driver_id', as: 'expenses' });
 
 // Visit Reports
 VisitReport.belongsTo(Site, { foreignKey: 'site_id', as: 'site' });
@@ -71,13 +77,14 @@ MachineRequest.belongsTo(Machine, { foreignKey: 'machine_id', as: 'machine' });
 // Drivers & Vehicles
 Vehicle.belongsTo(Driver, { foreignKey: 'assigned_driver_id', as: 'driver' });
 Driver.hasMany(Vehicle, { foreignKey: 'assigned_driver_id', as: 'vehicles' });
+Driver.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
 Trip.belongsTo(Vehicle, { foreignKey: 'vehicle_id', as: 'vehicle' });
 Trip.belongsTo(Driver, { foreignKey: 'driver_id', as: 'driver' });
 
 module.exports = {
   User, Organisation, Site, Labour, Attendance,
   SalaryRecord, AdvancePayment, LabourTransfer, SiteLedger, ClientPayment,
-  ExpenseCategory, DailyExpense, Notification, VisitReport, VisitTask,
+  ExpenseCategory, DailyExpense, DriverExpense, Notification, VisitReport, VisitTask,
   BOQLabour, BOQMaterial,
   MaterialCategory, Godown, GodownStock, StockHistory,
   MachineCategory, Machine, MachineRequest,

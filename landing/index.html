@@ -54,11 +54,28 @@ section{padding:70px 5%}
 .afeat::before{content:'✓';width:20px;height:20px;min-width:20px;background:rgba(201,168,76,.15);color:var(--gold);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700}
 .projects-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:22px;margin-top:44px}
 .pcard{background:var(--d3);border:1px solid rgba(255,255,255,.06);border-radius:18px;overflow:hidden;transition:all .3s;cursor:pointer}
-.pcard:hover{transform:translateY(-4px);border-color:rgba(201,168,76,.3);box-shadow:0 20px 50px rgba(0,0,0,.4)}
+.pcard:not(.pcard-flip):hover{transform:translateY(-4px);border-color:rgba(201,168,76,.3);box-shadow:0 20px 50px rgba(0,0,0,.4)}
 .pimg{height:210px;background:var(--d4);position:relative;overflow:hidden}
 .pimg img{width:100%;height:100%;object-fit:cover;transition:transform .5s}
-.pcard:hover .pimg img{transform:scale(1.06)}
+.pcard:not(.pcard-flip):hover .pimg img{transform:scale(1.06)}
 .pimg-ph{width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:56px;background:linear-gradient(135deg,#1a1a2e,#16213e)}
+/* 3D flip card */
+.pcard-flip{perspective:900px;background:none;border:none;height:316px}
+.pcard-inner{position:relative;width:100%;height:100%;transition:transform .6s ease;transform-style:preserve-3d}
+.pcard-flip:hover .pcard-inner,.pcard-flip.flipped .pcard-inner{transform:rotateY(180deg)}
+.pcard-front,.pcard-back{position:absolute;top:0;left:0;width:100%;height:100%;backface-visibility:hidden;-webkit-backface-visibility:hidden;border-radius:18px;overflow:hidden;background:var(--d3);border:1px solid rgba(255,255,255,.06)}
+.pcard-back{transform:rotateY(180deg);display:flex;flex-direction:column}
+.ba-container{display:flex;height:210px;flex-shrink:0}
+.ba-side{flex:1;position:relative;overflow:hidden}
+.ba-side:first-child{border-right:2px solid rgba(255,255,255,.08)}
+.ba-side img{width:100%;height:100%;object-fit:cover}
+.ba-ph{width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:38px;background:linear-gradient(135deg,#1a1a2e,#16213e)}
+.ba-label{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.78);color:#fff;font-size:9px;font-weight:700;padding:3px 10px;border-radius:50px;letter-spacing:1px;text-transform:uppercase;white-space:nowrap}
+.back-body{padding:14px 16px;flex:1;display:flex;flex-direction:column;justify-content:center}
+.back-body h3{font-size:15px;font-weight:700;margin-bottom:4px;color:#fff}
+.back-body .bmeta{font-size:12px;color:var(--muted);margin-bottom:6px}
+.flip-hint{font-size:10px;color:var(--gold);font-weight:600;letter-spacing:.3px}
+.pcard-flip:hover{box-shadow:0 20px 50px rgba(0,0,0,.5);border-radius:18px}
 .pstatus{position:absolute;top:10px;left:10px;padding:4px 10px;border-radius:50px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px}
 .ongoing{background:rgba(249,115,22,.2);color:var(--orange);border:1px solid rgba(249,115,22,.3)}
 .completed{background:rgba(34,197,94,.2);color:#22c55e;border:1px solid rgba(34,197,94,.3)}
@@ -179,9 +196,7 @@ footer{background:var(--d2);border-top:1px solid rgba(255,255,255,.05);padding:4
     <h2 class="sec-title">Featured <span class="g">Projects</span></h2>
     <p class="sec-sub">Landmark construction projects delivered with precision and quality.</p>
     <div class="projects-grid" id="pg">
-      <div class="pcard fi"><div class="pimg"><div class="pimg-ph">🏢</div><span class="pstatus completed">Completed</span></div><div class="pbody"><h3>Residential Complex — Pune</h3><p>120-unit modern residential complex with premium amenities in Kothrud, Pune.</p><div class="pmeta"><span>📍 Pune</span><span>🏠 Residential</span></div></div></div>
-      <div class="pcard fi"><div class="pimg"><div class="pimg-ph">🏭</div><span class="pstatus ongoing">Ongoing</span></div><div class="pbody"><h3>Industrial Warehouse — Nashik</h3><p>50,000 sq ft industrial facility for a leading logistics company.</p><div class="pmeta"><span>📍 Nashik</span><span>🏭 Industrial</span></div></div></div>
-      <div class="pcard fi"><div class="pimg"><div class="pimg-ph">🏗️</div><span class="pstatus ongoing">Ongoing</span></div><div class="pbody"><h3>Commercial Complex — Mumbai</h3><p>Premium commercial development in Mumbai's business district.</p><div class="pmeta"><span>📍 Mumbai</span><span>🏢 Commercial</span></div></div></div>
+      <div id="pg-loader" style="grid-column:1/-1;text-align:center;padding:48px 0;color:var(--muted);font-size:14px">Loading projects…</div>
     </div>
   </div>
 </section>
@@ -265,7 +280,46 @@ const sb=document.getElementById('sb');if(sb)cobs.observe(sb);
 window.addEventListener('scroll',()=>{const n=document.getElementById('nav');n.style.padding=window.scrollY>40?'10px 5%':'14px 5%'});
 function om(){document.getElementById('mn').classList.add('open');document.body.style.overflow='hidden'}
 function cm(){document.getElementById('mn').classList.remove('open');document.body.style.overflow=''}
-async function lp(){try{const r=await fetch('http://localhost:5000/api/website/public/projects');if(!r.ok)return;const ps=await r.json();if(!ps.length)return;const g=document.getElementById('pg');g.innerHTML=ps.map(p=>`<div class="pcard fi"><div class="pimg">${p.cover_photo?`<img src="${p.cover_photo}" alt="${p.title}" loading="lazy"/>`:'<div class="pimg-ph">🏗️</div>'}<span class="pstatus ${p.status}">${p.status}</span></div><div class="pbody"><h3>${p.title}</h3><p>${p.description||''}</p><div class="pmeta">${p.location?`<span>📍 ${p.location}</span>`:''}</div></div></div>`).join('');g.querySelectorAll('.fi').forEach(el=>obs.observe(el))}catch{}}
+async function lp(){
+  const g=document.getElementById('pg');
+  try{
+    const r=await fetch('https://api.dhakadgroup.in/api/website/public/projects');
+    if(!r.ok){g.innerHTML='<div style="grid-column:1/-1;text-align:center;padding:48px 0;color:var(--muted);font-size:14px">No projects found.</div>';return;}
+    const ps=await r.json();
+    if(!ps.length){g.innerHTML='<div style="grid-column:1/-1;text-align:center;padding:48px 0;color:var(--muted);font-size:14px">No projects found.</div>';return;}
+    const esc=s=>String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    g.innerHTML=ps.map(p=>{
+      const imgF=p.cover_photo?`<img src="${esc(p.cover_photo)}" alt="${esc(p.title)}" loading="lazy"/>`:'<div class="pimg-ph">🏗️</div>';
+      const badge=`<span class="pstatus ${p.status==='completed'?'completed':'ongoing'}">${p.status}</span>`;
+      const meta=p.location?`<div class="pmeta"><span>📍 ${esc(p.location)}</span></div>`:'';
+      if(p.status==='completed'){
+        const bImg=p.before_photo?`<img src="${esc(p.before_photo)}" alt="Before" loading="lazy"/>`:'<div class="ba-ph">🏚️</div>';
+        const aImg=p.after_photo?`<img src="${esc(p.after_photo)}" alt="After" loading="lazy"/>`:'<div class="ba-ph">🏗️</div>';
+        return `<div class="pcard pcard-flip fi" role="button" aria-label="Flip card: ${esc(p.title)}">
+          <div class="pcard-inner">
+            <div class="pcard-front">
+              <div class="pimg">${imgF}${badge}</div>
+              <div class="pbody"><h3>${esc(p.title)}</h3>${p.description?`<p>${esc(p.description)}</p>`:''}${meta}<p class="flip-hint">✦ Hover / tap to see Before &amp; After</p></div>
+            </div>
+            <div class="pcard-back">
+              <div class="ba-container">
+                <div class="ba-side">${bImg}<span class="ba-label">Before</span></div>
+                <div class="ba-side">${aImg}<span class="ba-label">After</span></div>
+              </div>
+              <div class="back-body"><h3>${esc(p.title)}</h3>${p.location?`<p class="bmeta">📍 ${esc(p.location)}</p>`:''}<p class="flip-hint">✦ Tap to flip back</p></div>
+            </div>
+          </div>
+        </div>`;
+      }
+      return `<div class="pcard fi"><div class="pimg">${imgF}${badge}</div><div class="pbody"><h3>${esc(p.title)}</h3>${p.description?`<p>${esc(p.description)}</p>`:''}${meta}</div></div>`;
+    }).join('');
+    g.querySelectorAll('.fi').forEach(el=>obs.observe(el));
+    g.querySelectorAll('.pcard-flip').forEach(card=>{
+      card.addEventListener('click',()=>card.classList.toggle('flipped'));
+      card.addEventListener('touchstart',()=>{},{ passive:true });
+    });
+  }catch(e){g.innerHTML='<div style="grid-column:1/-1;text-align:center;padding:48px 0;color:var(--muted);font-size:14px">Could not load projects.</div>';}
+}
 lp();
 </script>
 </body>

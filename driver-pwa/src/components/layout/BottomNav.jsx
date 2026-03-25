@@ -1,11 +1,11 @@
 import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, Route, Package, DollarSign, User } from 'lucide-react'
+import { LayoutDashboard, Route, Package, Receipt, User } from 'lucide-react'
 
 const items = [
   { to: '/',          icon: LayoutDashboard, label: 'Home' },
   { to: '/trips',     icon: Route,           label: 'Trips' },
   { to: '/material',  icon: Package,         label: 'Material' },
-  { to: '/salary',    icon: DollarSign,      label: 'Salary' },
+  { to: '/expenses',  icon: Receipt,         label: 'Expenses' },
   { to: '/profile',   icon: User,            label: 'Profile' },
 ]
 

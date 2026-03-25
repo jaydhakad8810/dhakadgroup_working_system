@@ -5,9 +5,10 @@ import toast from 'react-hot-toast'
 import { Eye, EyeOff, Loader2 } from 'lucide-react'
 
 export default function Login() {
-  const [email, setEmail] = useState('')
+  const [identifier, setIdentifier] = useState('')
   const [password, setPassword] = useState('')
   const [showPw, setShowPw] = useState(false)
+  const [rememberMe, setRememberMe] = useState(false)
   const [loading, setLoading] = useState(false)
   const { login } = useAuth()
   const navigate = useNavigate()
@@ -16,7 +17,11 @@ export default function Login() {
     e.preventDefault()
     setLoading(true)
     try {
-      await login(email, password)
+      await login(identifier, password)
+      if (!rememberMe) {
+        const token = localStorage.getItem('sv_token')
+        if (token) { sessionStorage.setItem('sv_token', token); localStorage.removeItem('sv_token') }
+      }
       toast.success('Welcome back!')
       navigate('/')
     } catch (err) {
@@ -42,9 +47,10 @@ export default function Login() {
           {/* Form */}
           <div className="space-y-4">
             <div>
-              <label className="label">Email Address</label>
-              <input type="email" value={email} onChange={e => setEmail(e.target.value)}
-                className="input" placeholder="your@email.com" required autoComplete="email" />
+              <label className="label">Employee ID</label>
+              <input value={identifier} onChange={e => setIdentifier(e.target.value)}
+                className="input" placeholder="Enter your Employee ID (e.g. SUP-RAHUL-001)" required autoComplete="username" />
+              <p className="text-gray-500 text-xs mt-1">Login with your Employee ID provided by admin</p>
             </div>
             <div>
               <label className="label">Password</label>
@@ -58,7 +64,14 @@ export default function Login() {
                 </button>
               </div>
             </div>
-            <button onClick={handleSubmit} disabled={loading || !email || !password}
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <input
+                type="checkbox" checked={rememberMe} onChange={e => setRememberMe(e.target.checked)}
+                className="w-4 h-4 rounded cursor-pointer accent-orange-500"
+              />
+              <span className="text-sm text-gray-400">Remember me</span>
+            </label>
+            <button onClick={handleSubmit} disabled={loading || !identifier || !password}
               className="btn-primary w-full py-4 text-base mt-2">
               {loading ? <Loader2 size={20} className="animate-spin" /> : null}
               {loading ? 'Signing in...' : 'Sign In'}

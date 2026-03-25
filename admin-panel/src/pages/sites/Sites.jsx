@@ -104,6 +104,14 @@ export default function Sites() {
                     {site.supervisor && <p>👷 {site.supervisor.name}</p>}
                     {site.contract_type && <p>📄 {site.contract_type.replace(/_/g, ' + ')}</p>}
                     {site.latitude && <p className="text-xs text-green-400">📍 GPS: {parseFloat(site.latitude).toFixed(4)}, {parseFloat(site.longitude).toFixed(4)} ({site.gps_radius_meters}m)</p>}
+                    {site.latitude && site.longitude && (
+                      <a href={`https://www.google.com/maps?q=${site.latitude},${site.longitude}`}
+                         target="_blank" rel="noreferrer"
+                         className="text-blue-400 text-xs flex items-center gap-1 hover:underline"
+                         onClick={e => e.stopPropagation()}>
+                        📍 Open in Maps
+                      </a>
+                    )}
                   </div>
                   <div className="flex gap-2">
                     <Link to={`/sites/${site.id}`} className="btn-outline flex-1 justify-center text-sm py-1.5"><Eye size={14} />View</Link>
@@ -162,8 +170,15 @@ export default function Sites() {
           <div className="p-4 rounded-xl border" style={{ borderColor: 'var(--border)', background: 'var(--bg3)' }}>
             <div className="flex items-center justify-between mb-3">
               <p className="font-medium text-sm" style={{ color: 'var(--text)' }}>📍 GPS Location (for attendance radius)</p>
-              <button type="button" onClick={captureGPS} disabled={gpsLoading}
-                className="btn-outline text-xs py-1.5 px-3">{gpsLoading ? 'Getting...' : 'Capture GPS'}</button>
+              <div className="flex gap-2">
+                <button type="button" onClick={captureGPS} disabled={gpsLoading}
+                  className="btn-outline text-xs py-1.5 px-3">{gpsLoading ? 'Getting...' : 'Capture GPS'}</button>
+                {form.latitude && form.longitude && (
+                  <button type="button"
+                    onClick={() => window.open(`https://www.google.com/maps?q=${form.latitude},${form.longitude}`, '_blank')}
+                    className="btn-outline text-xs py-1.5 px-3">Open in Maps 🗺️</button>
+                )}
+              </div>
             </div>
             <div className="grid grid-cols-3 gap-3">
               <div><label className="label">Latitude</label><input className="input" value={form.latitude || ''} onChange={e => f('latitude', e.target.value)} placeholder="Auto-filled" /></div>

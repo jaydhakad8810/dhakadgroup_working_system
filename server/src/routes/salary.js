@@ -27,7 +27,7 @@ router.post('/generate', supervisorOrAdmin, async (req, res) => {
     });
 
     const gross_salary = total_days * parseFloat(labour.daily_wage);
-    const advances = await AdvancePayment.findAll({ where: { labour_id, deducted: false } });
+    const advances = await AdvancePayment.findAll({ where: { labour_id, deducted: true, deducted_month: month, deducted_year: year } });
     const advance_deduction = advances.reduce((sum, a) => sum + parseFloat(a.amount), 0);
     const net_salary = Math.max(0, gross_salary - advance_deduction);
 
@@ -68,7 +68,7 @@ router.post('/generate-range', supervisorOrAdmin, async (req, res) => {
       });
 
       const gross_salary = total_days * parseFloat(labour.daily_wage);
-      const advances = await AdvancePayment.findAll({ where: { labour_id: labour.id, deducted: false } });
+      const advances = await AdvancePayment.findAll({ where: { labour_id: labour.id, deducted: true, createdAt: { [Op.between]: [from_date + ' 00:00:00', to_date + ' 23:59:59'] } } });
       const advance_deduction = advances.reduce((sum, a) => sum + parseFloat(a.amount), 0);
       const net_salary = Math.max(0, gross_salary - advance_deduction);
 
@@ -109,7 +109,7 @@ router.post('/generate-bulk', supervisorOrAdmin, async (req, res) => {
         else if (a.status === 'half_day') total_days += 0.5;
       });
       const gross_salary = total_days * parseFloat(labour.daily_wage);
-      const advances = await AdvancePayment.findAll({ where: { labour_id: labour.id, deducted: false } });
+      const advances = await AdvancePayment.findAll({ where: { labour_id: labour.id, deducted: true, deducted_month: month, deducted_year: year } });
       const advance_deduction = advances.reduce((sum, a) => sum + parseFloat(a.amount), 0);
       const net_salary = Math.max(0, gross_salary - advance_deduction);
       const [record] = await SalaryRecord.findOrCreate({
@@ -154,6 +154,40 @@ router.patch('/:id/pay', supervisorOrAdmin, async (req, res) => {
       { where: { labour_id: record.labour_id, deducted: false } }
     );
     res.json(record);
+  } catch (e) { res.status(500).json({ message: e.message }); }
+});
+
+
+
+// Get all advance payments
+router.get('/advances', async (req, res) => {
+  try {
+    const where = {};
+    if (req.query.labour_id) where.labour_id = req.query.labour_id;
+    if (req.query.site_id) where.site_id = req.query.site_id;
+    const advances = await AdvancePayment.findAll({
+      where,
+      include: [{ model: Labour, as: 'labour', attributes: ['id', 'name'] }],
+      order: [['createdAt', 'DESC']]
+    });
+    res.json(advances);
+  } catch (e) { res.status(500).json({ message: e.message }); }
+});
+
+// Record new advance payment
+router.post('/advance', async (req, res) => {
+  try {
+    const { labour_id, amount, date, reason, payment_mode, site_id } = req.body;
+    if (!labour_id || !amount) return res.status(400).json({ message: 'Labour and amount required' });
+    const advance = await AdvancePayment.create({
+      labour_id, amount: parseFloat(amount),
+      date: date || new Date().toISOString().split('T')[0],
+      reason, payment_mode: payment_mode || 'cash',
+      site_id: site_id || null,
+      deducted: false,
+      recorded_by: req.user.id
+    });
+    res.status(201).json(advance);
   } catch (e) { res.status(500).json({ message: e.message }); }
 });
 

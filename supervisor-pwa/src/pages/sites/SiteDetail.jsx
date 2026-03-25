@@ -36,11 +36,6 @@ export default function SiteDetail() {
           </div>
           <StatusBadge status={site.status} />
         </div>
-        {site.contract_value && (
-          <p className="text-primary-400 font-bold text-lg mt-2">
-            ₹{parseFloat(site.contract_value).toLocaleString('en-IN')}
-          </p>
-        )}
       </div>
 
       {/* Quick Actions */}
