@@ -4,15 +4,7 @@ import {
   ArrowRightLeft, Camera, CheckCircle, ChevronRight,
   Clock, Download, FileText, Loader2, LogOut,
   Play, Plus, Save, Trash2, Users, X, XCircle
-import { useEffect, useState, useRef } from 'react'
-import { useSearchParams } from 'react-router-dom'
-import {
-  CheckCircle, XCircle, Clock, Save, Loader2, ArrowRightLeft,
-  Camera, Upload, Plus, Trash2, ClipboardCheck, Package, FileText
 } from 'lucide-react'
-import api from '../../utils/api'
-import toast from 'react-hot-toast'
-import { EmptyState, Modal } from '../../components/ui'
 
 // ─── upload helper ─────────────────────────────────────────────────────────
 async function uploadPhoto(file, folder = 'attendance') {
