@@ -202,6 +202,7 @@ export default function MarkAttendance() {
 
   // ── Save bulk attendance
   const saveBulkAttendance = async () => {
+    if (!selectedSite) return toast.error('Please select a site first')
     setSavingAttendance(true)
     try {
       const records = labourList.map((l) => ({
@@ -210,7 +211,7 @@ export default function MarkAttendance() {
         date: attendanceDate,
         site_id: selectedSite,
       }))
-      const res = await api.post('/attendance/bulk', { records })
+      const res = await api.post('/attendance/bulk', { site_id: selectedSite, date: attendanceDate, records })
       setAttendanceRecords(res.data?.data || res.data || [])
       toast.success('Attendance saved')
       setStep(3)

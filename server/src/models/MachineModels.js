@@ -18,7 +18,7 @@ const Machine = sequelize.define('Machine', {
   photos: { type: DataTypes.ARRAY(DataTypes.TEXT), defaultValue: [] },
   maintenance_photo: { type: DataTypes.TEXT, allowNull: true },
   notes: { type: DataTypes.TEXT, allowNull: true },
-}, { tableName: 'machines' });
+}, { tableName: 'machines', paranoid: true, deletedAt: 'deleted_at' });
 
 const MachineRequest = sequelize.define('MachineRequest', {
   id: { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },

@@ -24,6 +24,6 @@ const User = sequelize.define('User', {
   otp_code: { type: DataTypes.STRING(6), allowNull: true },
   otp_expires_at: { type: DataTypes.DATE, allowNull: true },
   active_session_token: { type: DataTypes.TEXT, allowNull: true },
-}, { tableName: 'users' });
+}, { tableName: 'users', paranoid: true, deletedAt: 'deleted_at' });
 
 module.exports = User;

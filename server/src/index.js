@@ -44,6 +44,7 @@ app.use('/api/upload', require('./routes/upload'));
 app.use('/api/ai', require('./routes/ai'));
 app.use('/api/transfers', require('./routes/transfers'));
 app.use('/api/website', require('./routes/website'));
+app.use('/api/recycle-bin', require('./routes/recycleBin'));
 
 app.get('/health', (_req, res) => res.json({ status: 'OK', time: new Date() }));
 
@@ -59,6 +60,21 @@ const start = async () => {
   await sequelize.sync({ alter: true });
   // Seed admin on first run
   await require('./services/seeder').seedAdmin();
+  // Permanently delete soft-deleted records older than 30 days
+  try {
+    const { Labour, Site, Machine, Driver, Vehicle, User } = require('./models');
+    const { Op } = require('sequelize');
+    const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    await Promise.allSettled([
+      Labour.destroy({ where: { deleted_at: { [Op.lt]: cutoff, [Op.ne]: null } }, force: true }),
+      Site.destroy({ where: { deleted_at: { [Op.lt]: cutoff, [Op.ne]: null } }, force: true }),
+      Machine.destroy({ where: { deleted_at: { [Op.lt]: cutoff, [Op.ne]: null } }, force: true }),
+      Driver.destroy({ where: { deleted_at: { [Op.lt]: cutoff, [Op.ne]: null } }, force: true }),
+      Vehicle.destroy({ where: { deleted_at: { [Op.lt]: cutoff, [Op.ne]: null } }, force: true }),
+      User.destroy({ where: { deleted_at: { [Op.lt]: cutoff, [Op.ne]: null } }, force: true }),
+    ]);
+    console.log('♻️  Recycle bin cleanup complete');
+  } catch (e) { console.error('Recycle bin cleanup error:', e.message); }
   httpServer.listen(PORT, () => console.log(`🚀 DGSystem API running on port ${PORT}`));
 };
 

@@ -6,7 +6,7 @@ import {
   LayoutDashboard, Building2, Users, ClipboardCheck, DollarSign,
   Package, Wrench, Truck, Bell, Sparkles, ChevronLeft, ChevronRight,
   LogOut, FileText, BarChart3, Building, UserCog, TrendingUp, BookOpen,
-  Map, Sun, Moon, Globe, Menu, X, MoreHorizontal
+  Map, Sun, Moon, Globe, Menu, X, MoreHorizontal, Trash2
 } from 'lucide-react'
 
 const navItems = [
@@ -28,6 +28,7 @@ const navItems = [
   { to: '/notifications', icon: Bell, label: 'Notifications' },
   { to: '/website', icon: Globe, label: 'Website Editor' },
   { to: '/ai', icon: Sparkles, label: 'AI Assistant' },
+  { to: '/recycle-bin', icon: Trash2, label: 'Recycle Bin' },
 ]
 
 // Bottom nav: 4 primary items + "More" button

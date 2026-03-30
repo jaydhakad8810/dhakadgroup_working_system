@@ -26,6 +26,6 @@ const Labour = sequelize.define('Labour', {
   supervisor_id: { type: DataTypes.UUID, allowNull: true },
   is_active: { type: DataTypes.BOOLEAN, defaultValue: true },
   added_by: { type: DataTypes.UUID, allowNull: true },
-}, { tableName: 'labour' });
+}, { tableName: 'labour', paranoid: true, deletedAt: 'deleted_at' });
 
 module.exports = Labour;

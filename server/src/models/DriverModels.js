@@ -19,7 +19,7 @@ const Driver = sequelize.define('Driver', {
   license_photo: { type: DataTypes.TEXT, allowNull: true },
   is_active: { type: DataTypes.BOOLEAN, defaultValue: true },
   is_busy: { type: DataTypes.BOOLEAN, defaultValue: false },
-}, { tableName: 'drivers' });
+}, { tableName: 'drivers', paranoid: true, deletedAt: 'deleted_at' });
 
 const Vehicle = sequelize.define('Vehicle', {
   id: { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
@@ -33,7 +33,7 @@ const Vehicle = sequelize.define('Vehicle', {
   insurance_expiry: { type: DataTypes.DATEONLY, allowNull: true },
   rc_photo: { type: DataTypes.TEXT, allowNull: true },
   insurance_photo: { type: DataTypes.TEXT, allowNull: true },
-}, { tableName: 'vehicles' });
+}, { tableName: 'vehicles', paranoid: true, deletedAt: 'deleted_at' });
 
 const Trip = sequelize.define('Trip', {
   id: { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
