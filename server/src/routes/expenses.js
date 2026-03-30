@@ -74,7 +74,7 @@ router.post('/', async (req, res) => {
   try {
     if (req.user.role === 'driver') {
       const driver = await Driver.findOne({ where: { user_id: req.user.id } });
-      if (!driver) return res.status(403).json({ message: 'Driver profile not found' });
+      if (!driver) return res.status(404).json({ message: 'Driver profile not found. Please ask admin to create your driver profile.' });
 
       const { category, amount, description, date, photo, trip_id } = req.body;
       const expense = await DriverExpense.create({

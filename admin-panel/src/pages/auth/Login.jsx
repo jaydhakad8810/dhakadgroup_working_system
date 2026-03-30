@@ -13,6 +13,7 @@ export default function Login() {
   const [viewMode, setViewMode] = useState(
     () => localStorage.getItem('dg_admin_view_mode') || 'desktop'
   )
+  const [logoError, setLogoError] = useState(false)
 
   // OTP state
   const [showOtp, setShowOtp] = useState(false)
@@ -118,7 +119,18 @@ export default function Login() {
 
       <div className="relative w-full max-w-md">
         <div className="text-center mb-10">
-          <img src="/logo.png" alt="Dhakad Group" className="w-20 h-20 object-contain mx-auto mb-2" />
+          {logoError ? (
+            <div className="w-20 h-20 rounded-2xl bg-gold-500/20 border border-gold-500/30 flex items-center justify-center mx-auto mb-2">
+              <span className="text-gold-400 font-bold text-2xl">DG</span>
+            </div>
+          ) : (
+            <img
+              src="/logo.png"
+              alt="Dhakad Group"
+              className="w-20 h-20 object-contain mx-auto mb-2"
+              onError={() => setLogoError(true)}
+            />
+          )}
           <h1 className="text-3xl font-bold text-white mt-4">DGSystem</h1>
           <p className="text-gold-500 font-medium mt-1">Construction Management</p>
           <p className="text-gray-500 text-sm mt-1">Admin Panel</p>

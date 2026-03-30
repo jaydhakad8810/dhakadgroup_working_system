@@ -22,6 +22,6 @@ const Site = sequelize.define('Site', {
   raw_photo: { type: DataTypes.TEXT, allowNull: true },
   contract_type: { type: DataTypes.ENUM('material_labour', 'labour_only', 'material_only'), defaultValue: 'material_labour' },
   notes: { type: DataTypes.TEXT, allowNull: true },
-}, { tableName: 'sites' });
+}, { tableName: 'sites', paranoid: true, deletedAt: 'deleted_at' });
 
 module.exports = Site;
