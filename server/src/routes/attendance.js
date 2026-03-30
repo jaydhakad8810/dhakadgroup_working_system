@@ -9,7 +9,7 @@ router.get('/', async (req, res) => {
   try {
     const { site_id, labour_id, date, from, to, search } = req.query;
     const where = {};
-    if (site_id) where.site_id = site_id;
+    if (site_id && site_id !== 'undefined') where.site_id = site_id;
     if (labour_id) where.labour_id = labour_id;
     if (date) where.date = date;
     if (from && to) where.date = { [Op.between]: [from, to] };
@@ -30,6 +30,9 @@ router.get('/', async (req, res) => {
 router.post('/bulk', supervisorOrAdmin, async (req, res) => {
   try {
     const { site_id, date, records } = req.body;
+    if (!site_id) return res.status(400).json({ message: 'site_id is required' });
+    if (!date) return res.status(400).json({ message: 'date is required' });
+    if (!Array.isArray(records) || records.length === 0) return res.status(400).json({ message: 'records array is required' });
     const results = [];
     for (const r of records) {
       const [att, created] = await Attendance.findOrCreate({

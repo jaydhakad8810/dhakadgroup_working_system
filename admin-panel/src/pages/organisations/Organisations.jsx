@@ -93,9 +93,7 @@ export default function Organisations() {
           <div className="space-y-3">
             {docModal.document_url.match(/\.(jpg|jpeg|png|gif|webp)$/i)
               ? <img src={docModal.document_url} alt="Doc" className="w-full rounded-xl border border-dark-600"/>
-              : docModal.document_url.match(/\.pdf$/i)
-              ? <iframe src={docModal.document_url} className="w-full h-96 rounded-xl" title="PDF"/>
-              : <div className="text-center py-8"><FileText size={48} className="mx-auto mb-3 text-gray-500"/><p className="text-gray-400 mb-4">Preview not available</p></div>
+              : <iframe src={docModal.document_url} width="100%" height="500px" className="rounded-xl border border-dark-600" title="Document" />
             }
             <a href={docModal.document_url} target="_blank" rel="noreferrer" className="btn-gold w-full justify-center"><FileText size={14}/>Open / Download</a>
           </div>
