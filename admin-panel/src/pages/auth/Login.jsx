@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
-import { Loader2, Eye, EyeOff } from 'lucide-react'
+import { Loader2, Eye, EyeOff, Monitor, Smartphone } from 'lucide-react'
 import api from '../../utils/api'
 
 export default function Login() {
@@ -10,6 +10,9 @@ export default function Login() {
   const [showPw, setShowPw] = useState(false)
   const [rememberMe, setRememberMe] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [viewMode, setViewMode] = useState(
+    () => localStorage.getItem('dg_admin_view_mode') || 'desktop'
+  )
 
   // OTP state
   const [showOtp, setShowOtp] = useState(false)
@@ -26,6 +29,11 @@ export default function Login() {
     const t = setTimeout(() => setCountdown(c => c - 1), 1000)
     return () => clearTimeout(t)
   }, [countdown])
+
+  const handleViewMode = (mode) => {
+    setViewMode(mode)
+    localStorage.setItem('dg_admin_view_mode', mode)
+  }
 
   const saveToken = (token, user) => {
     if (rememberMe) {
@@ -118,35 +126,83 @@ export default function Login() {
 
         <div className="card shadow-2xl">
           {!showOtp ? (
-            <form onSubmit={handleSubmit} className="space-y-5">
+            <form onSubmit={handleSubmit} className="space-y-5" autoComplete="off">
               <div>
                 <label className="label">Email Address</label>
                 <input
-                  type="email" value={email} onChange={e => setEmail(e.target.value)}
-                  className="input" placeholder="admin@example.com" required
+                  type="email"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  className="input"
+                  placeholder="admin@example.com"
+                  required
+                  autoComplete="off"
                 />
               </div>
               <div>
                 <label className="label">Password</label>
                 <div className="relative">
                   <input
-                    type={showPw ? 'text' : 'password'} value={password}
+                    type={showPw ? 'text' : 'password'}
+                    value={password}
                     onChange={e => setPassword(e.target.value)}
-                    className="input pr-12" placeholder="••••••••" required
+                    className="input pr-12"
+                    placeholder="••••••••"
+                    required
+                    autoComplete="new-password"
                   />
-                  <button type="button" onClick={() => setShowPw(!showPw)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white">
+                  <button
+                    type="button"
+                    onClick={() => setShowPw(!showPw)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+                  >
                     {showPw ? <EyeOff size={18} /> : <Eye size={18} />}
                   </button>
                 </div>
               </div>
+
               <label className="flex items-center gap-2 cursor-pointer select-none">
                 <input
-                  type="checkbox" checked={rememberMe} onChange={e => setRememberMe(e.target.checked)}
+                  type="checkbox"
+                  checked={rememberMe}
+                  onChange={e => setRememberMe(e.target.checked)}
                   className="w-4 h-4 rounded cursor-pointer accent-[#D4AF37]"
                 />
                 <span className="text-sm text-gray-400">Remember me</span>
               </label>
+
+              {/* View Mode Toggle */}
+              <div>
+                <label className="label">View Mode</label>
+                <div className="flex rounded-xl overflow-hidden border" style={{ borderColor: 'var(--border)', background: 'var(--bg3)' }}>
+                  <button
+                    type="button"
+                    onClick={() => handleViewMode('desktop')}
+                    className={`flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-medium transition-all border-r ${
+                      viewMode === 'desktop'
+                        ? 'bg-gold-500/20 text-gold-400'
+                        : 'text-gray-500 hover:text-gray-300'
+                    }`}
+                    style={{ borderColor: 'var(--border)' }}
+                  >
+                    <Monitor size={15} />
+                    Desktop View
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleViewMode('mobile')}
+                    className={`flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-medium transition-all ${
+                      viewMode === 'mobile'
+                        ? 'bg-gold-500/20 text-gold-400'
+                        : 'text-gray-500 hover:text-gray-300'
+                    }`}
+                  >
+                    <Smartphone size={15} />
+                    Mobile View
+                  </button>
+                </div>
+              </div>
+
               <button type="submit" disabled={loading} className="btn-gold w-full justify-center py-3">
                 {loading ? <Loader2 size={18} className="animate-spin" /> : null}
                 {loading ? 'Signing in...' : 'Sign In'}
@@ -156,7 +212,9 @@ export default function Login() {
             <div className="space-y-5">
               <div className="text-center">
                 <p className="text-white font-medium">Enter OTP</p>
-                <p className="text-gray-400 text-sm mt-1">Sent to <span className="text-gold-400">{otpEmail}</span></p>
+                <p className="text-gray-400 text-sm mt-1">
+                  Sent to <span className="text-gold-400">{otpEmail}</span>
+                </p>
               </div>
               <div className="flex gap-2 justify-center">
                 {otp.map((digit, i) => (
