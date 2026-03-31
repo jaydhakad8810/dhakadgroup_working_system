@@ -115,6 +115,18 @@ router.post('/checkin', supervisorOrAdmin, async (req, res) => {
   } catch (e) { res.status(500).json({ message: e.message }); }
 });
 
+// Update check-in photo per labour
+router.patch('/:id/checkin', supervisorOrAdmin, async (req, res) => {
+  try {
+    const att = await Attendance.findByPk(req.params.id);
+    if (!att) return res.status(404).json({ message: 'Not found' });
+    const update = { check_in_time: att.check_in_time || new Date() };
+    if (req.body.check_in_photo !== undefined) update.check_in_photo = req.body.check_in_photo;
+    await att.update(update);
+    res.json(att);
+  } catch (e) { res.status(500).json({ message: e.message }); }
+});
+
 // Check-out
 router.patch('/:id/checkout', supervisorOrAdmin, async (req, res) => {
   try {

@@ -49,7 +49,10 @@ export default function Trips() {
         api.get('/drivers/vehicles/all').catch(() => ({ data: [] })),
         api.get('/sites').catch(() => ({ data: [] }))
       ])
-      setTrips(t.data); setDrivers(d.data); setVehicles(v.data); setSites(s.data)
+      setTrips(Array.isArray(t.data) ? t.data : (t.data?.data || []))
+      setDrivers(Array.isArray(d.data) ? d.data : (d.data?.data || []))
+      setVehicles(Array.isArray(v.data) ? v.data : (v.data?.data || []))
+      setSites(Array.isArray(s.data) ? s.data : (s.data?.data || []))
     } catch {}
     setLoading(false)
   }
@@ -133,7 +136,7 @@ export default function Trips() {
               <label className="label">Driver *</label>
               <select className="select" value={form.driver_id} onChange={e => handleDriverChange(e.target.value)} required>
                 <option value="">Select driver</option>
-                {drivers.map(d => <option key={d.id} value={d.id}>{d.name}{d.user?.employee_id ? ` (${d.user.employee_id})` : ''}</option>)}
+                {drivers.map(d => <option key={d.id} value={d.id}>{d.full_name || d.name}{d.user?.employee_id ? ` (${d.user.employee_id})` : ''}</option>)}
               </select>
             </div>
             <div>

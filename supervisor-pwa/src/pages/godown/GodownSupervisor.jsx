@@ -33,10 +33,12 @@ export default function GodownSupervisor() {
         api.get('/sites'),
         api.get('/godown'),
       ])
-      setGodowns(g.data); setAllGodowns(all.data)
-      setRequests(r.data); setSites(s.data)
-      if (!selected && g.data.length) setSelected(g.data[0].id)
-      if (s.data.length === 1) setReqForm(p => ({ ...p, site_id: s.data[0].id }))
+      const godownsList = Array.isArray(g.data) ? g.data : (g.data?.data || [])
+      const sitesList   = Array.isArray(s.data) ? s.data : (s.data?.data || [])
+      setGodowns(godownsList); setAllGodowns(Array.isArray(all.data) ? all.data : (all.data?.data || []))
+      setRequests(Array.isArray(r.data) ? r.data : (r.data?.data || [])); setSites(sitesList)
+      if (!selected && godownsList.length) setSelected(godownsList[0].id)
+      if (sitesList.length === 1) setReqForm(p => ({ ...p, site_id: sitesList[0].id }))
     } catch {}
     setLoading(false)
   }
