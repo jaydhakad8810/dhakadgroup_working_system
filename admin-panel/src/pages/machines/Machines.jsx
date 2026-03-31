@@ -31,9 +31,12 @@ export default function Machines() {
         api.get('/machines'),
         api.get('/machines/categories'),
         api.get('/sites'),
-        api.get('/machines/requests/all')
+        api.get('/machines/requests/all').catch(() => ({ data: [] }))
       ])
-      setMachines(m.data); setCats(c.data); setSites(s.data); setRequests(r.data)
+      setMachines(Array.isArray(m.data) ? m.data : (m.data?.data || []))
+      setCats(Array.isArray(c.data) ? c.data : (c.data?.data || []))
+      setSites(Array.isArray(s.data) ? s.data : (s.data?.data || []))
+      setRequests(Array.isArray(r.data) ? r.data : (r.data?.data || []))
     } catch (e) { toast.error('Failed to load') }
     setLoading(false)
   }

@@ -59,8 +59,8 @@ export default function Godown() {
 
   const emptyGodownForm = { name: '', address: '', city: '', location_url: '', site_id: '', incharge_id: '' };
   const emptyCatForm = { name: '', category_type: '' };
-  const emptyStockIn = { godown_id: '', category_id: '', quantity: '', unit: 'kg', bill_amount: '', received_from: '', notes: '' };
-  const emptyStockOut = { godown_id: '', category_id: '', quantity: '', unit: 'kg', destination_type: 'site', site_id: '', to_godown_id: '', driver_id: '', notes: '' };
+  const emptyStockIn = { godown_id: '', category_id: '', quantity: '', unit: 'kg', bill_amount: '', received_from: '', notes: '', photo: '' };
+  const emptyStockOut = { godown_id: '', category_id: '', quantity: '', unit: 'kg', destination_type: 'site', site_id: '', to_godown_id: '', driver_id: '', notes: '', photo: '' };
   const emptyTransfer = { from_godown_id: '', to_godown_id: '', category_id: '', quantity: '', unit: 'kg', driver_id: '', notes: '' };
 
   const [godownForm, setGodownForm] = useState(emptyGodownForm);
@@ -68,8 +68,6 @@ export default function Godown() {
   const [stockInForm, setStockInForm] = useState(emptyStockIn);
   const [stockOutForm, setStockOutForm] = useState(emptyStockOut);
   const [transferForm, setTransferForm] = useState(emptyTransfer);
-  const [stockInFiles, setStockInFiles] = useState({});
-  const [stockOutFiles, setStockOutFiles] = useState({});
 
   useEffect(() => { fetchAll(); }, []);
   useEffect(() => { if (selectedGodown) { fetchStock(selectedGodown); fetchHistory(selectedGodown); } }, [selectedGodown]);
@@ -144,26 +142,22 @@ export default function Godown() {
   const handleStockIn = async (e) => {
     e.preventDefault(); setSaving(true); setError('');
     try {
-      const fd = new FormData();
-      Object.entries(stockInForm).forEach(([k, v]) => { if (v !== '') fd.append(k, v); });
-      Object.entries(stockInFiles).forEach(([k, v]) => fd.append(k, v));
-      await api.post('/godown/stock-in', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
-      setShowStockIn(false); setStockInForm(emptyStockIn); setStockInFiles({});
+      await api.post('/godown/stock-in', stockInForm);
+      setShowStockIn(false); setStockInForm(emptyStockIn);
       if (selectedGodown) { fetchStock(selectedGodown); fetchHistory(selectedGodown); }
       refreshAllStock();
+      toast.success('Stock IN recorded');
     } catch (err) { setError(err.response?.data?.message || 'Failed!'); } finally { setSaving(false); }
   };
 
   const handleStockOut = async (e) => {
     e.preventDefault(); setSaving(true); setError('');
     try {
-      const fd = new FormData();
-      Object.entries(stockOutForm).forEach(([k, v]) => { if (v !== '') fd.append(k, v); });
-      Object.entries(stockOutFiles).forEach(([k, v]) => fd.append(k, v));
-      await api.post('/godown/stock-out', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
-      setShowStockOut(false); setStockOutForm(emptyStockOut); setStockOutFiles({});
+      await api.post('/godown/stock-out', stockOutForm);
+      setShowStockOut(false); setStockOutForm(emptyStockOut);
       if (selectedGodown) { fetchStock(selectedGodown); fetchHistory(selectedGodown); }
       refreshAllStock();
+      toast.success('Stock OUT recorded');
     } catch (err) { setError(err.response?.data?.message || 'Failed!'); } finally { setSaving(false); }
   };
 
@@ -460,7 +454,7 @@ export default function Godown() {
                 </div>
               </div>
               <div><label className={labelCls}>Bill Amount (₹) *</label><input required type="number" min="0" step="any" value={stockInForm.bill_amount} onChange={e => setStockInForm(f => ({ ...f, bill_amount: e.target.value }))} className={inputCls} placeholder="Total bill amount" /></div>
-              <PhotoInput label="Bill Photo" name="bill_photo" optional={true} onFileChange={(n, f) => setStockInFiles(p => ({ ...p, [n]: f }))} />
+              <div><label className={labelCls}>Bill Photo <span className="text-gray-400 text-xs">(optional)</span></label><DocUpload value={stockInForm.photo} onChange={v => setStockInForm(f => ({ ...f, photo: v }))} folder="dgsystem/godown" label="Upload bill photo" /></div>
               <div><label className={labelCls}>Notes <span className="text-gray-400 text-xs">(optional)</span></label><input value={stockInForm.notes} onChange={e => setStockInForm(f => ({ ...f, notes: e.target.value }))} className={inputCls} placeholder="Optional notes" /></div>
               {error && <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-xl text-sm">⚠️ {error}</div>}
               <div className="flex gap-3 pt-2">
@@ -539,7 +533,7 @@ export default function Godown() {
                 </select>
                 {stockOutForm.driver_id && <p className="text-xs text-blue-600 mt-1">✅ Driver will receive a task notification</p>}
               </div>
-              <PhotoInput label="Delivery Photo" name="delivery_photo" optional={true} onFileChange={(n, f) => setStockOutFiles(p => ({ ...p, [n]: f }))} />
+              <div><label className={labelCls}>Delivery Photo <span className="text-gray-400 text-xs">(optional)</span></label><DocUpload value={stockOutForm.photo} onChange={v => setStockOutForm(f => ({ ...f, photo: v }))} folder="dgsystem/godown" label="Upload delivery photo" /></div>
               <div><label className={labelCls}>Notes <span className="text-gray-400 text-xs">(optional)</span></label><input value={stockOutForm.notes} onChange={e => setStockOutForm(f => ({ ...f, notes: e.target.value }))} className={inputCls} placeholder="Optional notes" /></div>
               {error && <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-xl text-sm">⚠️ {error}</div>}
               <div className="flex gap-3 pt-2">

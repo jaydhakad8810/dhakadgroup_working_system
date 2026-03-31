@@ -16,7 +16,7 @@ export default function VisitReports() {
   const [filterStatus, setFilterStatus] = useState('')
   const [filterSup, setFilterSup]       = useState('')
   const [form, setForm]   = useState({ report_date: new Date().toISOString().split('T')[0], status: 'open', photos: [] })
-  const [tasks, setTasks] = useState([{ task: '', deadline: '', status: 'pending' }])
+  const [tasks, setTasks] = useState([{ task: '', deadline: '', assigned_supervisor_id: '' }])
   const [saving, setSaving] = useState(false)
   const [exportingPdf, setExportingPdf] = useState(false)
   const f = (k,v) => setForm(p => ({...p,[k]:v}))
@@ -46,7 +46,7 @@ export default function VisitReports() {
       await api.post('/visit-reports', { ...form, tasks: validTasks })
       toast.success('Report created'); setAddModal(false)
       setForm({ report_date: new Date().toISOString().split('T')[0], status: 'open', photos: [] })
-      setTasks([{ task: '', deadline: '', status: 'pending' }])
+      setTasks([{ task: '', deadline: '', assigned_supervisor_id: '' }])
       load()
     } catch { toast.error('Failed') }
     setSaving(false)
@@ -340,7 +340,7 @@ export default function VisitReports() {
           <div>
             <div className="flex items-center justify-between mb-2">
               <label className="label mb-0">Tasks / Punch Points (visible to supervisor)</label>
-              <button type="button" onClick={() => setTasks(p => [...p, {task:'',deadline:'',status:'pending'}])}
+              <button type="button" onClick={() => setTasks(p => [...p, {task:'',deadline:'',assigned_supervisor_id:''}])}
                 className="text-gold-500 text-sm">+ Add Task</button>
             </div>
             <div className="space-y-2">
@@ -355,11 +355,10 @@ export default function VisitReports() {
                   <div className="grid grid-cols-2 gap-2">
                     <input type="date" className="input text-sm py-2" value={t.deadline||''}
                       onChange={e => setTasks(p => p.map((x,j) => j===i ? {...x,deadline:e.target.value} : x))}/>
-                    <select className="select text-sm py-2" value={t.status}
-                      onChange={e => setTasks(p => p.map((x,j) => j===i ? {...x,status:e.target.value} : x))}>
-                      <option value="pending">Pending</option>
-                      <option value="in_progress">In Progress</option>
-                      <option value="done">Done</option>
+                    <select className="select text-sm py-2" value={t.assigned_supervisor_id||''}
+                      onChange={e => setTasks(p => p.map((x,j) => j===i ? {...x,assigned_supervisor_id:e.target.value} : x))}>
+                      <option value="">Assign supervisor</option>
+                      {supervisors.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
                     </select>
                   </div>
                 </div>
