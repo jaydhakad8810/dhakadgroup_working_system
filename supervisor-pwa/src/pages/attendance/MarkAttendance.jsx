@@ -48,59 +48,66 @@ function StepBar({ current }) {
   )
 }
 
-// ─── PhotoCapture ────────────────────────────────────────────────────────────
-function PhotoCapture({ label, value, onCapture }) {
-  const fileRef = useRef(null)
+// ─── LabourPhotoBtn ──────────────────────────────────────────────────────────
+// Compact per-labour photo capture button used in Steps 3 & 4
+function LabourPhotoBtn({ labourId, photoUrl, uploading, onCapture }) {
   const cameraRef = useRef(null)
+  const fileRef = useRef(null)
+
+  if (uploading) {
+    return (
+      <span className="text-xs text-gray-400 px-2">Uploading…</span>
+    )
+  }
+
+  if (photoUrl) {
+    return (
+      <div className="flex items-center gap-1.5">
+        <img src={photoUrl} alt="captured" className="w-10 h-10 object-cover rounded-lg border border-white/10" />
+        <button
+          type="button"
+          onClick={() => onCapture(labourId, null)}
+          className="text-red-400 hover:text-red-300 p-1"
+        >
+          <X size={12} />
+        </button>
+        <CheckCircle size={16} className="text-green-400 shrink-0" />
+      </div>
+    )
+  }
 
   return (
-    <div>
-      {label && <label className="label">{label}</label>}
-      {value ? (
-        <div className="relative rounded-xl overflow-hidden border border-white/10">
-          <img src={value.url} alt="captured" className="w-full h-40 object-cover" />
-          <button
-            type="button"
-            onClick={() => onCapture(null)}
-            className="absolute top-2 right-2 bg-red-500/80 text-white rounded-full p-1"
-          >
-            <X size={14} />
-          </button>
-        </div>
-      ) : (
-        <div className="grid grid-cols-2 gap-2">
-          <button
-            type="button"
-            onClick={() => cameraRef.current?.click()}
-            className="flex flex-col items-center justify-center gap-2 bg-surface-400 border border-white/10 rounded-xl py-4 text-gray-400 hover:border-primary-500 hover:text-primary-400 transition-all min-h-[44px]"
-          >
-            <Camera size={20} />
-            <span className="text-xs">Camera</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => fileRef.current?.click()}
-            className="flex flex-col items-center justify-center gap-2 bg-surface-400 border border-white/10 rounded-xl py-4 text-gray-400 hover:border-primary-500 hover:text-primary-400 transition-all min-h-[44px]"
-          >
-            <Upload size={20} />
-            <span className="text-xs">Upload</span>
-          </button>
-        </div>
-      )}
+    <div className="flex gap-1">
+      <button
+        type="button"
+        onClick={() => cameraRef.current?.click()}
+        className="p-2 rounded-lg bg-surface-400 hover:bg-surface-300 text-gray-400 hover:text-primary-400 transition-all min-h-[44px] min-w-[44px] flex items-center justify-center"
+        title="Camera"
+      >
+        <Camera size={16} />
+      </button>
+      <button
+        type="button"
+        onClick={() => fileRef.current?.click()}
+        className="p-2 rounded-lg bg-surface-400 hover:bg-surface-300 text-gray-400 hover:text-primary-400 transition-all min-h-[44px] min-w-[44px] flex items-center justify-center"
+        title="Upload"
+      >
+        <Upload size={16} />
+      </button>
       <input
         ref={cameraRef}
         type="file"
         accept="image/*"
         capture="environment"
         className="hidden"
-        onChange={(e) => e.target.files[0] && onCapture(e.target.files[0])}
+        onChange={(e) => e.target.files[0] && onCapture(labourId, e.target.files[0])}
       />
       <input
         ref={fileRef}
         type="file"
         accept="image/*"
         className="hidden"
-        onChange={(e) => e.target.files[0] && onCapture(e.target.files[0])}
+        onChange={(e) => e.target.files[0] && onCapture(labourId, e.target.files[0])}
       />
     </div>
   )
@@ -126,9 +133,11 @@ export default function MarkAttendance() {
   const [savingAttendance, setSavingAttendance] = useState(false)
   const [attendanceRecords, setAttendanceRecords] = useState([])
 
-  // ── Step 3: Check-In Photo
-  const [checkInPhotoFile, setCheckInPhotoFile] = useState(null)
-  const [checkInPhotoUrl, setCheckInPhotoUrl] = useState(null)
+  // ── Step 3: Per-labour check-in photos (optional)
+  // { [labour_id]: cloudinaryUrl }
+  const [checkinPhotos, setCheckinPhotos] = useState({})
+  // { [labour_id]: true } while uploading
+  const [uploadingCheckin, setUploadingCheckin] = useState({})
   const [savingCheckIn, setSavingCheckIn] = useState(false)
 
   // ── Step 4: Task Execution
@@ -137,8 +146,11 @@ export default function MarkAttendance() {
   const [matName, setMatName] = useState('')
   const [matQty, setMatQty] = useState('')
   const [matUnit, setMatUnit] = useState('')
-  const [checkOutPhotoFile, setCheckOutPhotoFile] = useState(null)
-  const [checkOutPhotoUrl, setCheckOutPhotoUrl] = useState(null)
+  // Per-labour checkout photos (mandatory)
+  // { [labour_id]: cloudinaryUrl }
+  const [checkoutPhotos, setCheckoutPhotos] = useState({})
+  // { [labour_id]: true } while uploading
+  const [uploadingCheckout, setUploadingCheckout] = useState({})
   const [taskStatus, setTaskStatus] = useState('completed')
   const [savingCheckOut, setSavingCheckOut] = useState(false)
 
@@ -182,6 +194,17 @@ export default function MarkAttendance() {
   const halfDayCount = Object.values(attendance).filter((v) => v === 'half_day').length
   const absentCount = Object.values(attendance).filter((v) => v === 'absent').length
 
+  // ── Present / half-day labours (used in Steps 3 & 4)
+  const presentLabours = labourList.filter((l) => {
+    const id = l._id || l.id
+    return attendance[id] === 'present' || attendance[id] === 'half_day'
+  })
+
+  // ── All checkout photos done? (gate for "Complete Day & Save")
+  const allCheckoutDone =
+    presentLabours.length > 0 &&
+    presentLabours.every((l) => checkoutPhotos[l._id || l.id])
+
   // ── Toggle single labour attendance
   const toggleAttendance = (id, status) => {
     setAttendance((prev) => ({ ...prev, [id]: status }))
@@ -222,7 +245,7 @@ export default function MarkAttendance() {
     }
   }
 
-  // ── Upload photo to Cloudinary
+  // ── Upload a photo file to Cloudinary, return URL
   const uploadPhoto = async (file) => {
     const form = new FormData()
     form.append('image', file)
@@ -232,35 +255,58 @@ export default function MarkAttendance() {
     return res.data?.url || res.data?.data?.url || ''
   }
 
-  // ── Handle check-in photo capture
-  const handleCheckInPhoto = (file) => {
+  // ── Per-labour check-in photo handler
+  // Immediately uploads to Cloudinary when photo is selected
+  const handleCheckinPhoto = async (labourId, file) => {
     if (!file) {
-      setCheckInPhotoFile(null)
-      setCheckInPhotoUrl(null)
+      setCheckinPhotos((prev) => { const n = { ...prev }; delete n[labourId]; return n })
       return
     }
-    setCheckInPhotoFile(file)
-    setCheckInPhotoUrl(URL.createObjectURL(file))
+    setUploadingCheckin((prev) => ({ ...prev, [labourId]: true }))
+    try {
+      const url = await uploadPhoto(file)
+      setCheckinPhotos((prev) => ({ ...prev, [labourId]: url }))
+    } catch {
+      toast.error('Failed to upload check-in photo')
+    } finally {
+      setUploadingCheckin((prev) => { const n = { ...prev }; delete n[labourId]; return n })
+    }
   }
 
-  // ── Handle checkout photo capture
-  const handleCheckOutPhoto = (file) => {
+  // ── Per-labour checkout photo handler
+  // Immediately uploads to Cloudinary when photo is selected
+  const handleCheckoutPhoto = async (labourId, file) => {
     if (!file) {
-      setCheckOutPhotoFile(null)
-      setCheckOutPhotoUrl(null)
+      setCheckoutPhotos((prev) => { const n = { ...prev }; delete n[labourId]; return n })
       return
     }
-    setCheckOutPhotoFile(file)
-    setCheckOutPhotoUrl(URL.createObjectURL(file))
+    setUploadingCheckout((prev) => ({ ...prev, [labourId]: true }))
+    try {
+      const url = await uploadPhoto(file)
+      setCheckoutPhotos((prev) => ({ ...prev, [labourId]: url }))
+    } catch {
+      toast.error('Failed to upload checkout photo')
+    } finally {
+      setUploadingCheckout((prev) => { const n = { ...prev }; delete n[labourId]; return n })
+    }
   }
 
-  // ── Record check-in → step 4
+  // ── Record check-in: persist per-labour check-in photos → step 4
   const recordCheckIn = async () => {
     setSavingCheckIn(true)
     try {
-      if (checkInPhotoFile) {
-        await uploadPhoto(checkInPhotoFile)
-      }
+      const presentRecords = attendanceRecords.filter(
+        (r) => r.status === 'present' || r.status === 'half_day'
+      )
+      // Persist check-in photo for each present labour that has one
+      await Promise.all(
+        presentRecords.map((r) => {
+          const photoUrl = checkinPhotos[r.labour_id]
+          return api.patch(`/attendance/${r._id || r.id}/checkin`, {
+            check_in_photo: photoUrl || null,
+          })
+        })
+      )
       toast.success('Check-in recorded')
       setStep(4)
     } catch (err) {
@@ -292,19 +338,24 @@ export default function MarkAttendance() {
 
   // ── Complete day & save → step 5
   const completeDay = async () => {
+    // Validate every present/half-day labour has a checkout photo
+    const missing = presentLabours.filter((l) => !checkoutPhotos[l._id || l.id])
+    if (missing.length > 0) {
+      toast.error(
+        `Checkout photo required for: ${missing.map((l) => l.name || l.labour_name).join(', ')}`
+      )
+      return
+    }
+
     setSavingCheckOut(true)
     try {
-      let checkoutPhotoUrl = null
-      if (checkOutPhotoFile) {
-        checkoutPhotoUrl = await uploadPhoto(checkOutPhotoFile)
-      }
       const presentRecords = attendanceRecords.filter(
         (r) => r.status === 'present' || r.status === 'half_day'
       )
       await Promise.all(
         presentRecords.map((r) =>
           api.patch(`/attendance/${r._id || r.id}/checkout`, {
-            checkout_photo: checkoutPhotoUrl,
+            check_out_photo: checkoutPhotos[r.labour_id],
             task_status: taskStatus,
             materials,
           })
@@ -323,14 +374,16 @@ export default function MarkAttendance() {
   const submitReport = async () => {
     setSubmittingReport(true)
     try {
+      const firstCheckinPhoto = Object.values(checkinPhotos)[0] || null
+      const firstCheckoutPhoto = Object.values(checkoutPhotos)[0] || null
       await api.post('/visit-reports', {
         site_id: selectedSite,
         date: attendanceDate,
         present_count: presentCount,
         half_day_count: halfDayCount,
         absent_count: absentCount,
-        checkin_photo: checkInPhotoUrl,
-        checkout_photo: checkOutPhotoUrl,
+        checkin_photo: firstCheckinPhoto,
+        checkout_photo: firstCheckoutPhoto,
         materials,
         task_status: reportTaskStatus,
       })
@@ -351,10 +404,10 @@ export default function MarkAttendance() {
     setLabourList([])
     setAttendance({})
     setAttendanceRecords([])
-    setCheckInPhotoFile(null)
-    setCheckInPhotoUrl(null)
-    setCheckOutPhotoFile(null)
-    setCheckOutPhotoUrl(null)
+    setCheckinPhotos({})
+    setUploadingCheckin({})
+    setCheckoutPhotos({})
+    setUploadingCheckout({})
     setTaskCheckedIn(false)
     setMaterials([])
     setMatName('')
@@ -560,7 +613,7 @@ export default function MarkAttendance() {
         </div>
       )}
 
-      {/* ── STEP 3: Labour Check-In + Photo ── */}
+      {/* ── STEP 3: Per-Labour Check-In Photos ── */}
       {step === 3 && (
         <div className="page-content" style={{ paddingBottom: 80 }}>
           <div className="card">
@@ -589,25 +642,60 @@ export default function MarkAttendance() {
               </div>
             </div>
 
-            <PhotoCapture
-              label="Site Check-In Photo"
-              value={checkInPhotoUrl ? { url: checkInPhotoUrl } : null}
-              onCapture={handleCheckInPhoto}
-            />
+            <p className="text-xs text-gray-500 mb-3">
+              Check-in photo is optional per labour. Tap camera or upload to add.
+            </p>
           </div>
+
+          {presentLabours.length === 0 ? (
+            <div className="card text-center text-gray-500 text-sm py-6">
+              No present or half-day labours to check in.
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {presentLabours.map((l) => {
+                const id = l._id || l.id
+                const status = attendance[id]
+                return (
+                  <div key={id} className="card-sm flex items-center gap-3">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-white truncate">
+                        {l.name || l.labour_name}
+                      </p>
+                      <span
+                        className={`inline-block text-xs px-2 py-0.5 rounded-full border mt-0.5 ${
+                          status === 'present'
+                            ? 'bg-green-500/20 text-green-400 border-green-500/30'
+                            : 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30'
+                        }`}
+                      >
+                        {status === 'present' ? 'Present' : 'Half Day'}
+                      </span>
+                    </div>
+                    <LabourPhotoBtn
+                      labourId={id}
+                      photoUrl={checkinPhotos[id]}
+                      uploading={uploadingCheckin[id]}
+                      onCapture={handleCheckinPhoto}
+                    />
+                  </div>
+                )
+              })}
+            </div>
+          )}
 
           <button
             className="btn-primary w-full flex items-center justify-center gap-2 min-h-[44px]"
             onClick={recordCheckIn}
             disabled={savingCheckIn}
           >
-            {savingCheckIn ? 'Saving...' : 'Record Check-In'}
+            {savingCheckIn ? 'Saving...' : 'Record Check-In & Continue'}
             <ChevronRight size={18} />
           </button>
         </div>
       )}
 
-      {/* ── STEP 4: Task Execution ── */}
+      {/* ── STEP 4: Task Execution + Per-Labour Checkout Photos ── */}
       {step === 4 && (
         <div className="page-content" style={{ paddingBottom: 80 }}>
           <div className="card">
@@ -715,14 +803,6 @@ export default function MarkAttendance() {
           </div>
 
           <div className="card">
-            <PhotoCapture
-              label="Checkout Photo"
-              value={checkOutPhotoUrl ? { url: checkOutPhotoUrl } : null}
-              onCapture={handleCheckOutPhoto}
-            />
-          </div>
-
-          <div className="card">
             <label className="label">Task Status</label>
             <div className="flex gap-2">
               {['completed', 'pending'].map((s) => (
@@ -743,30 +823,74 @@ export default function MarkAttendance() {
             </div>
           </div>
 
-          {materials.length > 0 && (
-            <div className="card">
-              <h3 className="text-sm font-bold text-white mb-2">Material Usage Summary</h3>
-              <div className="space-y-1">
-                {materials.map((m, i) => (
-                  <div key={i} className="flex justify-between text-sm">
-                    <span className="text-gray-300">{m.name}</span>
-                    <span className="text-gray-500">
-                      {m.quantity} {m.unit}
-                    </span>
-                  </div>
-                ))}
+          {/* ── Per-Labour Checkout Photos (MANDATORY) ── */}
+          <div className="card">
+            <h3 className="text-sm font-bold text-white mb-1 flex items-center gap-2">
+              <Camera size={14} className="text-primary-400" />
+              Checkout Photos
+              <span className="text-xs text-red-400 font-normal">(required for all)</span>
+            </h3>
+            <p className="text-xs text-gray-500 mb-3">
+              {Object.keys(checkoutPhotos).length}/{presentLabours.length} captured
+            </p>
+
+            {presentLabours.length === 0 ? (
+              <p className="text-sm text-gray-500">No present labours.</p>
+            ) : (
+              <div className="space-y-2">
+                {presentLabours.map((l) => {
+                  const id = l._id || l.id
+                  const checkinThumb = checkinPhotos[id]
+                  return (
+                    <div key={id} className="flex items-center gap-3 bg-surface-400 rounded-xl px-3 py-2">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-white truncate">
+                          {l.name || l.labour_name}
+                        </p>
+                        {checkinThumb && (
+                          <div className="flex items-center gap-1 mt-1">
+                            <img
+                              src={checkinThumb}
+                              alt="check-in"
+                              className="w-6 h-6 object-cover rounded"
+                            />
+                            <span className="text-xs text-gray-500">Check-in</span>
+                          </div>
+                        )}
+                      </div>
+                      {!checkoutPhotos[id] && (
+                        <span className="text-xs text-red-400 shrink-0">Required</span>
+                      )}
+                      <LabourPhotoBtn
+                        labourId={id}
+                        photoUrl={checkoutPhotos[id]}
+                        uploading={uploadingCheckout[id]}
+                        onCapture={handleCheckoutPhoto}
+                      />
+                    </div>
+                  )
+                })}
               </div>
-            </div>
-          )}
+            )}
+          </div>
 
           <button
-            className="btn-primary w-full flex items-center justify-center gap-2 min-h-[44px]"
+            className={`w-full flex items-center justify-center gap-2 rounded-xl py-3 font-medium min-h-[44px] transition-all ${
+              allCheckoutDone && !savingCheckOut
+                ? 'btn-primary'
+                : 'bg-surface-400 text-gray-500 cursor-not-allowed'
+            }`}
             onClick={completeDay}
-            disabled={savingCheckOut}
+            disabled={savingCheckOut || !allCheckoutDone}
           >
             {savingCheckOut ? 'Saving...' : 'Complete Day & Save'}
             <CheckCircle size={18} />
           </button>
+          {!allCheckoutDone && presentLabours.length > 0 && (
+            <p className="text-xs text-red-400 text-center -mt-2">
+              Add checkout photo for all present labours to continue
+            </p>
+          )}
         </div>
       )}
 
@@ -813,26 +937,47 @@ export default function MarkAttendance() {
                   </div>
                 </div>
 
-                {(checkInPhotoUrl || checkOutPhotoUrl) && (
-                  <div className="grid grid-cols-2 gap-2 mb-4">
-                    {checkInPhotoUrl && (
+                {/* Photo summary */}
+                {(Object.keys(checkinPhotos).length > 0 || Object.keys(checkoutPhotos).length > 0) && (
+                  <div className="grid grid-cols-2 gap-3 mb-4">
+                    {Object.keys(checkinPhotos).length > 0 && (
                       <div>
-                        <p className="label">Check-In Photo</p>
-                        <img
-                          src={checkInPhotoUrl}
-                          alt="check-in"
-                          className="w-full h-24 object-cover rounded-xl"
-                        />
+                        <p className="label">Check-In Photos</p>
+                        <div className="flex gap-1 flex-wrap">
+                          {Object.values(checkinPhotos).slice(0, 4).map((url, i) => (
+                            <img
+                              key={i}
+                              src={url}
+                              alt="check-in"
+                              className="w-12 h-12 object-cover rounded-lg border border-white/10"
+                            />
+                          ))}
+                          {Object.keys(checkinPhotos).length > 4 && (
+                            <div className="w-12 h-12 rounded-lg bg-surface-400 flex items-center justify-center text-xs text-gray-400">
+                              +{Object.keys(checkinPhotos).length - 4}
+                            </div>
+                          )}
+                        </div>
                       </div>
                     )}
-                    {checkOutPhotoUrl && (
+                    {Object.keys(checkoutPhotos).length > 0 && (
                       <div>
-                        <p className="label">Checkout Photo</p>
-                        <img
-                          src={checkOutPhotoUrl}
-                          alt="checkout"
-                          className="w-full h-24 object-cover rounded-xl"
-                        />
+                        <p className="label">Checkout Photos</p>
+                        <div className="flex gap-1 flex-wrap">
+                          {Object.values(checkoutPhotos).slice(0, 4).map((url, i) => (
+                            <img
+                              key={i}
+                              src={url}
+                              alt="checkout"
+                              className="w-12 h-12 object-cover rounded-lg border border-white/10"
+                            />
+                          ))}
+                          {Object.keys(checkoutPhotos).length > 4 && (
+                            <div className="w-12 h-12 rounded-lg bg-surface-400 flex items-center justify-center text-xs text-gray-400">
+                              +{Object.keys(checkoutPhotos).length - 4}
+                            </div>
+                          )}
+                        </div>
                       </div>
                     )}
                   </div>
