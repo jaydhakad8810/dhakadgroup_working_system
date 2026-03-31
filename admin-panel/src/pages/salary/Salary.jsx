@@ -64,6 +64,14 @@ export default function Salary() {
     catch { toast.error('Failed') }
   }
 
+  const approveAdvance = async (id) => {
+    try {
+      await api.post(`/salary/advances/${id}/approve`)
+      toast.success('Advance approved and marked for deduction')
+      load()
+    } catch (err) { toast.error(err.response?.data?.message || 'Failed') }
+  }
+
   const handleAdvance = async (e) => {
     e.preventDefault()
     if (!advanceForm.labour_id || !advanceForm.amount) return toast.error('Fill required fields')
@@ -171,7 +179,7 @@ export default function Salary() {
           </div>
           <div className="table-container">
             <table>
-              <thead><tr><th>Labour</th><th>Amount</th><th>Date</th><th>Reason</th><th>Mode</th><th>Status</th></tr></thead>
+              <thead><tr><th>Labour</th><th>Amount</th><th>Date</th><th>Reason</th><th>Mode</th><th>Status</th><th>Action</th></tr></thead>
               <tbody>
                 {advances.map(a => (
                   <tr key={a.id}>
@@ -181,9 +189,10 @@ export default function Salary() {
                     <td style={{color:'var(--muted)'}}>{a.reason||'—'}</td>
                     <td><span className="text-xs bg-surface-400 px-2 py-1 rounded-lg capitalize">{a.payment_mode||'cash'}</span></td>
                     <td><span className={a.deducted?'badge-green':'badge-red'}>{a.deducted?'Deducted':'Pending'}</span></td>
+                    <td>{!a.deducted && <button onClick={() => approveAdvance(a.id)} className="btn-gold py-1 text-xs"><CheckCircle size={12}/>Approve</button>}</td>
                   </tr>
                 ))}
-                {!advances.length && <tr><td colSpan={6} className="text-center py-8" style={{color:'var(--muted)'}}>No advance records</td></tr>}
+                {!advances.length && <tr><td colSpan={7} className="text-center py-8" style={{color:'var(--muted)'}}>No advance records</td></tr>}
               </tbody>
             </table>
           </div>

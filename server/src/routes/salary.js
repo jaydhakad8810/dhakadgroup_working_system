@@ -1,5 +1,5 @@
 const router = require('express').Router();
-const { SalaryRecord, Labour, Attendance, AdvancePayment, Site } = require('../models');
+const { SalaryRecord, Labour, Attendance, AdvancePayment, Site, SiteLedger, Notification } = require('../models');
 const { auth, supervisorOrAdmin } = require('../middleware/auth');
 const { Op, literal } = require('sequelize');
 
@@ -171,6 +171,42 @@ router.get('/advances', async (req, res) => {
       order: [['createdAt', 'DESC']]
     });
     res.json(advances);
+  } catch (e) { res.status(500).json({ message: e.message }); }
+});
+
+// Approve advance (mark as deducted)
+router.post('/advances/:id/approve', supervisorOrAdmin, async (req, res) => {
+  try {
+    const advance = await AdvancePayment.findByPk(req.params.id, {
+      include: [{ model: Labour, as: 'labour', attributes: ['id', 'name', 'assigned_site_id', 'supervisor_id'] }]
+    });
+    if (!advance) return res.status(404).json({ message: 'Advance not found' });
+    if (advance.deducted) return res.status(400).json({ message: 'Already deducted' });
+    await advance.update({ deducted: true, deducted_month: new Date().getMonth() + 1, deducted_year: new Date().getFullYear() });
+    try {
+      if (advance.site_id) {
+        await SiteLedger.create({
+          site_id: advance.site_id,
+          type: 'debit',
+          amount: advance.amount,
+          category: 'advance_payment',
+          description: `Advance payment approved for ${advance.labour?.name || 'labour'}`,
+          date: new Date().toISOString().split('T')[0],
+          recorded_by: req.user.id
+        });
+      }
+    } catch (_) {}
+    try {
+      if (advance.labour?.supervisor_id) {
+        await Notification.create({
+          user_id: advance.labour.supervisor_id,
+          title: 'Advance Approved',
+          message: `Advance of ₹${advance.amount} for ${advance.labour?.name} has been approved and marked for deduction.`,
+          type: 'advance'
+        });
+      }
+    } catch (_) {}
+    res.json(advance);
   } catch (e) { res.status(500).json({ message: e.message }); }
 });
 

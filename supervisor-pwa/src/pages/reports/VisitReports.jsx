@@ -31,7 +31,11 @@ export default function VisitReports() {
     const params = new URLSearchParams()
     if (filterStatus) params.append('status', filterStatus)
     if (filterSite) params.append('site_id', filterSite)
-    api.get('/visit-reports?'+params).then(r => setReports(r.data)).catch(() => {}).finally(() => setLoading(false))
+    if (user?.id) params.append('supervisor_id', user.id)
+    api.get('/visit-reports?'+params).then(r => {
+      const data = r.data
+      setReports(Array.isArray(data) ? data : (data?.data || []))
+    }).catch(() => {}).finally(() => setLoading(false))
   }
   useEffect(() => { load() }, [filterStatus, filterSite])
 
@@ -54,14 +58,17 @@ export default function VisitReports() {
   }
 
   const handleCompleteTask = async () => {
-    if (!proofPhoto) return toast.error('Photo proof is required!')
     setCompleting(true)
     try {
-      const fd = new FormData(); fd.append('file', proofPhoto); fd.append('folder', 'dgsystem/task-proof')
-      const { data: uploaded } = await api.post('/upload/single', fd)
-      await api.patch('/visit-reports/tasks/'+taskModal.id, { status: 'done', completion_photo: uploaded.url, completion_note: completionNote })
-      toast.success('Task completed with photo proof!')
-      setTaskModal(null); setProofPhoto(null); setProofPreview(null); load()
+      let completion_photo = null
+      if (proofPhoto) {
+        const fd = new FormData(); fd.append('file', proofPhoto); fd.append('folder', 'dgsystem/task-proof')
+        const { data: uploaded } = await api.post('/upload/single', fd)
+        completion_photo = uploaded.url
+      }
+      await api.patch('/visit-reports/tasks/'+taskModal.id, { status: 'done', ...(completion_photo ? { completion_photo } : {}), completion_note: completionNote })
+      toast.success('Task marked as done!')
+      setTaskModal(null); setProofPhoto(null); setProofPreview(null); setCompletionNote(''); load()
     } catch (err) { toast.error(err.response?.data?.message || 'Failed') }
     setCompleting(false)
   }
@@ -190,7 +197,7 @@ export default function VisitReports() {
               <textarea className="input w-full text-sm" rows={3} placeholder="Describe what was done..." value={completionNote} onChange={e => setCompletionNote(e.target.value)} />
             </div>
             <div>
-              <p className="text-white text-sm font-semibold mb-1">📸 Photo Proof <span className="text-red-400">*Required</span></p>
+              <p className="text-white text-sm font-semibold mb-1">📸 Photo Proof <span className="text-gray-400">(Optional)</span></p>
               <p className="text-gray-500 text-xs mb-3">Upload photo as proof of completion</p>
               {proofPreview ? (
                 <div className="relative">
@@ -210,10 +217,10 @@ export default function VisitReports() {
               <input ref={cameraRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handlePhotoCapture}/>
               <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoCapture}/>
             </div>
-            <button onClick={handleCompleteTask} disabled={completing||!proofPhoto}
-              className={'w-full py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-all '+(proofPhoto?'bg-green-500 text-white hover:bg-green-600':'bg-gray-700 text-gray-500 cursor-not-allowed')}>
+            <button onClick={handleCompleteTask} disabled={completing}
+              className="w-full py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-all bg-green-500 text-white hover:bg-green-600 disabled:opacity-50">
               {completing?<Loader2 size={18} className="animate-spin"/>:<CheckCircle size={18}/>}
-              {completing?'Completing...':proofPhoto?'Mark as Completed':'Add Photo First'}
+              {completing?'Completing...':'Mark as Completed'}
             </button>
           </div>
         )}
