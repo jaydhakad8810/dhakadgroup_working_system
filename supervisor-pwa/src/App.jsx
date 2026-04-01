@@ -1,11 +1,13 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 import { AuthProvider, useAuth } from './context/AuthContext'
+import { SiteProvider } from './context/SiteContext'
 import BottomNav from './components/layout/BottomNav'
 import TopBar from './components/layout/TopBar'
 
 import Login           from './pages/auth/Login'
 import Dashboard       from './pages/dashboard/Dashboard'
+import SiteDashboard   from './pages/dashboard/SiteDashboard'
 import MySites         from './pages/sites/MySites'
 import SiteDetail      from './pages/sites/SiteDetail'
 import LabourList      from './pages/labour/LabourList'
@@ -42,6 +44,7 @@ function AppLayout({ children }) {
 export default function App() {
   return (
     <AuthProvider>
+      <SiteProvider>
       <BrowserRouter>
         <Toaster position="top-center" toastOptions={{
           style: { background: '#1c1c1c', color: '#fff', border: '1px solid #F97316', borderRadius: 12, maxWidth: '90vw' },
@@ -49,7 +52,8 @@ export default function App() {
         }} />
         <Routes>
           <Route path="/login" element={<Login />} />
-          <Route path="/"                   element={<Guard><AppLayout><Dashboard /></AppLayout></Guard>} />
+          <Route path="/"                        element={<Guard><AppLayout><Dashboard /></AppLayout></Guard>} />
+          <Route path="/dashboard/site/:site_id" element={<Guard><AppLayout><SiteDashboard /></AppLayout></Guard>} />
           <Route path="/sites"              element={<Guard><AppLayout><MySites /></AppLayout></Guard>} />
           <Route path="/sites/:id"          element={<Guard><AppLayout><SiteDetail /></AppLayout></Guard>} />
           <Route path="/labour"             element={<Guard><AppLayout><LabourList /></AppLayout></Guard>} />
@@ -69,6 +73,7 @@ export default function App() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>
+      </SiteProvider>
     </AuthProvider>
   )
 }

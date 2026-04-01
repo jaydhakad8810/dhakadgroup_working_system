@@ -259,4 +259,18 @@ router.get('/summary', async (req, res) => {
   } catch (e) { res.status(500).json({ message: e.message }); }
 });
 
+// Transfer history for a labour
+router.get('/transfers/:labour_id', async (req, res) => {
+  try {
+    const transfers = await LabourTransfer.findAll({
+      where: { labour_id: req.params.labour_id },
+      include: [
+        { model: Site, as: 'toSite', attributes: ['id', 'name'] },
+      ],
+      order: [['createdAt', 'DESC']]
+    });
+    res.json(transfers);
+  } catch (e) { res.status(500).json({ message: e.message }); }
+});
+
 module.exports = router;

@@ -89,6 +89,43 @@ router.get('/supervisor', async (req, res) => {
   } catch (e) { res.status(500).json({ message: e.message }); }
 });
 
+// Supervisor: site-specific stats
+router.get('/supervisor/site/:site_id', async (req, res) => {
+  try {
+    const { site_id } = req.params;
+    const today = new Date().toISOString().split('T')[0];
+
+    const site = await Site.findByPk(site_id, {
+      include: [{ model: User, as: 'supervisor', attributes: ['id', 'name'] }]
+    });
+    if (!site) return res.status(404).json({ message: 'Site not found' });
+
+    const [totalLabour, todayAttendance, pendingTasks] = await Promise.all([
+      Labour.count({ where: { assigned_site_id: site_id, is_active: true } }),
+      Attendance.findAll({
+        where: { site_id, date: today },
+        attributes: ['status', [fn('COUNT', col('id')), 'count']],
+        group: ['status']
+      }),
+      require('../models').VisitTask.count({ where: { status: 'pending' } })
+    ]);
+
+    const attMap = { present: 0, absent: 0, half_day: 0 };
+    todayAttendance.forEach(r => { attMap[r.status] = parseInt(r.dataValues.count, 10); });
+
+    // Progress: % of planned days elapsed from start_date to expected_end_date
+    let progress = 0;
+    if (site.start_date && site.expected_end_date) {
+      const start = new Date(site.start_date).getTime();
+      const end = new Date(site.expected_end_date).getTime();
+      const now = Date.now();
+      if (end > start) progress = Math.min(100, Math.max(0, Math.round(((now - start) / (end - start)) * 100)));
+    }
+
+    res.json({ site, stats: { totalLabour, pendingTasks, progress, ...attMap } });
+  } catch (e) { res.status(500).json({ message: e.message }); }
+});
+
 // Driver dashboard
 router.get('/driver', async (req, res) => {
   try {

@@ -1,56 +1,104 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Building2, Users, ClipboardCheck, FileText, Plus, ChevronRight, TrendingUp, Package, ArrowRightLeft, Wrench } from 'lucide-react'
+import {
+  Building2, Users, ClipboardCheck, ChevronRight,
+  MapPin, Calendar, TrendingUp, ArrowRightLeft
+} from 'lucide-react'
 import api from '../../utils/api'
-import { LoadingPage, StatusBadge } from '../../components/ui'
+import { LoadingPage } from '../../components/ui'
 import { useAuth } from '../../context/AuthContext'
 
+// Simple donut-style attendance bar
+function AttendanceBar({ present, half_day, absent }) {
+  const total = present + half_day + absent
+  if (total === 0) return <p className="text-xs text-gray-500">No attendance today</p>
+  const pPct = Math.round((present / total) * 100)
+  const hPct = Math.round((half_day / total) * 100)
+  const aPct = 100 - pPct - hPct
+  return (
+    <div className="space-y-1.5">
+      <div className="flex h-2 rounded-full overflow-hidden gap-px">
+        {pPct > 0 && <div className="bg-green-500 transition-all" style={{ width: `${pPct}%` }} />}
+        {hPct > 0 && <div className="bg-yellow-400 transition-all" style={{ width: `${hPct}%` }} />}
+        {aPct > 0 && <div className="bg-red-500/60 transition-all" style={{ width: `${aPct}%` }} />}
+      </div>
+      <div className="flex gap-3 text-[10px]">
+        <span className="text-green-400">{present} Present</span>
+        <span className="text-yellow-400">{half_day} Half</span>
+        <span className="text-red-400">{absent} Absent</span>
+      </div>
+    </div>
+  )
+}
+
+// Progress bar for site timeline
+function ProgressBar({ progress }) {
+  return (
+    <div className="space-y-1">
+      <div className="flex justify-between text-[10px] text-gray-500">
+        <span>Progress</span>
+        <span>{progress}%</span>
+      </div>
+      <div className="h-1.5 bg-surface-400 rounded-full overflow-hidden">
+        <div
+          className="h-full bg-primary-500 rounded-full transition-all"
+          style={{ width: `${progress}%` }}
+        />
+      </div>
+    </div>
+  )
+}
+
 export default function Dashboard() {
-  const [data, setData]         = useState(null)
-  const [transfers, setTransfers] = useState([])  // recent labour transfers TO this supervisor
-  const [unread, setUnread]     = useState(0)
-  const [loading, setLoading]   = useState(true)
-  const { user }                = useAuth()
-  const navigate                = useNavigate()
+  const [sites, setSites] = useState([])
+  const [siteStats, setSiteStats] = useState({}) // { [site_id]: stats }
+  const [transfers, setTransfers] = useState([])
+  const [loading, setLoading] = useState(true)
+  const { user } = useAuth()
+  const navigate = useNavigate()
 
   useEffect(() => {
     Promise.all([
-      api.get('/dashboard/supervisor'),
+      api.get('/sites'),
       api.get('/notifications?unread=true'),
-    ]).then(([dash, notifs]) => {
-      setData(dash.data)
-      // Pull transfer notifications
-      const transferNotifs = (notifs.data || []).filter(n =>
-        n.title?.includes('Labour Transferred') || n.message?.includes('transferred')
-      )
-      setTransfers(transferNotifs)
-      setUnread(notifs.data?.filter(n => !n.is_read).length || 0)
-    }).catch(() => {}).finally(() => setLoading(false))
+    ])
+      .then(([sitesRes, notifRes]) => {
+        const siteList = sitesRes.data || []
+        setSites(siteList)
+        const transferNotifs = (notifRes.data || []).filter(
+          n => n.title?.includes('Labour Transferred') || n.message?.includes('transferred')
+        )
+        setTransfers(transferNotifs)
+        // Fetch per-site stats in parallel
+        return Promise.all(
+          siteList.map(s =>
+            api.get(`/dashboard/supervisor/site/${s.id}`)
+              .then(r => ({ id: s.id, stats: r.data.stats }))
+              .catch(() => ({ id: s.id, stats: null }))
+          )
+        )
+      })
+      .then(results => {
+        const map = {}
+        results.forEach(r => { map[r.id] = r.stats })
+        setSiteStats(map)
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false))
   }, [])
 
   if (loading) return <LoadingPage />
-  const s = data?.stats || {}
-
-  const quickActions = [
-    { label: 'Mark Attendance', icon: ClipboardCheck, color: 'bg-primary-500/20 text-primary-400', to: '/attendance' },
-    { label: 'Add Labour',      icon: Plus,            color: 'bg-green-500/20 text-green-400',    to: '/labour/add' },
-    { label: 'Add Expense',     icon: TrendingUp,      color: 'bg-blue-500/20 text-blue-400',      to: '/expenses/add' },
-    { label: 'Machines',        icon: Package,         color: 'bg-purple-500/20 text-purple-400',  to: '/machines' },
-    { label: 'Material Request',icon: Package,         color: 'bg-orange-500/20 text-orange-400',  to: '/godown' },
-    { label: 'Salary', icon: TrendingUp, color: 'bg-gold-500/20 text-yellow-400', to: '/salary' },
-    { label: 'Machines', icon: Wrench, color: 'bg-orange-500/20 text-orange-400', to: '/machines' },
-  ]
 
   return (
     <div className="page-content space-y-5">
       {/* Greeting */}
       <div className="card bg-gradient-to-r from-primary-500/20 to-surface-300 border-primary-500/20">
         <p className="text-gray-400 text-sm">
-          Good {new Date().getHours()<12?'Morning':new Date().getHours()<17?'Afternoon':'Evening'}
+          Good {new Date().getHours() < 12 ? 'Morning' : new Date().getHours() < 17 ? 'Afternoon' : 'Evening'}
         </p>
         <h2 className="text-white font-bold text-xl">{user?.name}</h2>
         <p className="text-primary-400 text-sm mt-0.5">
-          {new Date().toLocaleDateString('en-IN',{weekday:'long',day:'numeric',month:'long'})}
+          {new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })}
         </p>
         {user?.employee_id && <p className="text-gray-500 text-xs mt-1">ID: {user.employee_id}</p>}
       </div>
@@ -58,11 +106,14 @@ export default function Dashboard() {
       {/* Transfer alerts */}
       {transfers.length > 0 && (
         <div className="space-y-2">
-          {transfers.slice(0,3).map(n => (
-            <button key={n.id} onClick={() => navigate('/labour')}
-              className="w-full p-3 bg-orange-500/10 border border-orange-500/25 rounded-xl text-left active:scale-95 transition-transform">
+          {transfers.slice(0, 2).map(n => (
+            <button
+              key={n.id}
+              onClick={() => navigate('/labour')}
+              className="w-full p-3 bg-orange-500/10 border border-orange-500/25 rounded-xl text-left active:scale-95 transition-transform"
+            >
               <div className="flex items-center gap-3">
-                <ArrowRightLeft size={18} className="text-orange-400 flex-shrink-0"/>
+                <ArrowRightLeft size={18} className="text-orange-400 flex-shrink-0" />
                 <div className="flex-1 min-w-0">
                   <p className="text-orange-400 font-semibold text-sm">Labour Transferred to Your Site</p>
                   <p className="text-gray-400 text-xs truncate">{n.message}</p>
@@ -74,89 +125,108 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 gap-3">
-        {[
-          { label:'Active Sites',  value:s.activeSites,  icon:Building2,    color:'text-primary-400', bg:'bg-primary-500/20', to:'/sites' },
-          { label:'Today Present', value:s.todayPresent, icon:ClipboardCheck,color:'text-green-400',   bg:'bg-green-500/20',  to:'/attendance' },
-          { label:'Total Labour',  value:s.totalLabour,  icon:Users,        color:'text-blue-400',    bg:'bg-blue-500/20',   to:'/labour' },
-          { label:'Pending Tasks', value:s.pendingTasks, icon:FileText,     color:'text-orange-400',  bg:'bg-orange-500/20', to:'/reports' },
-        ].map(({ label,value,icon:Icon,color,bg,to }) => (
-          <button key={label} onClick={() => navigate(to)} className="card-sm flex items-center gap-3 w-full text-left active:scale-95 transition-transform cursor-pointer">
-            <div className={`w-10 h-10 rounded-xl ${bg} flex items-center justify-center flex-shrink-0`}>
-              <Icon size={18} className={color}/>
-            </div>
-            <div>
-              <p className="text-gray-400 text-xs">{label}</p>
-              <p className="text-white font-bold text-xl">{value ?? 0}</p>
-            </div>
-          </button>
-        ))}
+      {/* Sites header */}
+      <div className="flex items-center justify-between">
+        <h3 className="text-white font-bold text-base flex items-center gap-2">
+          <Building2 size={16} className="text-primary-400" />
+          My Sites ({sites.length})
+        </h3>
+        <button
+          onClick={() => navigate('/attendance')}
+          className="flex items-center gap-1 text-xs text-primary-400 bg-primary-500/10 px-3 py-1.5 rounded-lg"
+        >
+          <ClipboardCheck size={14} />
+          Mark Attendance
+        </button>
       </div>
 
-      {/* Quick actions */}
-      <div>
-        <h3 className="text-white font-semibold mb-3">Quick Actions</h3>
-        <div className="grid grid-cols-3 gap-2">
-          {quickActions.map(({ label,icon:Icon,color,to }) => (
-            <button key={to} onClick={() => navigate(to)}
-              className="flex flex-col items-center gap-2 p-3 rounded-xl bg-surface-300 active:scale-95 transition-transform text-center">
-              <div className={`w-10 h-10 rounded-xl ${color} flex items-center justify-center`}><Icon size={18}/></div>
-              <span className="text-gray-300 text-xs leading-tight">{label}</span>
-            </button>
-          ))}
+      {/* Site cards */}
+      {sites.length === 0 ? (
+        <div className="card text-center py-8">
+          <Building2 size={32} className="mx-auto text-gray-600 mb-2" />
+          <p className="text-gray-400 text-sm">No sites assigned yet</p>
         </div>
-      </div>
+      ) : (
+        <div className="space-y-3">
+          {sites.map(site => {
+            const st = siteStats[site.id]
+            const progress = st?.progress ?? 0
+            const present = st?.present ?? 0
+            const half_day = st?.half_day ?? 0
+            const absent = st?.absent ?? 0
+            const totalLabour = st?.totalLabour ?? 0
+            const pendingTasks = st?.pendingTasks ?? 0
 
-      {/* My Sites */}
-      {data?.sites?.length > 0 && (
-        <div>
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-white font-semibold">My Sites</h3>
-            <button onClick={() => navigate('/sites')} className="text-primary-500 text-sm flex items-center gap-1">All <ChevronRight size={14}/></button>
-          </div>
-          <div className="space-y-2">
-            {data.sites.slice(0,3).map(site => (
-              <button key={site.id} onClick={() => navigate(`/sites/${site.id}`)}
-                className="card-sm w-full flex items-center gap-3 active:scale-95 transition-transform">
-                <div className="w-10 h-10 rounded-xl bg-primary-500/10 flex items-center justify-center flex-shrink-0">
-                  <Building2 size={18} className="text-primary-400"/>
+            return (
+              <div key={site.id} className="card space-y-3">
+                {/* Site name + location */}
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-white font-bold text-base truncate">{site.name}</p>
+                    {(site.city || site.address) && (
+                      <p className="text-gray-500 text-xs flex items-center gap-1 mt-0.5">
+                        <MapPin size={11} />
+                        {site.city || site.address}
+                      </p>
+                    )}
+                    {site.start_date && (
+                      <p className="text-gray-600 text-xs flex items-center gap-1 mt-0.5">
+                        <Calendar size={11} />
+                        {site.start_date}
+                        {site.expected_end_date ? ` → ${site.expected_end_date}` : ''}
+                      </p>
+                    )}
+                  </div>
+                  <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium shrink-0 ${
+                    site.status === 'active'
+                      ? 'bg-green-500/20 text-green-400 border border-green-500/30'
+                      : site.status === 'completed'
+                      ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
+                      : 'bg-gray-500/20 text-gray-400 border border-gray-500/30'
+                  }`}>
+                    {site.status}
+                  </span>
                 </div>
-                <div className="flex-1 text-left min-w-0">
-                  <p className="text-white font-medium text-sm truncate">{site.name}</p>
-                  <p className="text-gray-500 text-xs">{site.city || 'No location'}</p>
-                </div>
-                <StatusBadge status={site.status}/>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
 
-      {/* Recent Reports */}
-      {data?.recentReports?.length > 0 && (
-        <div>
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-white font-semibold">Recent Reports</h3>
-            <button onClick={() => navigate('/reports')} className="text-primary-500 text-sm flex items-center gap-1">All <ChevronRight size={14}/></button>
-          </div>
-          <div className="space-y-2">
-            {data.recentReports.slice(0,3).map(r => (
-              <div key={r.id} className="card-sm flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-purple-500/10 flex items-center justify-center flex-shrink-0">
-                  <FileText size={18} className="text-purple-400"/>
+                {/* Progress bar */}
+                <ProgressBar progress={progress} />
+
+                {/* Today's attendance */}
+                <AttendanceBar present={present} half_day={half_day} absent={absent} />
+
+                {/* Quick stats row */}
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="bg-surface-400 rounded-xl px-2 py-2 text-center">
+                    <p className="text-white font-bold text-base">{totalLabour}</p>
+                    <p className="text-gray-500 text-[10px] flex items-center justify-center gap-0.5">
+                      <Users size={10} /> Labour
+                    </p>
+                  </div>
+                  <div className="bg-surface-400 rounded-xl px-2 py-2 text-center">
+                    <p className="text-green-400 font-bold text-base">{present + half_day}</p>
+                    <p className="text-gray-500 text-[10px] flex items-center justify-center gap-0.5">
+                      <ClipboardCheck size={10} /> Today
+                    </p>
+                  </div>
+                  <div className="bg-surface-400 rounded-xl px-2 py-2 text-center">
+                    <p className="text-orange-400 font-bold text-base">{pendingTasks}</p>
+                    <p className="text-gray-500 text-[10px] flex items-center justify-center gap-0.5">
+                      <TrendingUp size={10} /> Tasks
+                    </p>
+                  </div>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-white text-sm font-medium truncate">{r.title}</p>
-                  <p className="text-gray-500 text-xs">{r.site?.name} · {r.report_date}</p>
-                  {r.tasks?.filter(t=>t.status==='pending').length > 0 && (
-                    <p className="text-orange-400 text-xs">{r.tasks.filter(t=>t.status==='pending').length} pending tasks</p>
-                  )}
-                </div>
-                <StatusBadge status={r.status}/>
+
+                {/* View Site button */}
+                <button
+                  onClick={() => navigate(`/dashboard/site/${site.id}`)}
+                  className="btn-primary w-full flex items-center justify-center gap-2 min-h-[44px]"
+                >
+                  View Site
+                  <ChevronRight size={16} />
+                </button>
               </div>
-            ))}
-          </div>
+            )
+          })}
         </div>
       )}
     </div>
