@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { Plus } from 'lucide-react'
+import { Plus, ArrowRightLeft } from 'lucide-react'
 import api from '../../utils/api'
 import toast from 'react-hot-toast'
 import { LoadingPage, StatusBadge, InfoRow, Modal } from '../../components/ui'
@@ -9,6 +9,7 @@ export default function LabourDetail() {
   const { id } = useParams()
   const [labour, setLabour] = useState(null)
   const [advances, setAdvances] = useState([])
+  const [transfers, setTransfers] = useState([])
   const [loading, setLoading] = useState(true)
   const [advModal, setAdvModal] = useState(false)
   const [advForm, setAdvForm] = useState({ amount: '', payment_mode: 'cash' })
@@ -16,8 +17,12 @@ export default function LabourDetail() {
 
   const load = async () => {
     try {
-      const [l, a] = await Promise.all([api.get(`/labour/${id}`), api.get(`/labour/${id}/advances`)])
-      setLabour(l.data); setAdvances(a.data)
+      const [l, a, t] = await Promise.all([
+        api.get(`/labour/${id}`),
+        api.get(`/labour/${id}/advances`),
+        api.get(`/attendance/transfers/${id}`).catch(() => ({ data: [] }))
+      ])
+      setLabour(l.data); setAdvances(a.data); setTransfers(t.data || [])
     } catch {}
     setLoading(false)
   }
@@ -95,6 +100,32 @@ export default function LabourDetail() {
           {advances.length === 0 && <p className="text-gray-500 text-sm text-center py-4">No advances given</p>}
         </div>
       </div>
+
+      {/* Transfer History */}
+      {transfers.length > 0 && (
+        <div className="card">
+          <h3 className="text-white font-semibold mb-3 flex items-center gap-2">
+            <ArrowRightLeft size={15} className="text-orange-400" />
+            Transfer History
+          </h3>
+          <div className="space-y-2 max-h-52 overflow-y-auto">
+            {transfers.map(t => (
+              <div key={t.id} className="flex justify-between items-center p-2.5 bg-surface-400 rounded-xl">
+                <div>
+                  <p className="text-white text-sm font-medium">→ {t.toSite?.name || t.to_site_id}</p>
+                  <p className="text-gray-500 text-xs">
+                    {t.transfer_date} · {t.duration_days} day{t.duration_days !== 1 ? 's' : ''}
+                    {t.reason ? ` · ${t.reason}` : ''}
+                  </p>
+                </div>
+                <span className="text-orange-400 text-xs bg-orange-500/10 border border-orange-500/20 px-2 py-0.5 rounded-full">
+                  Transferred
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <Modal open={advModal} onClose={() => setAdvModal(false)} title="Give Advance">
         <form onSubmit={handleAdvance} className="space-y-4">

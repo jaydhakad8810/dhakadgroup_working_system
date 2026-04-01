@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { Plus, Search, ChevronRight, Users, UserPlus, X } from 'lucide-react'
+import { Plus, Search, ChevronRight, Users, UserPlus, X, ArrowRightLeft } from 'lucide-react'
 import api from '../../utils/api'
 import { LoadingPage, EmptyState, StatusBadge } from '../../components/ui'
 import { useAuth } from '../../context/AuthContext'
@@ -24,6 +24,14 @@ export default function LabourList() {
   const [addModal, setAddModal] = useState(null) // labour record
   const [selectedSite, setSelectedSite] = useState('')
   const [adding, setAdding] = useState(false)
+
+  // Transfer modal state
+  const [transferModal, setTransferModal] = useState(null) // labour record
+  const [transferToSite, setTransferToSite] = useState('')
+  const [transferDays, setTransferDays] = useState('1')
+  const [transferReason, setTransferReason] = useState('')
+  const [transferDate, setTransferDate] = useState(new Date().toISOString().split('T')[0])
+  const [transferring, setTransferring] = useState(false)
 
   useEffect(() => {
     const siteFromUrl = searchParams.get('site_id')
@@ -88,6 +96,38 @@ export default function LabourList() {
     setAdding(false)
   }
 
+  const openTransfer = (l) => {
+    setTransferModal(l)
+    setTransferToSite('')
+    setTransferDays('1')
+    setTransferReason('')
+    setTransferDate(new Date().toISOString().split('T')[0])
+  }
+
+  const handleTransfer = async () => {
+    if (!transferToSite) return toast.error('Select a destination site')
+    if (!transferDays || parseInt(transferDays) < 1) return toast.error('Enter valid duration')
+    setTransferring(true)
+    try {
+      await api.post('/attendance/transfer', {
+        labour_id: transferModal.id,
+        from_site_id: transferModal.assigned_site_id,
+        to_site_id: transferToSite,
+        duration_days: parseInt(transferDays),
+        reason: transferReason,
+        transfer_date: transferDate,
+      })
+      const destSite = sites.find(s => s.id === transferToSite)
+      toast.success(`${transferModal.name} transferred to ${destSite?.name || 'new site'}`)
+      setTransferModal(null)
+      load()
+    } catch (err) {
+      toast.error(err?.response?.data?.message || 'Transfer failed')
+    } finally {
+      setTransferring(false)
+    }
+  }
+
   if (loading && tab === 'myteam') return <LoadingPage />
 
   return (
@@ -129,24 +169,34 @@ export default function LabourList() {
             : (
               <div className="space-y-2">
                 {filtered.map(l => (
-                  <button key={l.id} onClick={() => navigate(`/labour/${l.id}`)}
-                    className="card w-full text-left active:scale-95 transition-transform">
+                  <div key={l.id} className="card">
                     <div className="flex items-center gap-3">
-                      {l.photo
-                        ? <img src={l.photo} className="w-11 h-11 rounded-xl object-cover flex-shrink-0" alt={l.name} />
-                        : <div className="w-11 h-11 rounded-xl bg-primary-500/20 flex items-center justify-center text-primary-400 font-bold text-lg flex-shrink-0">{l.name[0]}</div>
-                      }
-                      <div className="flex-1 min-w-0">
+                      <button onClick={() => navigate(`/labour/${l.id}`)} className="flex-shrink-0">
+                        {l.photo
+                          ? <img src={l.photo} className="w-11 h-11 rounded-xl object-cover" alt={l.name} />
+                          : <div className="w-11 h-11 rounded-xl bg-primary-500/20 flex items-center justify-center text-primary-400 font-bold text-lg">{l.name[0]}</div>
+                        }
+                      </button>
+                      <button onClick={() => navigate(`/labour/${l.id}`)} className="flex-1 min-w-0 text-left">
                         <div className="flex items-center gap-2">
                           <p className="text-white font-semibold truncate">{l.name}</p>
                           <StatusBadge status={l.labour_type} />
                         </div>
                         <p className="text-gray-500 text-xs mt-0.5">{l.site?.name || 'No site'} · ₹{parseFloat(l.daily_wage).toLocaleString('en-IN')}/day</p>
                         {l.phone && <p className="text-gray-600 text-xs">{l.phone}</p>}
-                      </div>
-                      <ChevronRight size={16} className="text-gray-600 flex-shrink-0" />
+                      </button>
+                      <button
+                        onClick={() => openTransfer(l)}
+                        title="Transfer to another site"
+                        className="flex-shrink-0 w-9 h-9 rounded-xl bg-orange-500/20 flex items-center justify-center text-orange-400 active:scale-95 transition-transform"
+                      >
+                        <ArrowRightLeft size={15} />
+                      </button>
+                      <button onClick={() => navigate(`/labour/${l.id}`)} className="flex-shrink-0">
+                        <ChevronRight size={16} className="text-gray-600" />
+                      </button>
                     </div>
-                  </button>
+                  </div>
                 ))}
               </div>
             )
@@ -196,6 +246,73 @@ export default function LabourList() {
             </div>
           )}
         </>
+      )}
+
+      {/* Transfer modal */}
+      {transferModal && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60" onClick={() => setTransferModal(null)}>
+          <div className="w-full max-w-md bg-surface-500 rounded-t-2xl p-6 space-y-4" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <h3 className="text-white font-bold text-lg">Transfer {transferModal.name}</h3>
+              <button onClick={() => setTransferModal(null)} className="text-gray-400 hover:text-white"><X size={20} /></button>
+            </div>
+            <p className="text-gray-500 text-sm">
+              Currently at: <span className="text-white">{transferModal.site?.name || 'Unassigned'}</span>
+            </p>
+            <div className="space-y-3">
+              <div>
+                <label className="label">Destination Site *</label>
+                <select className="select w-full" value={transferToSite} onChange={e => setTransferToSite(e.target.value)}>
+                  <option value="">Select site</option>
+                  {sites
+                    .filter(s => s.id !== transferModal.assigned_site_id)
+                    .map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                </select>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="label">Duration (days) *</label>
+                  <input
+                    type="number"
+                    min="1"
+                    className="input w-full text-white"
+                    value={transferDays}
+                    onChange={e => setTransferDays(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="label">Start Date</label>
+                  <input
+                    type="date"
+                    className="input w-full text-white"
+                    value={transferDate}
+                    onChange={e => setTransferDate(e.target.value)}
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="label">Work Type / Reason</label>
+                <input
+                  className="input w-full text-white"
+                  placeholder="e.g. Plastering work, emergency support"
+                  value={transferReason}
+                  onChange={e => setTransferReason(e.target.value)}
+                />
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <button onClick={() => setTransferModal(null)} className="btn-secondary flex-1 min-h-[44px]">Cancel</button>
+              <button
+                onClick={handleTransfer}
+                disabled={transferring || !transferToSite}
+                className="btn-primary flex-1 min-h-[44px] flex items-center justify-center gap-2"
+              >
+                <ArrowRightLeft size={16} />
+                {transferring ? 'Transferring...' : 'Transfer'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Add to team bottom-sheet modal */}

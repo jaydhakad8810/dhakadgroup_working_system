@@ -31,6 +31,21 @@ router.get('/', async (req, res) => {
   } catch (e) { res.status(500).json({ message: e.message }); }
 });
 
+// GET /api/sites/supervisor/:supervisor_id — all sites for a supervisor
+router.get('/supervisor/:supervisor_id', async (req, res) => {
+  try {
+    const sites = await Site.findAll({
+      where: { supervisor_id: req.params.supervisor_id },
+      include: [
+        { model: Organisation, as: 'organisation', attributes: ['id', 'name'] },
+        { model: User, as: 'supervisor', attributes: ['id', 'name'] },
+      ],
+      order: [['createdAt', 'DESC']]
+    });
+    res.json(sites);
+  } catch (e) { res.status(500).json({ message: e.message }); }
+});
+
 router.post('/', adminOnly, async (req, res) => {
   try {
     const site = await Site.create(req.body);
