@@ -160,9 +160,9 @@ footer{background:var(--d2);border-top:1px solid rgba(255,255,255,.05);padding:4
 <section id="hero">
   <div class="hero-bg"></div><div class="hero-grid"></div>
   <div class="hero-content fi">
-    <div class="badge"><span class="badge-dot"></span>Trusted Construction Partner Since 2010</div>
-    <h1 class="hero-title">Building <span class="g">Tomorrow's</span><br>Infrastructure Today</h1>
-    <p class="hero-sub">Dhakad Group delivers excellence in construction — from residential complexes to large-scale infrastructure projects across India.</p>
+    <div class="badge"><span class="badge-dot"></span><span id="hero-badge-text">Trusted Construction Partner Since 2010</span></div>
+    <h1 class="hero-title" id="hero-title">Building <span class="g">Tomorrow's</span><br>Infrastructure Today</h1>
+    <p class="hero-sub"><span id="hero-sub-text">Dhakad Group delivers excellence in construction — from residential complexes to large-scale infrastructure projects across India.</span></p>
     <div class="btns">
       <a href="#projects" class="btn-p">🏗️ View Projects</a>
       <a href="#contact" class="btn-o">📞 Contact Us</a>
@@ -170,18 +170,18 @@ footer{background:var(--d2);border-top:1px solid rgba(255,255,255,.05);padding:4
   </div>
 </section>
 <div class="stats" id="sb">
-  <div class="stat"><div class="sn" data-t="150">0</div><div class="sl">Projects Completed</div></div>
-  <div class="stat"><div class="sn" data-t="12">0</div><div class="sl">Years of Excellence</div></div>
-  <div class="stat"><div class="sn" data-t="500">0</div><div class="sl">Workers Employed</div></div>
-  <div class="stat"><div class="sn" data-t="25">0</div><div class="sl">Ongoing Projects</div></div>
+  <div class="stat"><div class="sn" data-t="150" id="stat-projects">0</div><div class="sl">Projects Completed</div></div>
+  <div class="stat"><div class="sn" data-t="12" id="stat-years">0</div><div class="sl">Years of Excellence</div></div>
+  <div class="stat"><div class="sn" data-t="500" id="stat-workers">0</div><div class="sl">Workers Employed</div></div>
+  <div class="stat"><div class="sn" data-t="25" id="stat-ongoing">0</div><div class="sl">Ongoing Projects</div></div>
 </div>
 <section id="about">
   <div class="about-grid">
     <div class="aimg fi"><div class="aimg-ph">🏗️</div><div class="atag">Est. 2010<br>Pune, India</div></div>
     <div class="fi">
       <span class="sec-badge">About Us</span>
-      <h2 class="sec-title">Building with <span class="g">Integrity</span> &amp; Precision</h2>
-      <p class="sec-sub">Dhakad Group has been at the forefront of construction excellence, delivering quality projects on time and within budget across Maharashtra and beyond.</p>
+      <h2 class="sec-title" id="about-title">Building with <span class="g">Integrity</span> &amp; Precision</h2>
+      <p class="sec-sub" id="about-desc">Dhakad Group has been at the forefront of construction excellence, delivering quality projects on time and within budget across Maharashtra and beyond.</p>
       <div class="afeats">
         <div class="afeat">ISO 9001 Certified</div><div class="afeat">Safety First Culture</div>
         <div class="afeat">Modern Equipment</div><div class="afeat">Expert Team</div>
@@ -222,10 +222,10 @@ footer{background:var(--d2);border-top:1px solid rgba(255,255,255,.05);padding:4
       <h2 class="sec-title">Let's Build <span class="g">Together</span></h2>
       <p class="sec-sub">Have a project? Contact us for a free consultation and quote.</p>
       <div style="margin-top:28px">
-        <div class="ci"><div class="cicon">📍</div><div><h4>Office</h4><p>Dhakad Group, Pune, Maharashtra</p></div></div>
-        <div class="ci"><div class="cicon">📞</div><div><h4>Phone</h4><p>+91 98225 XXXXX</p></div></div>
-        <div class="ci"><div class="cicon">✉️</div><div><h4>Email</h4><p>info@dhakadgroup.in</p></div></div>
-        <div class="ci"><div class="cicon">🕒</div><div><h4>Hours</h4><p>Mon–Sat: 9:00 AM – 7:00 PM</p></div></div>
+        <div class="ci"><div class="cicon">📍</div><div><h4>Office</h4><p id="contact-address">Dhakad Group, Pune, Maharashtra</p></div></div>
+        <div class="ci"><div class="cicon">📞</div><div><h4>Phone</h4><p id="contact-phone">+91 98225 XXXXX</p></div></div>
+        <div class="ci"><div class="cicon">✉️</div><div><h4>Email</h4><p id="contact-email">info@dhakadgroup.in</p></div></div>
+        <div class="ci"><div class="cicon">🕒</div><div><h4>Hours</h4><p id="contact-hours">Mon–Sat: 9:00 AM – 7:00 PM</p></div></div>
       </div>
     </div>
     <div class="cform fi">
@@ -275,6 +275,30 @@ footer{background:var(--d2);border-top:1px solid rgba(255,255,255,.05);padding:4
 <script>
 const obs=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting)e.target.classList.add('vis')}),{threshold:.1});
 document.querySelectorAll('.fi').forEach(el=>obs.observe(el));
+async function fetchContent(){
+  try{
+    const r=await fetch('https://api.dhakadgroup.in/api/website/public/content?_t='+Date.now());
+    if(!r.ok)return;
+    const c=await r.json();
+    const s=(sec,key)=>c[sec]&&c[sec][key]?c[sec][key]:null;
+    const set=(id,v)=>{const el=document.getElementById(id);if(el&&v)el.innerHTML=v};
+    const setText=(id,v)=>{const el=document.getElementById(id);if(el&&v)el.textContent=v};
+    if(s('hero','badge'))setText('hero-badge-text',s('hero','badge'));
+    if(s('hero','title'))set('hero-title',s('hero','title'));
+    if(s('hero','subtitle'))setText('hero-sub-text',s('hero','subtitle'));
+    if(s('stats','projects'))setText('stat-projects',s('stats','projects')+'+');
+    if(s('stats','years'))setText('stat-years',s('stats','years')+'+');
+    if(s('stats','workers'))setText('stat-workers',s('stats','workers')+'+');
+    if(s('stats','ongoing'))setText('stat-ongoing',s('stats','ongoing')+'+');
+    if(s('about','title'))set('about-title',s('about','title'));
+    if(s('about','description'))setText('about-desc',s('about','description'));
+    if(s('contact','address'))setText('contact-address',s('contact','address'));
+    if(s('contact','phone'))setText('contact-phone',s('contact','phone'));
+    if(s('contact','email'))setText('contact-email',s('contact','email'));
+    if(s('contact','hours'))setText('contact-hours',s('contact','hours'));
+  }catch(_){}
+}
+fetchContent();
 const cobs=new IntersectionObserver(es=>{es.forEach(e=>{if(e.isIntersecting){e.target.querySelectorAll('[data-t]').forEach(el=>{const t=parseInt(el.dataset.t);let c=0,s=t/55;const i=setInterval(()=>{c+=s;if(c>=t){el.textContent=t+'+';clearInterval(i)}else el.textContent=Math.floor(c)+'+'},16)});cobs.disconnect()}})},{threshold:.5});
 const sb=document.getElementById('sb');if(sb)cobs.observe(sb);
 window.addEventListener('scroll',()=>{const n=document.getElementById('nav');n.style.padding=window.scrollY>40?'10px 5%':'14px 5%'});

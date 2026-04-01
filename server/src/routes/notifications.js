@@ -1,9 +1,39 @@
 const router = require('express').Router();
-const { Notification, User } = require('../models');
+const { Notification, User, PushSubscription } = require('../models');
 const { auth, adminOnly } = require('../middleware/auth');
 const { Op } = require('sequelize');
+const { sendPush } = require('../utils/push');
+
+// Helper: send push to a user if they have subscriptions
+async function pushToUser(userId, title, body, url) {
+  try {
+    const subs = await PushSubscription.findAll({ where: { user_id: userId } });
+    for (const sub of subs) {
+      try {
+        await sendPush({ endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } }, title, body, url);
+      } catch (e) {
+        if (e.statusCode === 410 || e.statusCode === 404) await sub.destroy();
+      }
+    }
+  } catch (_) {}
+}
+
+// Public: return VAPID public key
+router.get('/vapid-public-key', (_req, res) => {
+  res.json({ publicKey: process.env.VAPID_PUBLIC_KEY || '' });
+});
 
 router.use(auth);
+
+// Save push subscription for current user
+router.post('/subscribe', async (req, res) => {
+  try {
+    const { endpoint, keys } = req.body;
+    if (!endpoint || !keys?.p256dh || !keys?.auth) return res.status(400).json({ message: 'Invalid subscription' });
+    await PushSubscription.upsert({ endpoint, user_id: req.user.id, p256dh: keys.p256dh, auth: keys.auth });
+    res.json({ message: 'Subscribed' });
+  } catch (e) { res.status(500).json({ message: e.message }); }
+});
 
 router.get('/', async (req, res) => {
   try {
@@ -68,6 +98,9 @@ router.post('/', adminOnly, async (req, res) => {
         req.io.emit('notification', notification);
       }
     }
+    if (req.body.target_user_id) {
+      pushToUser(req.body.target_user_id, notification.title, notification.message);
+    }
     res.status(201).json(notification);
   } catch (e) { res.status(500).json({ message: e.message }); }
 });
@@ -81,6 +114,12 @@ router.post('/broadcast', adminOnly, async (req, res) => {
       if (target_user_id) req.io.to(`user_${target_user_id}`).emit('notification', notification);
       else if (target_role) req.io.to(target_role).emit('notification', notification);
       else req.io.emit('notification', notification);
+    }
+    if (target_user_id) {
+      pushToUser(target_user_id, title, message);
+    } else if (target_role && target_role !== 'all') {
+      const users = await User.findAll({ where: { role: target_role, is_active: true }, attributes: ['id'] });
+      for (const u of users) pushToUser(u.id, title, message);
     }
     res.status(201).json(notification);
   } catch (e) { res.status(500).json({ message: e.message }); }

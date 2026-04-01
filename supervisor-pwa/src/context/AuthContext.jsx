@@ -1,5 +1,6 @@
 import { createContext, useContext, useState } from 'react'
 import api from '../utils/api'
+import { registerPush } from '../utils/registerPush'
 
 const AuthContext = createContext(null)
 
@@ -14,6 +15,7 @@ export function AuthProvider({ children }) {
     localStorage.setItem('sv_token', data.token)
     localStorage.setItem('sv_user', JSON.stringify(data.user))
     setUser(data.user)
+    setTimeout(registerPush, 1000)
     return data
   }
 
