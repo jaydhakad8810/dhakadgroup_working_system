@@ -7,7 +7,7 @@ import { registerPush } from '../../utils/registerPush'
 
 export default function Login() {
   const [email, setEmail] = useState('dgsystem8810@gmail.com')
-  const [password, setPassword] = useState('admin123')
+  const [password, setPassword] = useState('')
   const [showPw, setShowPw] = useState(false)
   const [rememberMe, setRememberMe] = useState(false)
   const [loading, setLoading] = useState(false)
