@@ -15,6 +15,8 @@ const Attendance = sequelize.define('Attendance', {
   check_out_photo: { type: DataTypes.TEXT, allowNull: true },
   day_multiplier: { type: DataTypes.DECIMAL(3, 1), defaultValue: 1.0 },
   absent_reason: { type: DataTypes.STRING(200), allowNull: true },
+  task_note: { type: DataTypes.TEXT, allowNull: true },
+  materials: { type: DataTypes.JSONB, allowNull: true },
   marked_by: { type: DataTypes.UUID, allowNull: true },
   is_correction: { type: DataTypes.BOOLEAN, defaultValue: false },
 }, { tableName: 'attendance' });

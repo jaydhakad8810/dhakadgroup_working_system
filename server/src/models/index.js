@@ -26,6 +26,7 @@ Site.hasMany(Labour, { foreignKey: 'assigned_site_id', as: 'labourers' });
 // Attendance
 Attendance.belongsTo(Labour, { foreignKey: 'labour_id', as: 'labour' });
 Attendance.belongsTo(Site, { foreignKey: 'site_id', as: 'site' });
+Attendance.belongsTo(User, { foreignKey: 'marked_by', as: 'supervisor' });
 Labour.hasMany(Attendance, { foreignKey: 'labour_id', as: 'attendance' });
 
 // Salary

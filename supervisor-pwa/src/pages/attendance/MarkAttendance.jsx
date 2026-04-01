@@ -151,6 +151,8 @@ export default function MarkAttendance() {
   const [checkoutPhotos, setCheckoutPhotos] = useState({})
   // { [labour_id]: true } while uploading
   const [uploadingCheckout, setUploadingCheckout] = useState({})
+  // Per-labour task notes { [labour_id]: string }
+  const [taskNotes, setTaskNotes] = useState({})
   const [taskStatus, setTaskStatus] = useState('completed')
   const [savingCheckOut, setSavingCheckOut] = useState(false)
 
@@ -356,7 +358,7 @@ export default function MarkAttendance() {
         presentRecords.map((r) =>
           api.patch(`/attendance/${r._id || r.id}/checkout`, {
             check_out_photo: checkoutPhotos[r.labour_id],
-            task_status: taskStatus,
+            task_note: taskNotes[r.labour_id] || '',
             materials,
           })
         )
@@ -368,6 +370,13 @@ export default function MarkAttendance() {
     } finally {
       setSavingCheckOut(false)
     }
+  }
+
+  // ── Generate PDF report
+  const generatePdfReport = () => {
+    const base = api.defaults?.baseURL || '/api'
+    const url = `${base}/attendance/report/pdf?site_id=${selectedSite}&date=${attendanceDate}`
+    window.open(url, '_blank')
   }
 
   // ── Submit daily report
@@ -408,6 +417,7 @@ export default function MarkAttendance() {
     setUploadingCheckin({})
     setCheckoutPhotos({})
     setUploadingCheckout({})
+    setTaskNotes({})
     setTaskCheckedIn(false)
     setMaterials([])
     setMatName('')
@@ -837,35 +847,45 @@ export default function MarkAttendance() {
             {presentLabours.length === 0 ? (
               <p className="text-sm text-gray-500">No present labours.</p>
             ) : (
-              <div className="space-y-2">
+              <div className="space-y-3">
                 {presentLabours.map((l) => {
                   const id = l._id || l.id
                   const checkinThumb = checkinPhotos[id]
                   return (
-                    <div key={id} className="flex items-center gap-3 bg-surface-400 rounded-xl px-3 py-2">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-white truncate">
-                          {l.name || l.labour_name}
-                        </p>
-                        {checkinThumb && (
-                          <div className="flex items-center gap-1 mt-1">
-                            <img
-                              src={checkinThumb}
-                              alt="check-in"
-                              className="w-6 h-6 object-cover rounded"
-                            />
-                            <span className="text-xs text-gray-500">Check-in</span>
-                          </div>
+                    <div key={id} className="bg-surface-400 rounded-xl px-3 py-2 space-y-2">
+                      <div className="flex items-center gap-3">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-white truncate">
+                            {l.name || l.labour_name}
+                          </p>
+                          {checkinThumb && (
+                            <div className="flex items-center gap-1 mt-1">
+                              <img
+                                src={checkinThumb}
+                                alt="check-in"
+                                className="w-6 h-6 object-cover rounded"
+                              />
+                              <span className="text-xs text-gray-500">Check-in</span>
+                            </div>
+                          )}
+                        </div>
+                        {!checkoutPhotos[id] && (
+                          <span className="text-xs text-red-400 shrink-0">Required</span>
                         )}
+                        <LabourPhotoBtn
+                          labourId={id}
+                          photoUrl={checkoutPhotos[id]}
+                          uploading={uploadingCheckout[id]}
+                          onCapture={handleCheckoutPhoto}
+                        />
                       </div>
-                      {!checkoutPhotos[id] && (
-                        <span className="text-xs text-red-400 shrink-0">Required</span>
-                      )}
-                      <LabourPhotoBtn
-                        labourId={id}
-                        photoUrl={checkoutPhotos[id]}
-                        uploading={uploadingCheckout[id]}
-                        onCapture={handleCheckoutPhoto}
+                      <input
+                        className="input text-white text-xs w-full"
+                        placeholder="Task note for this labour (optional)"
+                        value={taskNotes[id] || ''}
+                        onChange={(e) =>
+                          setTaskNotes((prev) => ({ ...prev, [id]: e.target.value }))
+                        }
                       />
                     </div>
                   )
@@ -1029,7 +1049,15 @@ export default function MarkAttendance() {
                 onClick={submitReport}
                 disabled={submittingReport}
               >
-                {submittingReport ? 'Submitting...' : 'Generate & Submit Daily Report'}
+                {submittingReport ? 'Submitting...' : 'Submit Daily Report'}
+                <FileText size={18} />
+              </button>
+              <button
+                className="btn-secondary w-full flex items-center justify-center gap-2 min-h-[44px]"
+                onClick={generatePdfReport}
+                type="button"
+              >
+                Generate PDF Report
                 <FileText size={18} />
               </button>
             </>

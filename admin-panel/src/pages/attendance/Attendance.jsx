@@ -1,17 +1,52 @@
 import { useEffect, useState } from 'react'
-import { Search, Download } from 'lucide-react'
+import { Search, Download, X } from 'lucide-react'
 import toast from 'react-hot-toast'
 import api from '../../utils/api'
 import { PageHeader, LoadingPage, StatusBadge } from '../../components/ui'
 
+function PhotoThumb({ url, label }) {
+  const [expanded, setExpanded] = useState(false)
+  if (!url) return <span style={{ color: 'var(--muted)' }}>—</span>
+  return (
+    <>
+      <img
+        src={url}
+        alt={label}
+        title={`Click to expand ${label}`}
+        className="w-10 h-10 rounded-lg object-cover cursor-pointer hover:opacity-80 border border-white/10"
+        onClick={() => setExpanded(true)}
+      />
+      {expanded && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80"
+          onClick={() => setExpanded(false)}
+        >
+          <div className="relative max-w-lg w-full mx-4">
+            <button
+              className="absolute top-2 right-2 bg-black/60 text-white rounded-full p-1"
+              onClick={() => setExpanded(false)}
+            >
+              <X size={18} />
+            </button>
+            <img src={url} alt={label} className="w-full rounded-xl" />
+            <p className="text-center text-xs text-gray-300 mt-2">{label}</p>
+          </div>
+        </div>
+      )}
+    </>
+  )
+}
+
 export default function Attendance() {
   const [records, setRecords] = useState([])
   const [sites, setSites] = useState([])
+  const [supervisors, setSupervisors] = useState([])
   const [loading, setLoading] = useState(true)
   const [filterSite, setFilterSite] = useState('')
   const [filterDate, setFilterDate] = useState(new Date().toISOString().split('T')[0])
   const [filterFrom, setFilterFrom] = useState('')
   const [filterTo, setFilterTo] = useState('')
+  const [filterSupervisor, setFilterSupervisor] = useState('')
   const [search, setSearch] = useState('')
   const [summary, setSummary] = useState(null)
   const [labour, setLabour] = useState([])
@@ -27,8 +62,16 @@ export default function Attendance() {
       if (filterFrom) params.append('from', filterFrom)
       if (filterTo) params.append('to', filterTo)
       if (search) params.append('search', search)
+      if (filterSupervisor) params.append('supervisor_id', filterSupervisor)
       const [att, s] = await Promise.all([api.get(`/attendance?${params}`), api.get('/sites')])
-      setRecords(att.data); setSites(s.data)
+      setRecords(att.data)
+      setSites(s.data)
+      // collect unique supervisors from records
+      const supMap = {}
+      ;(att.data || []).forEach(r => {
+        if (r.supervisor) supMap[r.supervisor.id] = r.supervisor
+      })
+      setSupervisors(Object.values(supMap))
       if (filterSite && filterDate && !filterFrom) {
         const sum = await api.get(`/attendance/summary?site_id=${filterSite}&date=${filterDate}`)
         setSummary(sum.data)
@@ -48,7 +91,7 @@ export default function Attendance() {
     } catch {}
   }
 
-  useEffect(() => { load() }, [filterSite, filterDate, filterFrom, filterTo, search])
+  useEffect(() => { load() }, [filterSite, filterDate, filterFrom, filterTo, search, filterSupervisor])
   useEffect(() => { loadLabour() }, [filterSite, filterDate, records])
 
   const setStatus = (labourId, status) => setAttendance(p => ({ ...p, [labourId]: p[labourId] === status ? undefined : status }))
@@ -63,15 +106,25 @@ export default function Attendance() {
     setSaving(false)
   }
 
-  const exportData = (format) => {
+  const exportData = () => {
     if (!records.length) return toast.error('No data to export')
-    if (format === 'csv') {
-      const rows = [['Date', 'Labour', 'Site', 'Status', 'Check In', 'Check Out']]
-      records.forEach(r => rows.push([r.date, r.labour?.name, r.site?.name, r.status, r.check_in_time ? new Date(r.check_in_time).toLocaleTimeString() : '', r.check_out_time ? new Date(r.check_out_time).toLocaleTimeString() : '']))
-      const csv = rows.map(r => r.join(',')).join('\n')
-      const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' })); a.download = `attendance_${filterDate || 'report'}.csv`; a.click()
-      toast.success('Exported as CSV')
-    }
+    const rows = [['Date', 'Labour', 'Site', 'Supervisor', 'Status', 'Check In', 'Check Out', 'Task Note']]
+    records.forEach(r => rows.push([
+      r.date,
+      r.labour?.name || '',
+      r.site?.name || '',
+      r.supervisor?.name || '',
+      r.status,
+      r.check_in_time ? new Date(r.check_in_time).toLocaleTimeString() : '',
+      r.check_out_time ? new Date(r.check_out_time).toLocaleTimeString() : '',
+      r.task_note || ''
+    ]))
+    const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n')
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }))
+    a.download = `attendance_${filterDate || 'report'}.csv`
+    a.click()
+    toast.success('Exported as CSV')
   }
 
   const present = Object.values(attendance).filter(v => v === 'present').length
@@ -81,13 +134,14 @@ export default function Attendance() {
   return (
     <div className="space-y-6">
       <PageHeader title="Attendance"
-        action={<button onClick={() => exportData('csv')} className="btn-outline"><Download size={16} />Export CSV</button>}
+        action={<button onClick={exportData} className="btn-outline"><Download size={16} />Export CSV</button>}
       />
 
       {/* Filters */}
       <div className="flex gap-3 flex-wrap">
         <select className="select w-56" value={filterSite} onChange={e => setFilterSite(e.target.value)}>
-          <option value="">All Sites</option>{sites.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+          <option value="">All Sites</option>
+          {sites.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
         </select>
         <input type="date" className="input w-44" value={filterDate} onChange={e => { setFilterDate(e.target.value); setFilterFrom(''); setFilterTo('') }} />
         <div className="flex items-center gap-2">
@@ -95,6 +149,10 @@ export default function Attendance() {
           <input type="date" className="input w-40" value={filterFrom} onChange={e => { setFilterFrom(e.target.value); setFilterDate('') }} placeholder="From" />
           <input type="date" className="input w-40" value={filterTo} onChange={e => setFilterTo(e.target.value)} placeholder="To" />
         </div>
+        <select className="select w-48" value={filterSupervisor} onChange={e => setFilterSupervisor(e.target.value)}>
+          <option value="">All Supervisors</option>
+          {supervisors.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+        </select>
         <div className="relative">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
           <input className="input pl-9 w-52" placeholder="Search labour..." value={search} onChange={e => setSearch(e.target.value)} />
@@ -151,22 +209,75 @@ export default function Attendance() {
       )}
 
       {/* Records table */}
-      {(filterFrom || !filterSite) && (
-        <div className="table-container">
+      {loading ? (
+        <LoadingPage />
+      ) : (
+        <div className="table-container overflow-x-auto">
           <table>
-            <thead><tr><th>Labour</th><th>Site</th><th>Date</th><th>Status</th><th>Check In</th><th>Check Out</th></tr></thead>
+            <thead>
+              <tr>
+                <th>Labour</th>
+                <th>Site</th>
+                <th>Date</th>
+                <th>Supervisor</th>
+                <th>Status</th>
+                <th>Check-In</th>
+                <th>Check-In Photo</th>
+                <th>Check-Out</th>
+                <th>Check-Out Photo</th>
+                <th>Task Note</th>
+                <th>Materials</th>
+              </tr>
+            </thead>
             <tbody>
-              {records.slice(0, 100).map(r => (
+              {records.slice(0, 200).map(r => (
                 <tr key={r.id}>
-                  <td>{r.labour?.name}</td>
-                  <td style={{ color: 'var(--muted)' }}>{r.site?.name}</td>
+                  <td>
+                    <div className="flex items-center gap-2">
+                      {r.labour?.photo
+                        ? <img src={r.labour.photo} className="w-7 h-7 rounded-md object-cover" />
+                        : <div className="w-7 h-7 rounded-md bg-gold-500/20 flex items-center justify-center text-gold-400 text-xs font-bold">{(r.labour?.name || '?')[0]}</div>
+                      }
+                      <span>{r.labour?.name || '—'}</span>
+                    </div>
+                  </td>
+                  <td style={{ color: 'var(--muted)' }}>{r.site?.name || '—'}</td>
                   <td style={{ color: 'var(--muted)' }}>{r.date}</td>
-                  <td><StatusBadge status={r.status} /></td><td>{r.checkin_photo ? <a href={r.checkin_photo} target="_blank" rel="noreferrer"><img src={r.checkin_photo} className="w-10 h-10 rounded-lg object-cover hover:opacity-80"/></a> : <span style={{color:"var(--muted)"}}>—</span>}</td>
-                  <td style={{ color: 'var(--muted)' }}>{r.check_in_time ? new Date(r.check_in_time).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : '—'}</td>
-                  <td style={{ color: 'var(--muted)' }}>{r.check_out_time ? new Date(r.check_out_time).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : '—'}</td>
+                  <td style={{ color: 'var(--muted)' }}>{r.supervisor?.name || '—'}</td>
+                  <td><StatusBadge status={r.status} /></td>
+                  <td style={{ color: 'var(--muted)' }}>
+                    {r.check_in_time ? new Date(r.check_in_time).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }) : '—'}
+                  </td>
+                  <td>
+                    <PhotoThumb url={r.check_in_photo} label="Check-In Photo" />
+                  </td>
+                  <td style={{ color: 'var(--muted)' }}>
+                    {r.check_out_time ? new Date(r.check_out_time).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }) : '—'}
+                  </td>
+                  <td>
+                    <PhotoThumb url={r.check_out_photo} label="Check-Out Photo" />
+                  </td>
+                  <td style={{ color: 'var(--muted)', maxWidth: 160 }}>
+                    {r.task_note
+                      ? <span title={r.task_note} className="block truncate max-w-[140px]">{r.task_note}</span>
+                      : '—'}
+                  </td>
+                  <td style={{ color: 'var(--muted)', minWidth: 120 }}>
+                    {Array.isArray(r.materials) && r.materials.length > 0
+                      ? (
+                        <ul className="text-xs space-y-0.5">
+                          {r.materials.map((m, i) => (
+                            <li key={i}>{m.name}: {m.quantity} {m.unit}</li>
+                          ))}
+                        </ul>
+                      )
+                      : '—'}
+                  </td>
                 </tr>
               ))}
-              {!records.length && <tr><td colSpan={6} className="text-center py-8" style={{ color: 'var(--muted)' }}>No records</td></tr>}
+              {!records.length && (
+                <tr><td colSpan={11} className="text-center py-8" style={{ color: 'var(--muted)' }}>No records</td></tr>
+              )}
             </tbody>
           </table>
         </div>
