@@ -6,7 +6,7 @@ const Attendance = require('./Attendance');
 const {
   SalaryRecord, AdvancePayment, LabourTransfer, SiteLedger, ClientPayment,
   ExpenseCategory, DailyExpense, DriverExpense, Notification, VisitReport, VisitTask,
-  BOQLabour, BOQMaterial,
+  BOQLabour, BOQMaterial, PushSubscription,
 } = require('./FinancialModels');
 const { MaterialCategory, Godown, GodownStock, StockHistory } = require('./GodownModels');
 const { MachineCategory, Machine, MachineRequest } = require('./MachineModels');
@@ -85,7 +85,7 @@ module.exports = {
   User, Organisation, Site, Labour, Attendance,
   SalaryRecord, AdvancePayment, LabourTransfer, SiteLedger, ClientPayment,
   ExpenseCategory, DailyExpense, DriverExpense, Notification, VisitReport, VisitTask,
-  BOQLabour, BOQMaterial,
+  BOQLabour, BOQMaterial, PushSubscription,
   MaterialCategory, Godown, GodownStock, StockHistory,
   MachineCategory, Machine, MachineRequest,
   Driver, Vehicle, Trip,

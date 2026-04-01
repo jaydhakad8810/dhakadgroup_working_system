@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { Loader2, Eye, EyeOff, Monitor, Smartphone } from 'lucide-react'
 import api from '../../utils/api'
+import { registerPush } from '../../utils/registerPush'
 
 export default function Login() {
   const [email, setEmail] = useState('dgsystem8810@gmail.com')
@@ -58,6 +59,7 @@ export default function Login() {
         toast.success('OTP sent to your email')
       } else {
         saveToken(data.token, data.user)
+        setTimeout(registerPush, 1000)
         window.location.href = '/dashboard'
       }
     } catch (err) {
@@ -87,6 +89,7 @@ export default function Login() {
       const { data } = await api.post('/auth/verify-otp', { email: otpEmail, otp_code: code })
       saveToken(data.token, data.user)
       toast.success('Welcome back!')
+      setTimeout(registerPush, 1000)
       window.location.href = '/dashboard'
     } catch (err) {
       toast.error(err.response?.data?.message || 'Invalid OTP')

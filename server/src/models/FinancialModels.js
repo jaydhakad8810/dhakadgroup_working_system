@@ -170,8 +170,17 @@ const BOQMaterial = sequelize.define('BOQMaterial', {
   notes: { type: DataTypes.TEXT, allowNull: true },
 }, { tableName: 'boq_material' });
 
+// ── PushSubscription ───────────────────────────────────────────────────────────
+const PushSubscription = sequelize.define('PushSubscription', {
+  id: { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
+  user_id: { type: DataTypes.UUID, allowNull: false },
+  endpoint: { type: DataTypes.TEXT, allowNull: false, unique: true },
+  p256dh: { type: DataTypes.TEXT, allowNull: false },
+  auth: { type: DataTypes.TEXT, allowNull: false },
+}, { tableName: 'push_subscriptions' });
+
 module.exports = {
   SalaryRecord, AdvancePayment, LabourTransfer, SiteLedger, ClientPayment,
   ExpenseCategory, DailyExpense, DriverExpense, Notification, VisitReport, VisitTask,
-  BOQLabour, BOQMaterial,
+  BOQLabour, BOQMaterial, PushSubscription,
 };
