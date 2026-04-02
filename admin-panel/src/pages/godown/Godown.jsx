@@ -189,8 +189,8 @@ export default function Godown() {
           <button onClick={() => { setGodownForm(emptyGodownForm); setError(''); setShowAddGodown(true); }} className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-white font-semibold text-sm bg-green-500 hover:bg-green-600"><Plus size={15} /> Godown</button>
           <button onClick={() => { setCatForm(emptyCatForm); setError(''); setShowAddCategory(true); }} className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-white font-semibold text-sm bg-indigo-500 hover:bg-indigo-600"><Plus size={15} /> Material</button>
           <button onClick={() => { setTransferForm(emptyTransfer); setError(''); setShowTransfer(true); }} className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-white font-semibold text-sm bg-purple-500 hover:bg-purple-600"><ArrowRightLeft size={15} /> Transfer</button>
-          <button onClick={() => { setStockInForm(emptyStockIn); setStockInFiles({}); setError(''); setShowStockIn(true); }} className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-black font-semibold text-sm" style={{ background: GOLD_GRAD }}><ArrowDown size={15} /> Stock IN</button>
-          <button onClick={() => { setStockOutForm(emptyStockOut); setStockOutFiles({}); setError(''); setShowStockOut(true); }} className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-white font-semibold text-sm" style={{ background: '#0a0a0a', border: '1px solid #C9A84C44' }}><ArrowUp size={15} /> Stock OUT</button>
+          <button onClick={() => { setStockInForm(emptyStockIn); setError(''); setShowStockIn(true); }} className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-black font-semibold text-sm" style={{ background: GOLD_GRAD }}><ArrowDown size={15} /> Stock IN</button>
+          <button onClick={() => { setStockOutForm(emptyStockOut); setError(''); setShowStockOut(true); }} className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-white font-semibold text-sm" style={{ background: '#0a0a0a', border: '1px solid #C9A84C44' }}><ArrowUp size={15} /> Stock OUT</button>
         </div>
       </div>
 
@@ -316,17 +316,17 @@ export default function Godown() {
                       {history.map(h => (
                         <tr key={h.id} className="hover:bg-gray-50">
                           <td className="px-4 py-3">
-                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${h.transaction_type === 'IN' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>
-                              {h.transaction_type === 'IN' ? '📥 IN' : '📤 OUT'}
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${h.type === 'in' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>
+                              {h.type === 'in' ? '📥 IN' : '📤 OUT'}
                             </span>
                           </td>
                           <td className="px-4 py-3 font-medium text-gray-900">{h.category?.name || '—'}</td>
                           <td className="px-4 py-3 font-bold text-gray-900">{h.quantity}</td>
-                          <td className="px-4 py-3 text-gray-500 text-sm">{h.unit || '—'}</td>
-                          <td className="px-4 py-3 text-gray-900">{h.bill_amount ? `₹${parseFloat(h.bill_amount).toLocaleString()}` : '—'}</td>
-                          <td className="px-4 py-3 text-gray-500 text-sm">{h.received_from || h.notes || '—'}</td>
+                          <td className="px-4 py-3 text-gray-500 text-sm">{h.category?.unit || '—'}</td>
+                          <td className="px-4 py-3 text-gray-900">{h.unit_price ? `₹${parseFloat(h.unit_price).toLocaleString()}` : '—'}</td>
+                          <td className="px-4 py-3 text-gray-500 text-sm">{h.notes || '—'}</td>
                           <td className="px-4 py-3">
-                            {h.bill_photo_url ? <a href={h.bill_photo_url} target="_blank" rel="noreferrer" className="text-xs px-2 py-1 rounded-lg bg-blue-50 text-blue-600">📷 View</a> : '—'}
+                            {h.photo ? <a href={h.photo} target="_blank" rel="noreferrer" className="text-xs px-2 py-1 rounded-lg bg-blue-50 text-blue-600">📷 View</a> : '—'}
                           </td>
                           <td className="px-4 py-3 text-gray-500 text-sm whitespace-nowrap">
                             {h.createdAt ? new Date(h.createdAt).toLocaleDateString('en-IN') : '—'}

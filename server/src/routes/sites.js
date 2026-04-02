@@ -31,6 +31,17 @@ router.get('/', async (req, res) => {
   } catch (e) { res.status(500).json({ message: e.message }); }
 });
 
+// GET /api/sites/all — all sites regardless of role (used for dropdowns)
+router.get('/all', async (req, res) => {
+  try {
+    const sites = await Site.findAll({
+      attributes: ['id', 'name', 'city', 'status'],
+      order: [['name', 'ASC']]
+    });
+    res.json(sites);
+  } catch (e) { res.status(500).json({ message: e.message }); }
+});
+
 // GET /api/sites/supervisor/:supervisor_id — all sites for a supervisor
 router.get('/supervisor/:supervisor_id', async (req, res) => {
   try {
