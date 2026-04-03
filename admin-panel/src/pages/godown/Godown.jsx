@@ -529,7 +529,7 @@ export default function Godown() {
                 <label className={labelCls}>Assign Driver <span className="text-gray-400 text-xs">(optional)</span></label>
                 <select value={stockOutForm.driver_id} onChange={e => setStockOutForm(f => ({ ...f, driver_id: e.target.value }))} className={selectCls}>
                   <option value="">No driver assigned</option>
-                  {drivers.map(d => <option key={d.id} value={d.id}>{d.full_name} — {d.driver_id}</option>)}
+                  {drivers.map(d => <option key={d.id} value={d.id}>{d.name}{d.user?.employee_id ? ` (${d.user.employee_id})` : ''}</option>)}
                 </select>
                 {stockOutForm.driver_id && <p className="text-xs text-blue-600 mt-1">✅ Driver will receive a task notification</p>}
               </div>
@@ -592,7 +592,7 @@ export default function Godown() {
                 <label className={labelCls}>Assign Driver <span className="text-gray-400 text-xs">(optional — gets notification)</span></label>
                 <select value={transferForm.driver_id} onChange={e => setTransferForm(f => ({ ...f, driver_id: e.target.value }))} className={selectCls}>
                   <option value="">No driver assigned</option>
-                  {drivers.map(d => <option key={d.id} value={d.id}>{d.full_name} — {d.driver_id}</option>)}
+                  {drivers.map(d => <option key={d.id} value={d.id}>{d.name}{d.user?.employee_id ? ` (${d.user.employee_id})` : ''}</option>)}
                 </select>
                 {transferForm.driver_id && <p className="text-xs text-blue-600 mt-1">✅ Driver will receive a transfer task notification</p>}
               </div>

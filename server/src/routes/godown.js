@@ -113,7 +113,7 @@ router.post('/stock-in', supervisorOrAdmin, async (req, res) => {
 
 router.post('/stock-out', supervisorOrAdmin, async (req, res) => {
   try {
-    const { godown_id, category_id, category_name, quantity, notes, photo, destination_type, site_id, to_godown_id } = req.body;
+    const { godown_id, category_id, category_name, quantity, notes, photo, destination_type, site_id, to_godown_id, driver_id } = req.body;
     let cat_id = category_id;
     if (!cat_id && category_name) {
       const [cat] = await MaterialCategory.findOrCreate({ where: { name: category_name }, defaults: { name: category_name } });
@@ -124,7 +124,8 @@ router.post('/stock-out', supervisorOrAdmin, async (req, res) => {
     const newQty = Math.max(0, parseFloat(stock.quantity) - parseFloat(quantity));
     await stock.update({ quantity: newQty });
     const dest = destination_type === 'site' ? `To site: ${site_id}` : destination_type === 'godown' ? `To godown: ${to_godown_id}` : '';
-    await StockHistory.create({ godown_id, category_id: cat_id, type: 'out', quantity, notes: [dest, notes || ''].filter(Boolean).join(' | '), photo: photo || null, created_by: req.user.id });
+    const driverNote = driver_id ? `Driver: ${driver_id}` : '';
+    await StockHistory.create({ godown_id, category_id: cat_id, type: 'out', quantity, notes: [dest, driverNote, notes || ''].filter(Boolean).join(' | '), photo: photo || null, created_by: req.user.id });
     res.json(stock);
   } catch (e) { res.status(500).json({ message: e.message }); }
 });
