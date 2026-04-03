@@ -18,8 +18,11 @@ import Ledger from './pages/ledger/Ledger'
 import Godown from './pages/godown/Godown'
 import Machines from './pages/machines/Machines'
 import Drivers from './pages/drivers/Drivers'
+import DriverDetail from './pages/drivers/DriverDetail'
 import Trips from './pages/drivers/Trips'
 import Users from './pages/users/Users'
+import Supervisors from './pages/supervisors/Supervisors'
+import SupervisorDetail from './pages/supervisors/SupervisorDetail'
 import Organisations from './pages/organisations/Organisations'
 import VisitReports from './pages/reports/VisitReports'
 import BOQ from './pages/reports/BOQ'
@@ -63,8 +66,11 @@ export default function App() {
             <Route path="godown" element={<Godown />} />
             <Route path="machines" element={<Machines />} />
             <Route path="drivers" element={<Drivers />} />
+            <Route path="drivers/:id" element={<DriverDetail />} />
             <Route path="trips" element={<Trips />} />
             <Route path="users" element={<Users />} />
+            <Route path="supervisors" element={<Supervisors />} />
+            <Route path="supervisors/:id" element={<SupervisorDetail />} />
             <Route path="organisations" element={<Organisations />} />
             <Route path="visit-reports" element={<VisitReports />} />
             <Route path="boq" element={<BOQ />} />

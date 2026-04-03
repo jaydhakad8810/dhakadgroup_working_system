@@ -2,7 +2,33 @@ import { useEffect, useState } from 'react'
 import toast from 'react-hot-toast'
 import api from '../../utils/api'
 import { PageHeader, LoadingPage, Modal } from '../../components/ui'
-import { Plus, Bell, Trash2, CheckCheck, Eye } from 'lucide-react'
+import { Plus, Bell, Trash2, CheckCheck, Eye, Truck } from 'lucide-react'
+
+// Defined OUTSIDE render to avoid remounting
+function DriverSelect({ value, onChange, drivers }) {
+  return (
+    <select className="select" value={value} onChange={e => onChange(e.target.value)} required>
+      <option value="">-- Select Driver --</option>
+      {drivers.map(d => (
+        <option key={d.id} value={d.id}>
+          {d.name} {d.user?.employee_id ? `(${d.user.employee_id})` : ''}
+          {d.is_busy ? ' [Busy]' : ''}
+        </option>
+      ))}
+    </select>
+  )
+}
+
+function SiteSelect({ value, onChange, sites }) {
+  return (
+    <select className="select" value={value} onChange={e => onChange(e.target.value)}>
+      <option value="">-- Select Site --</option>
+      {sites.map(s => (
+        <option key={s.id} value={s.id}>{s.name}</option>
+      ))}
+    </select>
+  )
+}
 
 export default function Notifications() {
   const [notifications, setNotifications] = useState([])
@@ -14,6 +40,15 @@ export default function Notifications() {
   const [filter, setFilter] = useState('all')
   const f = (k, v) => setForm(p => ({ ...p, [k]: v }))
 
+  // Trip creation modal state
+  const [tripModal, setTripModal] = useState(false)
+  const [tripNotif, setTripNotif] = useState(null)
+  const [drivers, setDrivers] = useState([])
+  const [sites, setSites] = useState([])
+  const [tripForm, setTripForm] = useState({ driver_id: '', site_id: '', notes: '' })
+  const [savingTrip, setSavingTrip] = useState(false)
+  const tf = (k, v) => setTripForm(p => ({ ...p, [k]: v }))
+
   const load = async () => {
     setLoading(true)
     try {
@@ -23,6 +58,45 @@ export default function Notifications() {
     setLoading(false)
   }
   useEffect(() => { load() }, [])
+
+  const openTripModal = async (notif) => {
+    setTripNotif(notif)
+    setTripForm({ driver_id: '', site_id: '', notes: '' })
+    setTripModal(true)
+    try {
+      const [dRes, sRes] = await Promise.all([api.get('/drivers'), api.get('/sites')])
+      setDrivers((dRes.data || []).filter(d => d.is_active !== false))
+      setSites(sRes.data || [])
+    } catch { toast.error('Failed to load drivers/sites') }
+  }
+
+  const handleCreateTrip = async (e) => {
+    e.preventDefault()
+    if (!tripForm.driver_id) { toast.error('Please select a driver'); return }
+    setSavingTrip(true)
+    try {
+      // Parse material info from notification message
+      const msg = tripNotif?.message || ''
+      await api.post('/trips', {
+        driver_id: tripForm.driver_id,
+        to_site_id: tripForm.site_id || undefined,
+        to_location: sites.find(s => s.id === tripForm.site_id)?.name || 'Site',
+        from_location: 'Godown',
+        trip_date: new Date().toISOString().split('T')[0],
+        trip_type: 'delivery',
+        notes: tripForm.notes || msg,
+        status: 'pending',
+      })
+      toast.success('Trip created & driver assigned!')
+      // Mark the notification as read
+      await api.patch('/notifications/' + tripNotif.id + '/read').catch(() => {})
+      setTripModal(false)
+      load()
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to create trip')
+    }
+    setSavingTrip(false)
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault(); setSaving(true)
@@ -87,11 +161,25 @@ export default function Notifications() {
                 <span className="text-xs text-gray-600">{new Date(n.createdAt).toLocaleString('en-IN')}</span>
                 {!n.is_read&&<span className="text-xs bg-gold-500/20 text-gold-400 px-2 py-0.5 rounded-full font-semibold">NEW</span>}
               </div>
+              {/* Material request action button */}
+              {n.title === 'New Material Request' && (
+                <div className="mt-3">
+                  <button
+                    onClick={() => openTripModal(n)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-gold-500/20 text-gold-400 border border-gold-500/30 hover:bg-gold-500/30 transition-all"
+                  >
+                    <Truck size={13} />
+                    Create Trip &amp; Assign Driver
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         ))}
         {!filtered.length&&<div className="text-center py-16"><Bell size={40} className="mx-auto mb-3 opacity-20"/><p className="text-gray-500">No notifications</p></div>}
       </div>
+
+      {/* Send Notification Modal */}
       <Modal open={modal} onClose={()=>setModal(false)} title="Send Notification" size="md">
         <form onSubmit={handleSubmit} className="space-y-4">
           <div><label className="label">Title *</label><input className="input" required value={form.title||''} onChange={e=>f('title',e.target.value)} placeholder="Notification title"/></div>
@@ -127,6 +215,51 @@ export default function Notifications() {
             <button type="submit" disabled={saving} className="btn-gold">{saving?'Sending...':'🔔 Send Notification'}</button>
           </div>
         </form>
+      </Modal>
+
+      {/* Create Trip Modal */}
+      <Modal open={tripModal} onClose={() => setTripModal(false)} title="Create Trip & Assign Driver" size="md">
+        {tripNotif && (
+          <form onSubmit={handleCreateTrip} className="space-y-4">
+            {/* Material request info (read-only) */}
+            <div className="p-3 rounded-xl bg-yellow-500/10 border border-yellow-500/20">
+              <p className="text-xs text-yellow-400 font-semibold mb-1">Material Request</p>
+              <p className="text-sm text-white">{tripNotif.message}</p>
+            </div>
+
+            <div>
+              <label className="label">Destination Site</label>
+              <SiteSelect value={tripForm.site_id} onChange={v => tf('site_id', v)} sites={sites} />
+            </div>
+
+            <div>
+              <label className="label">Select Driver *</label>
+              <DriverSelect value={tripForm.driver_id} onChange={v => tf('driver_id', v)} drivers={drivers} />
+              {drivers.length === 0 && (
+                <p className="text-xs text-gray-500 mt-1">Loading drivers...</p>
+              )}
+            </div>
+
+            <div>
+              <label className="label">Notes / Pickup Instructions</label>
+              <textarea
+                className="input"
+                rows={3}
+                placeholder="e.g. Pick up from Gate 2, handle with care..."
+                value={tripForm.notes}
+                onChange={e => tf('notes', e.target.value)}
+              />
+            </div>
+
+            <div className="flex gap-3 justify-end pt-2">
+              <button type="button" onClick={() => setTripModal(false)} className="btn-ghost">Cancel</button>
+              <button type="submit" disabled={savingTrip} className="btn-gold">
+                <Truck size={15} />
+                {savingTrip ? 'Creating...' : 'Create Trip'}
+              </button>
+            </div>
+          </form>
+        )}
       </Modal>
     </div>
   )
