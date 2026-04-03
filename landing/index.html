@@ -45,6 +45,70 @@ section{padding:70px 5%}
 .sec-title{font-size:clamp(26px,4vw,44px);font-weight:800;line-height:1.1;margin-bottom:14px}
 .sec-title .g{background:linear-gradient(135deg,var(--gold),var(--gold-l));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
 .sec-sub{color:var(--muted);font-size:15px;max-width:560px;line-height:1.65}
+/* ── Painter Section ─────────────────────────────────── */
+#painter-section{background:#fff;padding:70px 5% 0;position:relative;overflow:hidden}
+#painter-section .sec-badge{background:rgba(201,168,76,.12);color:#b8940f}
+#painter-section .sec-title{color:#111}
+#painter-section .sec-title .g{background:linear-gradient(135deg,#b8940f,#C9A84C);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+#painter-section .sec-sub{color:#666}
+/* Wall */
+.paint-scene{position:relative;max-width:600px;margin:40px auto 0;height:180px}
+.paint-wall{position:absolute;left:60px;right:0;top:20px;bottom:20px;background:#f0ede8;border-radius:8px;overflow:hidden;box-shadow:inset 0 0 20px rgba(0,0,0,.08)}
+.paint-sweep{position:absolute;left:0;top:0;bottom:0;width:0;background:linear-gradient(90deg,#C9A84C,#e8c97a);border-radius:0 4px 4px 0;animation:sweep 3s ease-out 0.5s forwards}
+@keyframes sweep{0%{width:0}100%{width:100%}}
+/* Drip */
+.paint-drips{position:absolute;bottom:0;left:0;right:0;height:24px;pointer-events:none}
+.drip{position:absolute;bottom:0;width:6px;border-radius:0 0 50% 50%;animation:drip-fall 1.2s ease-in forwards}
+.drip:nth-child(1){left:12%;background:#C9A84C;animation-delay:1.2s;height:0}
+.drip:nth-child(2){left:28%;background:#d4a843;animation-delay:1.6s;height:0}
+.drip:nth-child(3){left:45%;background:#C9A84C;animation-delay:2s;height:0}
+.drip:nth-child(4){left:62%;background:#e8c97a;animation-delay:1.4s;height:0}
+.drip:nth-child(5){left:78%;background:#C9A84C;animation-delay:1.8s;height:0}
+@keyframes drip-fall{0%{height:0;opacity:1}100%{height:30px;opacity:.9}}
+/* Painter character */
+.painter{position:absolute;left:0;top:0;bottom:0;width:60px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end}
+/* Body */
+.p-body{position:relative;width:28px;height:44px}
+/* Hard hat */
+.p-hat{width:30px;height:14px;background:#ffcc00;border-radius:50% 50% 0 0;position:absolute;top:-14px;left:-1px;box-shadow:0 3px 0 #e6b800}
+.p-hat::after{content:'';position:absolute;bottom:0;left:-3px;right:-3px;height:4px;background:#e6b800;border-radius:2px}
+/* Goggles */
+.p-goggles{position:absolute;top:-6px;left:2px;width:24px;height:8px;display:flex;gap:2px}
+.p-goggles span{flex:1;background:rgba(100,180,255,.6);border:1.5px solid #2288cc;border-radius:3px}
+/* Vest */
+.p-vest{position:absolute;inset:0;background:#f97316;border-radius:4px 4px 0 0}
+.p-vest::before{content:'';position:absolute;top:4px;left:50%;transform:translateX(-50%);width:6px;height:24px;background:rgba(255,255,255,.35);border-radius:3px}
+.p-vest::after{content:'';position:absolute;top:6px;left:3px;right:3px;height:2px;background:rgba(255,255,255,.4);border-radius:1px}
+/* Arm + roller */
+.p-arm{position:absolute;top:8px;right:-28px;width:28px;height:6px;background:#f97316;border-radius:3px;transform-origin:0 50%;animation:arm-paint 0.5s ease-in-out infinite alternate}
+@keyframes arm-paint{0%{transform:rotate(-8deg) translateY(-1px)}100%{transform:rotate(8deg) translateY(1px)}}
+.p-roller-handle{position:absolute;right:0;top:-4px;width:4px;height:14px;background:#8b6914;border-radius:2px}
+.p-roller{position:absolute;right:-10px;top:-4px;width:12px;height:14px;background:#C9A84C;border-radius:3px;box-shadow:1px 0 4px rgba(201,168,76,.5)}
+/* Legs + boots */
+.p-legs{width:28px;height:16px;display:flex;gap:4px;justify-content:center}
+.p-leg{width:9px;height:16px;background:#2d4a8a;border-radius:2px}
+.p-boot{width:11px;height:7px;background:#1a1a1a;border-radius:2px 2px 3px 3px;margin-top:-2px}
+/* Paint bucket */
+.paint-bucket{position:absolute;right:14px;bottom:20px;animation:wobble 2s ease-in-out 0.8s infinite}
+@keyframes wobble{0%,100%{transform:rotate(-3deg)}50%{transform:rotate(3deg)}}
+.bucket-body{width:24px;height:22px;background:#C9A84C;border-radius:2px 2px 4px 4px;position:relative;box-shadow:2px 2px 0 #9a7224}
+.bucket-body::before{content:'';position:absolute;top:0;left:0;right:0;height:5px;background:rgba(255,255,255,.25);border-radius:2px 2px 0 0}
+.bucket-handle{width:20px;height:8px;border:2px solid #9a7224;border-bottom:none;border-radius:6px 6px 0 0;margin:0 auto -2px}
+/* Feature cards */
+.painter-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;margin-top:50px;max-width:800px;margin-left:auto;margin-right:auto}
+.painter-card{background:#fff;border:1.5px solid #f0ede8;border-radius:16px;padding:26px 20px;text-align:center;box-shadow:0 4px 20px rgba(0,0,0,.06);transition:transform .25s,box-shadow .25s}
+.painter-card:hover{transform:translateY(-4px);box-shadow:0 12px 36px rgba(201,168,76,.15);border-color:rgba(201,168,76,.4)}
+.painter-card .pc-icon{font-size:36px;margin-bottom:12px;display:block}
+.painter-card h3{font-size:17px;font-weight:800;color:#111;margin-bottom:6px}
+.painter-card p{font-size:13px;color:#666;line-height:1.6}
+.painter-card .pc-num{font-size:28px;font-weight:900;background:linear-gradient(135deg,#b8940f,#C9A84C);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;display:block;margin-bottom:2px}
+/* SVG paint-drip border */
+.drip-border{display:block;width:100%;margin-top:50px}
+@media(max-width:700px){
+  .paint-scene{transform:scale(.8);transform-origin:center top;height:148px}
+  .painter-cards{grid-template-columns:1fr;max-width:360px}
+}
+/* ── End Painter Section ─────────────────────────────── */
 #about{background:var(--d2)}
 .about-grid{display:grid;grid-template-columns:1fr 1fr;gap:56px;align-items:center;max-width:1160px;margin:0 auto}
 .aimg{position:relative}.aimg-ph{width:100%;height:380px;background:linear-gradient(135deg,var(--d3),var(--d4));border-radius:22px;display:flex;align-items:center;justify-content:center;font-size:72px}
@@ -175,6 +239,91 @@ footer{background:var(--d2);border-top:1px solid rgba(255,255,255,.05);padding:4
   <div class="stat"><div class="sn" data-t="500" id="stat-workers">0</div><div class="sl">Workers Employed</div></div>
   <div class="stat"><div class="sn" data-t="25" id="stat-ongoing">0</div><div class="sl">Ongoing Projects</div></div>
 </div>
+<section id="painter-section">
+  <div style="max-width:1000px;margin:0 auto;text-align:center">
+    <span class="sec-badge">Our Craft</span>
+    <h2 class="sec-title">Every Wall Tells a <span class="g">Story</span></h2>
+    <p class="sec-sub" style="margin:0 auto">We bring precision, quality, and safety to every surface we touch.</p>
+
+    <!-- Painter animation scene -->
+    <div class="paint-scene fi">
+      <div class="paint-wall">
+        <div class="paint-sweep"></div>
+        <div class="paint-drips">
+          <div class="drip"></div><div class="drip"></div><div class="drip"></div>
+          <div class="drip"></div><div class="drip"></div>
+        </div>
+      </div>
+      <!-- Painter character -->
+      <div class="painter">
+        <div class="p-body">
+          <div class="p-hat"></div>
+          <div class="p-goggles"><span></span><span></span></div>
+          <div class="p-vest">
+            <div class="p-arm">
+              <div class="p-roller-handle"></div>
+              <div class="p-roller"></div>
+            </div>
+          </div>
+        </div>
+        <div class="p-legs">
+          <div class="p-leg"></div>
+          <div class="p-leg"></div>
+        </div>
+        <div style="display:flex;gap:4px">
+          <div class="p-boot"></div>
+          <div class="p-boot"></div>
+        </div>
+      </div>
+      <!-- Paint bucket -->
+      <div class="paint-bucket">
+        <div class="bucket-handle"></div>
+        <div class="bucket-body"></div>
+      </div>
+    </div>
+
+    <!-- Feature cards -->
+    <div class="painter-cards">
+      <div class="painter-card fi">
+        <span class="pc-num">500+</span>
+        <span class="pc-icon">🏗️</span>
+        <h3>Projects Delivered</h3>
+        <p>Over 500 successful construction and finishing projects across Maharashtra.</p>
+      </div>
+      <div class="painter-card fi">
+        <span class="pc-num">100%</span>
+        <span class="pc-icon">✨</span>
+        <h3>Premium Quality</h3>
+        <p>ISO 9001-certified processes ensuring the highest standard on every project.</p>
+      </div>
+      <div class="painter-card fi">
+        <span class="pc-num">0</span>
+        <span class="pc-icon">🦺</span>
+        <h3>Safety First</h3>
+        <p>Zero compromise on worker safety — helmets, harnesses, and protocols enforced daily.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- SVG paint-drip border at section bottom -->
+  <svg class="drip-border" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 60" preserveAspectRatio="none" style="height:60px">
+    <path d="M0,0 L1200,0 L1200,20
+      Q1170,20 1160,40 Q1150,60 1140,40 Q1130,20 1120,20
+      Q1090,20 1080,45 Q1070,60 1060,45 Q1050,20 1040,20
+      Q1010,20 1000,50 Q990,60 980,50 Q970,20 960,20
+      Q920,20 910,42 Q900,60 890,42 Q880,20 860,20
+      Q830,20 820,48 Q810,60 800,48 Q790,20 770,20
+      Q740,20 730,44 Q720,60 710,44 Q700,20 680,20
+      Q640,20 630,46 Q620,60 610,46 Q600,20 580,20
+      Q550,20 540,43 Q530,60 520,43 Q510,20 490,20
+      Q460,20 450,47 Q440,60 430,47 Q420,20 400,20
+      Q360,20 350,44 Q340,60 330,44 Q320,20 300,20
+      Q270,20 260,48 Q250,60 240,48 Q230,20 210,20
+      Q180,20 170,42 Q160,60 150,42 Q140,20 120,20
+      Q90,20 80,46 Q70,60 60,46 Q50,20 30,20 Q15,20 0,20 Z"
+      fill="#0a0a0a"/>
+  </svg>
+</section>
 <section id="about">
   <div class="about-grid">
     <div class="aimg fi"><div class="aimg-ph">🏗️</div><div class="atag">Est. 2010<br>Pune, India</div></div>

@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react'
 import toast from 'react-hot-toast'
+import { useNavigate } from 'react-router-dom'
 import api from '../../utils/api'
 import { PageHeader, LoadingPage, Modal, ConfirmDialog } from '../../components/ui'
 import { PhotoUpload, DocUpload } from '../../components/ui/PhotoUpload'
-import { Plus, Trash2, Edit } from 'lucide-react'
+import { Plus, Trash2, Edit, Eye } from 'lucide-react'
 
 export default function Drivers() {
+  const navigate = useNavigate()
   const [drivers, setDrivers] = useState([])
   const [vehicles, setVehicles] = useState([])
   const [loading, setLoading] = useState(true)
@@ -94,7 +96,10 @@ export default function Drivers() {
                 {d.aadhar_number && <p>🆔 {d.aadhar_number}</p>}
                 <p>🚗 {d.vehicles?.length || 0} vehicle(s)</p>
               </div>
-              <button onClick={() => openEditDriver(d)} className="btn-outline w-full justify-center text-sm py-1.5"><Edit size={14} />Edit</button>
+              <div className="flex gap-2">
+                <button onClick={() => navigate(`/drivers/${d.id}`)} className="btn-ghost flex-1 justify-center text-sm py-1.5 text-blue-400"><Eye size={14} />Details</button>
+                <button onClick={() => openEditDriver(d)} className="btn-outline flex-1 justify-center text-sm py-1.5"><Edit size={14} />Edit</button>
+              </div>
             </div>
           ))}
           {!drivers.length && <p className="col-span-3 text-center text-gray-500 py-16">No drivers</p>}

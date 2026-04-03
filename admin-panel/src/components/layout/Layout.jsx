@@ -6,7 +6,7 @@ import {
   LayoutDashboard, Building2, Users, ClipboardCheck, DollarSign,
   Package, Wrench, Truck, Bell, Sparkles, ChevronLeft, ChevronRight,
   LogOut, FileText, BarChart3, Building, UserCog, TrendingUp, BookOpen,
-  Map, Sun, Moon, Globe, Menu, X, MoreHorizontal, Trash2
+  Map, Sun, Moon, Globe, Menu, X, MoreHorizontal, Trash2, HardHat
 } from 'lucide-react'
 
 const navItems = [
@@ -25,6 +25,7 @@ const navItems = [
   { to: '/visit-reports', icon: FileText, label: 'Visit Reports' },
   { to: '/boq', icon: BarChart3, label: 'BOQ' },
   { to: '/users', icon: UserCog, label: 'Users' },
+  { to: '/supervisors', icon: HardHat, label: 'Supervisors' },
   { to: '/notifications', icon: Bell, label: 'Notifications' },
   { to: '/website', icon: Globe, label: 'Website Editor' },
   { to: '/ai', icon: Sparkles, label: 'AI Assistant' },
