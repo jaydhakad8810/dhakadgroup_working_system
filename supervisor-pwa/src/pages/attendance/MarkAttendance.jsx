@@ -113,6 +113,57 @@ function LabourPhotoBtn({ labourId, photoUrl, uploading, onCapture }) {
   )
 }
 
+// ─── useLabourTimer ──────────────────────────────────────────────────────────
+// Returns { hoursWorked, label } for a given check_in_time, updating each minute
+function useLabourTimers(attendanceRecords) {
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 60000)
+    return () => clearInterval(id)
+  }, [])
+  // Build a map: labour_id → { checkInTime, hoursWorked }
+  const map = {}
+  attendanceRecords.forEach((r) => {
+    if (r.status === 'present' || r.status === 'half_day') {
+      const checkIn = r.check_in_time || r.createdAt
+      if (checkIn) {
+        const hw = (now - new Date(checkIn).getTime()) / (1000 * 60 * 60)
+        map[r.labour_id] = { checkInTime: checkIn, hoursWorked: hw }
+      }
+    }
+  })
+  return map
+}
+
+// ─── MultiplierBadge ─────────────────────────────────────────────────────────
+function MultiplierBadge({ hoursWorked, checkInTime }) {
+  if (hoursWorked == null || !checkInTime) return null
+  const totalMins = Math.round(hoursWorked * 60)
+  const hrs = Math.floor(totalMins / 60)
+  const mins = totalMins % 60
+  const checkInStr = new Date(checkInTime).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })
+  let multiplier, badgeClass, label
+  if (hoursWorked >= 14) {
+    multiplier = '2×'; label = '2× day'; badgeClass = 'bg-yellow-500/20 text-yellow-300 border-yellow-500/40'
+  } else if (hoursWorked >= 10) {
+    multiplier = '1.5×'; label = '1.5× day'; badgeClass = 'bg-orange-500/20 text-orange-300 border-orange-500/40'
+  } else {
+    multiplier = '1×'; label = '1× day'; badgeClass = 'bg-green-500/20 text-green-300 border-green-500/40'
+  }
+  return (
+    <div className="flex flex-col gap-0.5 mt-1">
+      <span className="text-xs text-gray-500">Check-in: {checkInStr}</span>
+      <div className="flex items-center gap-2">
+        <span className="text-xs text-gray-400 flex items-center gap-1">
+          <Clock size={10} className="text-gray-500" />
+          Working: {hrs}h {mins}m
+        </span>
+        <span className={`text-xs px-2 py-0.5 rounded-full border font-semibold ${badgeClass}`}>{label}</span>
+      </div>
+    </div>
+  )
+}
+
 // ─── MarkAttendance ──────────────────────────────────────────────────────────
 export default function MarkAttendance() {
   const navigate = useNavigate()
@@ -161,6 +212,9 @@ export default function MarkAttendance() {
   const [reportTaskStatus, setReportTaskStatus] = useState('done')
   const [submittingReport, setSubmittingReport] = useState(false)
   const [reportSubmitted, setReportSubmitted] = useState(false)
+
+  // ── Live labour timers (for step 4 multiplier badge)
+  const labourTimers = useLabourTimers(attendanceRecords)
 
   // ── Transfer Modal
   const [transferModal, setTransferModal] = useState({ open: false, labour: null })
@@ -878,6 +932,7 @@ export default function MarkAttendance() {
                 {presentLabours.map((l) => {
                   const id = l._id || l.id
                   const checkinThumb = checkinPhotos[id]
+                  const timer = labourTimers[id]
                   return (
                     <div key={id} className="bg-surface-400 rounded-xl px-3 py-2 space-y-2">
                       <div className="flex items-center gap-3">
@@ -885,6 +940,10 @@ export default function MarkAttendance() {
                           <p className="text-sm font-medium text-white truncate">
                             {l.name || l.labour_name}
                           </p>
+                          <MultiplierBadge
+                            hoursWorked={timer?.hoursWorked}
+                            checkInTime={timer?.checkInTime}
+                          />
                           {checkinThumb && (
                             <div className="flex items-center gap-1 mt-1">
                               <img

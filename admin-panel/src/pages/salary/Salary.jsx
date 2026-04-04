@@ -2,7 +2,121 @@ import { useEffect, useState } from 'react'
 import toast from 'react-hot-toast'
 import api from '../../utils/api'
 import { PageHeader, LoadingPage, StatusBadge, Modal } from '../../components/ui'
-import { RefreshCw, CheckCircle, Calendar, TrendingDown, DollarSign } from 'lucide-react'
+import { RefreshCw, CheckCircle, Calendar, TrendingDown, DollarSign, ChevronDown, ChevronUp, Clock } from 'lucide-react'
+
+// ─── SalaryBreakdownRow ─────────────────────────────────────────────────────
+function SalaryBreakdownRow({ record, months, onPay }) {
+  const [open, setOpen] = useState(false)
+  const [summary, setSummary] = useState(null)
+  const [loading, setLoading] = useState(false)
+
+  const toggle = async () => {
+    if (!open && !summary) {
+      setLoading(true)
+      try {
+        const year = record.year
+        const month = String(record.month).padStart(2, '0')
+        const from = `${year}-${month}-01`
+        const daysInMonth = new Date(year, record.month, 0).getDate()
+        const to = `${year}-${month}-${daysInMonth}`
+        const res = await api.get(`/salary/labour/${record.labour?.id || record.labour_id}/summary?from=${from}&to=${to}`)
+        setSummary(res.data)
+      } catch { /* summary unavailable */ }
+      setLoading(false)
+    }
+    setOpen(v => !v)
+  }
+
+  const fmtHours = (h) => {
+    if (h == null) return '—'
+    const hrs = Math.floor(h)
+    const mins = Math.round((h - hrs) * 60)
+    return `${hrs}h ${mins}m`
+  }
+
+  const fmtMultiplier = (m) => {
+    if (m == null) return '1×'
+    const v = parseFloat(m)
+    return v === 2 ? '2×' : v === 1.5 ? '1.5×' : '1×'
+  }
+
+  const multiplierClass = (m) => {
+    const v = parseFloat(m)
+    if (v >= 2) return 'text-yellow-400 font-bold'
+    if (v >= 1.5) return 'text-orange-400 font-bold'
+    return 'text-gray-400'
+  }
+
+  return (
+    <>
+      <tr>
+        <td className="font-medium">{record.labour?.name || record.labour_name}</td>
+        <td style={{ color: 'var(--muted)' }}>{record.site?.name || '—'}</td>
+        <td style={{ color: 'var(--muted)' }}>{months[record.month - 1]} {record.year}</td>
+        <td>
+          <div className="flex flex-col">
+            <span style={{ color: 'var(--muted)' }}>{record.total_days} days</span>
+            {summary && <span className="text-xs text-gold-400">{summary.effective_days} eff.</span>}
+          </div>
+        </td>
+        <td>₹{parseFloat(record.gross_salary).toLocaleString('en-IN')}</td>
+        <td className="text-red-400">{parseFloat(record.advance_deduction) > 0 ? '-₹' + parseFloat(record.advance_deduction).toLocaleString('en-IN') : '-'}</td>
+        <td className="text-gold-400 font-bold">₹{parseFloat(record.net_salary).toLocaleString('en-IN')}</td>
+        <td><span className={record.paid ? 'badge-green' : 'badge-red'}>{record.paid ? 'Paid' : 'Unpaid'}</span></td>
+        <td>
+          <div className="flex gap-1 items-center">
+            {!record.paid && onPay && <button onClick={onPay} className="btn-gold py-1 text-xs"><CheckCircle size={12} />Pay</button>}
+            <button onClick={toggle} className="btn-ghost p-1 text-xs flex items-center gap-1" title="View breakdown">
+              {open ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+              {loading ? '...' : 'Detail'}
+            </button>
+          </div>
+        </td>
+      </tr>
+      {open && summary && (
+        <tr>
+          <td colSpan={9} className="p-0">
+            <div className="bg-surface-400 mx-2 mb-2 rounded-xl overflow-hidden border border-white/5">
+              <div className="flex gap-4 px-4 py-2 text-xs border-b border-white/5">
+                <span style={{ color: 'var(--muted)' }}>Days Present: <span className="text-white font-semibold">{summary.total_days_present}</span></span>
+                <span style={{ color: 'var(--muted)' }}>Effective Days: <span className="text-gold-400 font-semibold">{summary.effective_days}</span></span>
+                <span style={{ color: 'var(--muted)' }}>Total Salary: <span className="text-gold-400 font-semibold">₹{summary.total_salary.toLocaleString('en-IN')}</span></span>
+              </div>
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b border-white/5">
+                    <th className="text-left px-4 py-2" style={{ color: 'var(--muted)', fontWeight: 600 }}>Date</th>
+                    <th className="text-left px-4 py-2" style={{ color: 'var(--muted)', fontWeight: 600 }}>Status</th>
+                    <th className="text-left px-4 py-2" style={{ color: 'var(--muted)', fontWeight: 600 }}>Hours Worked</th>
+                    <th className="text-left px-4 py-2" style={{ color: 'var(--muted)', fontWeight: 600 }}>Day Count</th>
+                    <th className="text-left px-4 py-2" style={{ color: 'var(--muted)', fontWeight: 600 }}>Day Salary</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {summary.breakdown.map((b, i) => (
+                    <tr key={i} className="border-b border-white/5 last:border-0">
+                      <td className="px-4 py-1.5 text-white">{b.date}</td>
+                      <td className="px-4 py-1.5">
+                        <span className={b.status === 'present' ? 'badge-green' : b.status === 'half_day' ? 'text-yellow-400' : 'text-red-400'}>
+                          {b.status}
+                        </span>
+                      </td>
+                      <td className="px-4 py-1.5 text-white flex items-center gap-1">
+                        <Clock size={10} className="text-gray-500" />{fmtHours(b.hours_worked)}
+                      </td>
+                      <td className={`px-4 py-1.5 ${multiplierClass(b.day_multiplier)}`}>{fmtMultiplier(b.day_multiplier)}</td>
+                      <td className="px-4 py-1.5 text-gold-400">₹{b.day_salary.toLocaleString('en-IN')}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </td>
+        </tr>
+      )}
+    </>
+  )
+}
 
 export default function Salary() {
   const [records, setRecords] = useState([])
@@ -144,21 +258,29 @@ export default function Salary() {
         )}
         <div className="table-container">
           <table>
-            <thead><tr><th>Labour</th><th>Site</th><th>Period</th><th>Days</th><th>Gross</th><th>Advance</th><th>Net</th>{mode==='monthly'&&<><th>Status</th><th>Action</th></>}</tr></thead>
+            <thead>
+              <tr>
+                <th>Labour</th><th>Site</th><th>Period</th><th>Days</th><th>Gross</th><th>Advance</th><th>Net</th>
+                {mode==='monthly'&&<><th>Status</th><th>Action</th></>}
+                {mode==='weekly'&&<><th>Status</th></>}
+              </tr>
+            </thead>
             <tbody>
-              {displayRecords.map((r,i) => (
-                <tr key={r.id||i}>
-                  <td className="font-medium">{r.labour?.name||r.labour_name}</td>
-                  <td style={{color:'var(--muted)'}}>{r.site?.name||'—'}</td>
-                  <td style={{color:'var(--muted)'}}>{mode==='weekly'?r.from_date+' → '+r.to_date:months[r.month-1]+' '+r.year}</td>
-                  <td style={{color:'var(--muted)'}}>{r.total_days}</td>
+              {mode === 'monthly' ? displayRecords.map((r, i) => (
+                <SalaryBreakdownRow key={r.id || i} record={r} months={months} onPay={() => setPayModal(r.id)} />
+              )) : displayRecords.map((r, i) => (
+                <tr key={r.id || i}>
+                  <td className="font-medium">{r.labour?.name || r.labour_name}</td>
+                  <td style={{ color: 'var(--muted)' }}>{r.site?.name || '—'}</td>
+                  <td style={{ color: 'var(--muted)' }}>{r.from_date} → {r.to_date}</td>
+                  <td style={{ color: 'var(--muted)' }}>{r.total_days}</td>
                   <td>₹{parseFloat(r.gross_salary).toLocaleString('en-IN')}</td>
-                  <td className="text-red-400">{parseFloat(r.advance_deduction)>0?'-₹'+parseFloat(r.advance_deduction).toLocaleString('en-IN'):'-'}</td>
+                  <td className="text-red-400">{parseFloat(r.advance_deduction) > 0 ? '-₹' + parseFloat(r.advance_deduction).toLocaleString('en-IN') : '-'}</td>
                   <td className="text-gold-400 font-bold">₹{parseFloat(r.net_salary).toLocaleString('en-IN')}</td>
-                  {mode==='monthly'&&<><td><span className={r.paid?'badge-green':'badge-red'}>{r.paid?'Paid':'Unpaid'}</span></td><td>{!r.paid&&<button onClick={()=>setPayModal(r.id)} className="btn-gold py-1 text-xs"><CheckCircle size={12}/>Pay</button>}</td></>}
+                  <td><span className={r.paid ? 'badge-green' : 'badge-red'}>{r.paid ? 'Paid' : 'Unpaid'}</span></td>
                 </tr>
               ))}
-              {!displayRecords.length && <tr><td colSpan={9} className="text-center py-8" style={{color:'var(--muted)'}}>No records. Generate salary first.</td></tr>}
+              {!displayRecords.length && <tr><td colSpan={9} className="text-center py-8" style={{ color: 'var(--muted)' }}>No records. Generate salary first.</td></tr>}
             </tbody>
           </table>
         </div>
