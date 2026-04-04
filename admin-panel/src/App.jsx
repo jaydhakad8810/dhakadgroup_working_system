@@ -23,6 +23,8 @@ import Trips from './pages/drivers/Trips'
 import Supervisors from './pages/supervisors/Supervisors'
 import SupervisorDetail from './pages/supervisors/SupervisorDetail'
 import Users from './pages/users/Users'
+import Supervisors from './pages/supervisors/Supervisors'
+import SupervisorDetail from './pages/supervisors/SupervisorDetail'
 import Organisations from './pages/organisations/Organisations'
 import VisitReports from './pages/reports/VisitReports'
 import BOQ from './pages/reports/BOQ'
@@ -71,6 +73,8 @@ export default function App() {
             <Route path="supervisors" element={<Supervisors />} />
             <Route path="supervisors/:id" element={<SupervisorDetail />} />
             <Route path="users" element={<Users />} />
+            <Route path="supervisors" element={<Supervisors />} />
+            <Route path="supervisors/:id" element={<SupervisorDetail />} />
             <Route path="organisations" element={<Organisations />} />
             <Route path="visit-reports" element={<VisitReports />} />
             <Route path="boq" element={<BOQ />} />

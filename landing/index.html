@@ -24,6 +24,25 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;padding:14px 5%;display:flex
 #hero{min-height:100vh;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;padding:120px 5% 60px;text-align:center}
 .hero-bg{position:absolute;inset:0;background:radial-gradient(ellipse at 20% 50%,rgba(201,168,76,.07),transparent 60%),radial-gradient(ellipse at 80% 20%,rgba(249,115,22,.05),transparent 50%)}
 .hero-grid{position:absolute;inset:0;background-image:linear-gradient(rgba(255,255,255,.018) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.018) 1px,transparent 1px);background-size:60px 60px;mask-image:radial-gradient(ellipse at center,#000 40%,transparent 80%)}
+/* Hero floating shapes */
+.hero-shape{position:absolute;pointer-events:none;opacity:.06}
+.hero-shape-1{width:320px;height:320px;border:2px solid var(--gold);border-radius:50%;top:10%;left:-80px;animation:shapeFloat1 12s ease-in-out infinite}
+.hero-shape-2{width:180px;height:180px;border:1.5px solid var(--gold);border-radius:50%;bottom:15%;right:-40px;animation:shapeFloat2 9s ease-in-out infinite}
+.hero-shape-3{width:100px;height:100px;background:var(--gold);border-radius:18px;top:20%;right:12%;transform:rotate(35deg);animation:shapeFloat3 11s ease-in-out infinite}
+.hero-shape-4{width:60px;height:60px;background:var(--orange);border-radius:50%;bottom:30%;left:8%;animation:shapeFloat2 8s ease-in-out infinite 1s}
+@keyframes shapeFloat1{0%,100%{transform:translateY(0) rotate(0deg)}50%{transform:translateY(-30px) rotate(15deg)}}
+@keyframes shapeFloat2{0%,100%{transform:translateY(0)}50%{transform:translateY(-20px)}}
+@keyframes shapeFloat3{0%,100%{transform:rotate(35deg) translateY(0)}50%{transform:rotate(55deg) translateY(-18px)}}
+/* Gold line reveal */
+.hero-line{position:absolute;bottom:0;left:0;height:2px;background:linear-gradient(90deg,transparent,var(--gold),transparent);width:0;animation:lineReveal 1.8s ease-out .4s forwards}
+@keyframes lineReveal{to{width:100%}}
+/* Scroll indicator */
+.scroll-ind{position:absolute;bottom:36px;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:6px;opacity:.5;animation:fadeInUp .8s ease 1.5s both}
+.scroll-ind span{font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--muted)}
+.scroll-mouse{width:22px;height:34px;border:2px solid var(--muted);border-radius:11px;position:relative}
+.scroll-dot{position:absolute;top:6px;left:50%;transform:translateX(-50%);width:4px;height:6px;background:var(--gold);border-radius:3px;animation:scrollBounce 2s ease-in-out infinite}
+@keyframes scrollBounce{0%,100%{transform:translateX(-50%) translateY(0);opacity:1}50%{transform:translateX(-50%) translateY(10px);opacity:.3}}
+@keyframes fadeInUp{from{opacity:0;transform:translate(-50%,10px)}to{opacity:.5;transform:translate(-50%,0)}}
 .hero-content{position:relative;z-index:1;max-width:880px;margin:0 auto}
 .badge{display:inline-flex;align-items:center;gap:7px;background:rgba(201,168,76,.1);border:1px solid rgba(201,168,76,.3);border-radius:50px;padding:6px 15px;font-size:12px;color:var(--gold);margin-bottom:26px;font-weight:600}
 .badge-dot{width:7px;height:7px;background:var(--gold);border-radius:50%;animation:pulse 2s infinite}
@@ -36,10 +55,45 @@ h1.hero-title{font-size:clamp(38px,7vw,84px);font-weight:900;line-height:1.02;le
 .btn-p:hover{background:var(--gold-l);transform:translateY(-2px);box-shadow:0 8px 30px rgba(201,168,76,.25)}
 .btn-o{border:1px solid rgba(255,255,255,.18);color:#fff;padding:13px 30px;border-radius:50px;font-weight:600;text-decoration:none;font-size:14px;transition:all .2s;display:inline-flex;align-items:center;gap:7px}
 .btn-o:hover{border-color:var(--gold);color:var(--gold);transform:translateY(-2px)}
-.stats{background:var(--d2);border-top:1px solid rgba(201,168,76,.1);border-bottom:1px solid rgba(201,168,76,.1);padding:28px 5%;display:grid;grid-template-columns:repeat(4,1fr)}
-.stat{text-align:center;padding:8px;border-right:1px solid rgba(255,255,255,.05)}.stat:last-child{border:none}
-.sn{font-size:clamp(26px,4vw,46px);font-weight:900;background:linear-gradient(135deg,var(--gold),var(--gold-l));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;line-height:1}
-.sl{font-size:12px;color:var(--muted);margin-top:3px;font-weight:500}
+.stats{background:var(--d2);border-top:1px solid rgba(201,168,76,.1);border-bottom:1px solid rgba(201,168,76,.1);padding:36px 5%;display:grid;grid-template-columns:repeat(4,1fr)}
+.stat{text-align:center;padding:12px 8px;border-right:1px solid rgba(255,255,255,.05);position:relative}.stat:last-child{border:none}
+.stat-icon{font-size:22px;margin-bottom:6px;display:block}
+.sn{font-size:clamp(26px,4vw,48px);font-weight:900;background:linear-gradient(135deg,var(--gold),var(--gold-l));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;line-height:1}
+.sl{font-size:12px;color:var(--muted);margin-top:5px;font-weight:500}
+/* Why Us section */
+#why-us{background:var(--dark)}
+.wu-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:24px;margin-top:48px;max-width:1160px;margin-left:auto;margin-right:auto}
+.wu-card{background:var(--d2);border:1px solid rgba(255,255,255,.06);border-radius:20px;padding:32px 26px;transition:all .3s;position:relative;overflow:hidden}
+.wu-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--gold),var(--gold-l));transform:scaleX(0);transform-origin:left;transition:transform .4s}
+.wu-card:hover::before{transform:scaleX(1)}
+.wu-card:hover{border-color:rgba(201,168,76,.2);transform:translateY(-4px);box-shadow:0 20px 50px rgba(0,0,0,.3)}
+.wu-num{font-size:48px;font-weight:900;background:linear-gradient(135deg,var(--gold),var(--gold-l));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;line-height:1;margin-bottom:16px;opacity:.25}
+.wu-card h3{font-size:17px;font-weight:700;margin-bottom:9px}
+.wu-card p{color:var(--muted);font-size:13px;line-height:1.65}
+/* Testimonials */
+#testimonials{background:var(--d2)}
+.tgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;margin-top:48px;max-width:1160px;margin-left:auto;margin-right:auto}
+.tcard{background:var(--d3);border:1px solid rgba(255,255,255,.07);border-radius:18px;padding:28px;transition:all .3s}
+.tcard:hover{border-color:rgba(201,168,76,.25);transform:translateY(-3px);box-shadow:0 14px 40px rgba(0,0,0,.3)}
+.tquote{font-size:28px;color:var(--gold);line-height:1;margin-bottom:14px;opacity:.6}
+.ttext{color:#ccc;font-size:14px;line-height:1.7;margin-bottom:20px;font-style:italic}
+.tauthor{display:flex;align-items:center;gap:12px}
+.tavatar{width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,var(--gold),#9a7224);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:#000;flex-shrink:0}
+.tname{font-size:13px;font-weight:700;color:#fff}
+.trole{font-size:11px;color:var(--muted);margin-top:2px}
+.tstars{color:var(--gold);font-size:12px;letter-spacing:1px;margin-bottom:14px}
+/* Estimator */
+#estimator{background:linear-gradient(135deg,var(--d3),var(--d2));border-top:1px solid rgba(201,168,76,.12);border-bottom:1px solid rgba(201,168,76,.12)}
+.est-wrap{max-width:760px;margin:0 auto;text-align:center}
+.est-form{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:36px;text-align:left}
+.est-label{font-size:12px;font-weight:600;color:var(--muted);margin-bottom:6px;display:block;text-transform:uppercase;letter-spacing:.8px}
+.est-input{width:100%;background:var(--d4);border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:12px 16px;color:#fff;font-size:14px;outline:none;font-family:inherit;transition:border-color .2s}
+.est-input:focus{border-color:var(--gold)}
+.est-full{grid-column:1/-1}
+.est-result{background:rgba(201,168,76,.08);border:1px solid rgba(201,168,76,.2);border-radius:16px;padding:24px 28px;margin-top:22px;display:none}
+.est-result.show{display:block}
+.est-range{font-size:28px;font-weight:900;background:linear-gradient(135deg,var(--gold),var(--gold-l));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:6px}
+.est-note{font-size:12px;color:var(--muted)}
 section{padding:70px 5%}
 .sec-badge{display:inline-block;background:rgba(201,168,76,.1);color:var(--gold);font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;padding:5px 13px;border-radius:50px;margin-bottom:14px}
 .sec-title{font-size:clamp(26px,4vw,44px);font-weight:800;line-height:1.1;margin-bottom:14px}
@@ -195,15 +249,19 @@ footer{background:var(--d2);border-top:1px solid rgba(255,255,255,.05);padding:4
 .fi.vis{opacity:1;transform:translateY(0)}
 @media(max-width:900px){
   .about-grid,.contact-grid,.ftop{grid-template-columns:1fr}
-  .svcs{grid-template-columns:1fr 1fr}
+  .svcs,.wu-grid,.tgrid{grid-template-columns:1fr 1fr}
   .lcards{grid-template-columns:1fr}
   .atag{right:0;bottom:-36px}
   .nav-links,.nav-cta{display:none}
   .hamburger{display:flex}
   .stats{grid-template-columns:repeat(2,1fr)}
   .stat{border-right:none;border-bottom:1px solid rgba(255,255,255,.05)}
+  .est-form{grid-template-columns:1fr}
+  .est-full{grid-column:1}
+  .hero-shape-1,.hero-shape-2{opacity:.03}
+  .hero-shape-3,.hero-shape-4{display:none}
 }
-@media(max-width:560px){.svcs,.projects-grid{grid-template-columns:1fr}.btns{flex-direction:column;align-items:center}}
+@media(max-width:560px){.svcs,.projects-grid,.wu-grid,.tgrid{grid-template-columns:1fr}.btns{flex-direction:column;align-items:center}}
 </style>
 </head>
 <body>
@@ -212,17 +270,24 @@ footer{background:var(--d2);border-top:1px solid rgba(255,255,255,.05);padding:4
   <a href="#about" onclick="cm()">About</a>
   <a href="#projects" onclick="cm()">Projects</a>
   <a href="#services" onclick="cm()">Services</a>
+  <a href="#why-us" onclick="cm()">Why Us</a>
+  <a href="#estimator" onclick="cm()">Estimator</a>
   <a href="#contact" onclick="cm()">Contact</a>
   <a href="#emp" onclick="cm()" style="color:var(--gold)">Employee Login</a>
 </div>
 <nav id="nav">
   <a href="#" class="logo"><div class="logo-icon">🏗️</div><div><h1>Dhakad Group</h1><p>CONSTRUCTION</p></div></a>
-  <div class="nav-links"><a href="#about">About</a><a href="#projects">Projects</a><a href="#services">Services</a><a href="#contact">Contact</a></div>
+  <div class="nav-links"><a href="#about">About</a><a href="#projects">Projects</a><a href="#services">Services</a><a href="#why-us">Why Us</a><a href="#estimator">Estimator</a><a href="#contact">Contact</a></div>
   <a href="#emp" class="nav-cta">Employee Portal</a>
   <div class="hamburger" onclick="om()"><span></span><span></span><span></span></div>
 </nav>
 <section id="hero">
   <div class="hero-bg"></div><div class="hero-grid"></div>
+  <div class="hero-shape hero-shape-1"></div>
+  <div class="hero-shape hero-shape-2"></div>
+  <div class="hero-shape hero-shape-3"></div>
+  <div class="hero-shape hero-shape-4"></div>
+  <div class="hero-line"></div>
   <div class="hero-content fi">
     <div class="badge"><span class="badge-dot"></span><span id="hero-badge-text">Trusted Construction Partner Since 2010</span></div>
     <h1 class="hero-title" id="hero-title">Building <span class="g">Tomorrow's</span><br>Infrastructure Today</h1>
@@ -232,12 +297,16 @@ footer{background:var(--d2);border-top:1px solid rgba(255,255,255,.05);padding:4
       <a href="#contact" class="btn-o">📞 Contact Us</a>
     </div>
   </div>
+  <div class="scroll-ind">
+    <span>Scroll</span>
+    <div class="scroll-mouse"><div class="scroll-dot"></div></div>
+  </div>
 </section>
 <div class="stats" id="sb">
-  <div class="stat"><div class="sn" data-t="150" id="stat-projects">0</div><div class="sl">Projects Completed</div></div>
-  <div class="stat"><div class="sn" data-t="12" id="stat-years">0</div><div class="sl">Years of Excellence</div></div>
-  <div class="stat"><div class="sn" data-t="500" id="stat-workers">0</div><div class="sl">Workers Employed</div></div>
-  <div class="stat"><div class="sn" data-t="25" id="stat-ongoing">0</div><div class="sl">Ongoing Projects</div></div>
+  <div class="stat"><span class="stat-icon">🏗️</span><div class="sn" data-t="500" id="stat-projects">0</div><div class="sl">Projects Completed</div></div>
+  <div class="stat"><span class="stat-icon">📅</span><div class="sn" data-t="22" id="stat-years">0</div><div class="sl">Years of Excellence</div></div>
+  <div class="stat"><span class="stat-icon">🎨</span><div class="sn" data-t="50" id="stat-workers">0</div><div class="sl">Expert Painters</div></div>
+  <div class="stat"><span class="stat-icon">⭐</span><div class="sn" id="stat-ongoing" style="font-size:clamp(22px,3.5vw,42px)">100%</div><div class="sl">Client Satisfaction</div></div>
 </div>
 <section id="painter-section">
   <div style="max-width:1000px;margin:0 auto;text-align:center">
@@ -339,6 +408,163 @@ footer{background:var(--d2);border-top:1px solid rgba(255,255,255,.05);padding:4
     </div>
   </div>
 </section>
+
+<!-- ══ CRAFTED WITH PRECISION ══ -->
+<section id="crafted" style="background:#ffffff;padding:80px 5%;position:relative;overflow:hidden">
+  <!-- Subtle grid background -->
+  <div style="position:absolute;inset:0;background-image:linear-gradient(rgba(0,0,0,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(0,0,0,.03) 1px,transparent 1px);background-size:40px 40px;pointer-events:none"></div>
+
+  <div style="max-width:1160px;margin:0 auto;position:relative;z-index:1">
+    <!-- Section header -->
+    <div style="text-align:center;margin-bottom:56px">
+      <span style="display:inline-block;background:rgba(201,168,76,.12);color:#C9A84C;font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;padding:5px 14px;border-radius:50px;margin-bottom:14px">Our Craft</span>
+      <h2 style="font-size:clamp(28px,4.5vw,46px);font-weight:900;line-height:1.1;color:#0a0a0a;margin-bottom:12px">Crafted With <span style="background:linear-gradient(135deg,#C9A84C,#e8c97a);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">Precision</span></h2>
+      <p style="color:#666;font-size:16px;max-width:520px;margin:0 auto;line-height:1.65">Every wall tells a story of skill, safety and dedication</p>
+    </div>
+
+    <!-- Animation stage -->
+    <div class="cwp-stage">
+      <!-- Wall -->
+      <div class="cwp-wall-wrap">
+        <div class="cwp-wall-frame">
+          <div class="cwp-paint-sweep"></div>
+          <!-- Brick pattern lines (pure CSS) -->
+          <div class="cwp-bricks"></div>
+        </div>
+      </div>
+
+      <!-- Painter figure -->
+      <div class="cwp-painter">
+        <!-- Hard hat -->
+        <div class="cwp-hat"></div>
+        <!-- Head -->
+        <div class="cwp-head">
+          <!-- Goggles -->
+          <div class="cwp-goggles"></div>
+        </div>
+        <!-- Body / overalls -->
+        <div class="cwp-body">
+          <!-- Safety vest stripes -->
+          <div class="cwp-vest-stripe cwp-vs1"></div>
+          <div class="cwp-vest-stripe cwp-vs2"></div>
+          <!-- Left arm (down) -->
+          <div class="cwp-arm-left"></div>
+          <!-- Right arm + roller (animated) -->
+          <div class="cwp-arm-right-wrap">
+            <div class="cwp-arm-right"></div>
+            <!-- Roller handle -->
+            <div class="cwp-roller-handle"></div>
+            <!-- Roller head -->
+            <div class="cwp-roller-head">
+              <!-- Paint drips -->
+              <div class="cwp-drip cwp-drip1"></div>
+              <div class="cwp-drip cwp-drip2"></div>
+              <div class="cwp-drip cwp-drip3"></div>
+            </div>
+          </div>
+        </div>
+        <!-- Legs -->
+        <div class="cwp-legs">
+          <div class="cwp-leg cwp-leg-l">
+            <div class="cwp-boot cwp-boot-l"></div>
+          </div>
+          <div class="cwp-leg cwp-leg-r">
+            <div class="cwp-boot cwp-boot-r"></div>
+          </div>
+        </div>
+        <!-- Paint bucket -->
+        <div class="cwp-bucket"></div>
+      </div>
+    </div><!-- end stage -->
+
+    <!-- Feature cards -->
+    <div class="cwp-cards">
+      <div class="cwp-card">
+        <div class="cwp-card-icon">🏗️</div>
+        <h3 style="font-size:22px;font-weight:800;color:#0a0a0a;margin-bottom:6px">500+ Projects</h3>
+        <p style="font-size:14px;color:#666;line-height:1.55">Successfully completed across Maharashtra</p>
+      </div>
+      <div class="cwp-card">
+        <div class="cwp-card-icon">🎨</div>
+        <h3 style="font-size:22px;font-weight:800;color:#0a0a0a;margin-bottom:6px">Premium Quality</h3>
+        <p style="font-size:14px;color:#666;line-height:1.55">Asian Paints certified applicator since 2002</p>
+      </div>
+      <div class="cwp-card">
+        <div class="cwp-card-icon">🦺</div>
+        <h3 style="font-size:22px;font-weight:800;color:#0a0a0a;margin-bottom:6px">Safety First</h3>
+        <p style="font-size:14px;color:#666;line-height:1.55">ISO certified safety standards on every site</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bottom SVG paint drip border -->
+  <div style="position:absolute;bottom:0;left:0;right:0;line-height:0">
+    <svg viewBox="0 0 1200 60" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:60px;display:block">
+      <path d="M0,0 L1200,0 L1200,20 Q1140,20 1130,40 Q1120,58 1110,58 Q1100,58 1090,40 Q1080,20 1060,20 Q1040,20 1030,38 Q1020,56 1010,56 Q1000,56 990,38 Q980,20 960,20 Q940,20 930,42 Q920,60 910,60 Q900,60 890,42 Q880,20 860,20 Q840,20 830,36 Q820,54 810,54 Q800,54 790,36 Q780,20 760,20 Q740,20 730,40 Q720,58 710,58 Q700,58 690,40 Q680,20 660,20 Q640,20 630,38 Q620,56 610,56 Q600,56 590,38 Q580,20 560,20 Q540,20 530,42 Q520,60 510,60 Q500,60 490,42 Q480,20 460,20 Q440,20 430,36 Q420,54 410,54 Q400,54 390,36 Q380,20 360,20 Q340,20 330,40 Q320,58 310,58 Q300,58 290,40 Q280,20 260,20 Q240,20 230,38 Q220,56 210,56 Q200,56 190,38 Q180,20 160,20 Q140,20 130,42 Q120,60 110,60 Q100,60 90,42 Q80,20 60,20 Q40,20 30,36 Q20,54 10,54 Q5,54 0,50 Z" fill="#C9A84C" opacity="0.7"/>
+      <path d="M0,10 Q50,10 60,30 Q70,50 80,50 Q90,50 100,30 Q110,10 140,10 Q170,10 180,28 Q190,46 200,46 Q210,46 220,28 Q230,10 260,10 Q290,10 300,32 Q310,54 320,54 Q330,54 340,32 Q350,10 380,10 Q410,10 420,26 Q430,44 440,44 Q450,44 460,26 Q470,10 500,10 Q530,10 540,30 Q550,50 560,50 Q570,50 580,30 Q590,10 620,10 Q650,10 660,28 Q670,46 680,46 Q690,46 700,28 Q710,10 740,10 Q770,10 780,32 Q790,54 800,54 Q810,54 820,32 Q830,10 860,10 Q890,10 900,26 Q910,44 920,44 Q930,44 940,26 Q950,10 980,10 Q1010,10 1020,30 Q1030,50 1040,50 Q1050,50 1060,30 Q1070,10 1100,10 Q1130,10 1140,28 Q1150,46 1160,46 Q1180,46 1200,40 L1200,0 Z" fill="#0a0a0a" opacity="1"/>
+    </svg>
+  </div>
+</section>
+
+<style>
+/* ── Crafted With Precision styles ─────────────────────── */
+.cwp-stage{display:flex;align-items:flex-end;justify-content:center;gap:0;margin-bottom:56px;position:relative;height:240px}
+.cwp-wall-wrap{flex:1;max-width:520px;position:relative;height:200px;margin-top:40px}
+.cwp-wall-frame{width:100%;height:100%;border:3px solid #ccc;border-radius:8px;position:relative;overflow:hidden;background:#ede8de}
+.cwp-paint-sweep{position:absolute;top:0;left:0;height:100%;width:0;background:linear-gradient(90deg,#F5F0E8,#ede8de 60%,rgba(245,240,232,.6));animation:paintSweep 3s ease-in-out infinite;border-right:2px solid rgba(201,168,76,.3)}
+@keyframes paintSweep{0%{width:0}60%{width:100%}100%{width:100%}}
+.cwp-bricks{position:absolute;inset:0;background-image:repeating-linear-gradient(transparent,transparent 29px,rgba(0,0,0,.06) 29px,rgba(0,0,0,.06) 30px),repeating-linear-gradient(90deg,transparent,transparent 59px,rgba(0,0,0,.06) 59px,rgba(0,0,0,.06) 60px);pointer-events:none}
+
+/* Painter */
+.cwp-painter{position:relative;width:90px;height:240px;flex-shrink:0;margin-left:-10px}
+/* Hard hat */
+.cwp-hat{position:absolute;top:0;left:50%;transform:translateX(-50%);width:46px;height:20px;background:#FFD700;border-radius:50% 50% 0 0/100% 100% 0 0;box-shadow:0 2px 0 #b8a000}
+.cwp-hat::after{content:'';position:absolute;bottom:-4px;left:-5px;right:-5px;height:6px;background:#FFD700;border-radius:2px}
+/* Head */
+.cwp-head{position:absolute;top:18px;left:50%;transform:translateX(-50%);width:32px;height:34px;background:#D4956A;border-radius:50% 50% 45% 45%;overflow:visible}
+.cwp-goggles{position:absolute;top:12px;left:50%;transform:translateX(-50%);width:28px;height:10px;display:flex;gap:2px;justify-content:center}
+.cwp-goggles::before,.cwp-goggles::after{content:'';width:12px;height:10px;background:rgba(0,0,0,.25);border-radius:3px;border:1px solid #666}
+/* Body */
+.cwp-body{position:absolute;top:50px;left:50%;transform:translateX(-50%);width:38px;height:80px;background:#f0f0f0;border-radius:6px 6px 4px 4px;overflow:visible}
+.cwp-vest-stripe{position:absolute;left:50%;transform:translateX(-50%);width:6px;height:100%;background:#FF6B00;opacity:.75}
+.cwp-vs1{left:30%}.cwp-vs2{left:70%}
+/* Left arm */
+.cwp-arm-left{position:absolute;top:10px;left:-14px;width:14px;height:44px;background:#D4956A;border-radius:4px;transform-origin:top center;transform:rotate(15deg)}
+/* Right arm + roller */
+.cwp-arm-right-wrap{position:absolute;top:8px;right:-30px;animation:armSwing 3s ease-in-out infinite;transform-origin:top left}
+@keyframes armSwing{0%,100%{transform:rotate(-20deg)}50%{transform:rotate(10deg)}}
+.cwp-arm-right{width:14px;height:48px;background:#D4956A;border-radius:4px}
+.cwp-roller-handle{position:absolute;top:42px;left:50%;transform:translateX(-50%);width:4px;height:22px;background:#555;border-radius:2px}
+.cwp-roller-head{position:absolute;top:60px;left:50%;transform:translateX(-50%);width:22px;height:14px;background:#C9A84C;border-radius:3px;overflow:visible}
+/* Drips */
+.cwp-drip{position:absolute;bottom:-6px;width:4px;border-radius:0 0 4px 4px;background:#C9A84C;animation:drip 1.5s ease-in infinite}
+.cwp-drip1{left:2px;height:8px;animation-delay:0s}
+.cwp-drip2{left:9px;height:10px;animation-delay:.4s}
+.cwp-drip3{left:16px;height:7px;animation-delay:.8s}
+@keyframes drip{0%{transform:scaleY(0) translateY(0);opacity:1;transform-origin:top}60%{transform:scaleY(1) translateY(0);opacity:1}100%{transform:scaleY(1) translateY(30px);opacity:0}}
+/* Legs */
+.cwp-legs{position:absolute;top:128px;left:50%;transform:translateX(-50%);display:flex;gap:4px}
+.cwp-leg{width:16px;height:44px;background:#3a3a5c;border-radius:4px 4px 0 0}
+.cwp-boot{position:absolute;bottom:0;width:18px;height:12px;background:#1a1a1a;border-radius:2px 2px 0 0}
+.cwp-boot-l{left:-1px}.cwp-boot-r{left:-1px}
+/* Bucket */
+.cwp-bucket{position:absolute;bottom:2px;left:0;width:22px;height:20px;background:#C9A84C;border-radius:3px 3px 5px 5px;border:2px solid #9a7224;animation:bucketWobble 3s ease-in-out infinite}
+@keyframes bucketWobble{0%,100%{transform:rotate(-3deg)}50%{transform:rotate(3deg)}}
+
+/* Feature cards */
+.cwp-cards{display:flex;gap:24px;flex-wrap:wrap;justify-content:center}
+.cwp-card{flex:1;min-width:220px;max-width:340px;background:#fff;border-top:3px solid #C9A84C;border-radius:14px;padding:28px 24px;box-shadow:0 4px 20px rgba(0,0,0,.07);transition:transform .25s,box-shadow .25s;text-align:center}
+.cwp-card:hover{transform:translateY(-4px);box-shadow:0 12px 36px rgba(201,168,76,.18)}
+.cwp-card-icon{font-size:32px;margin-bottom:12px}
+
+/* Responsive */
+@media(max-width:640px){
+  .cwp-stage{transform:scale(.8);transform-origin:center bottom;height:200px;margin-bottom:16px}
+  .cwp-cards{flex-direction:column;align-items:center}
+  .cwp-card{width:100%;max-width:100%}
+}
+</style>
+
 <section id="projects">
   <div style="max-width:1160px;margin:0 auto">
     <span class="sec-badge">Our Work</span>
@@ -364,6 +590,125 @@ footer{background:var(--d2);border-top:1px solid rgba(255,255,255,.05);padding:4
     </div>
   </div>
 </section>
+<!-- ══ WHY US ══ -->
+<section id="why-us">
+  <div style="max-width:1160px;margin:0 auto">
+    <div style="text-align:center;margin-bottom:8px"><span class="sec-badge">Why Choose Us</span></div>
+    <h2 class="sec-title" style="text-align:center">The Dhakad Group <span class="g">Difference</span></h2>
+    <p class="sec-sub" style="text-align:center;margin:0 auto 0">What makes us the preferred construction partner across Maharashtra</p>
+    <div class="wu-grid">
+      <div class="wu-card fi">
+        <div class="wu-num">01</div>
+        <h3>ISO Certified Quality</h3>
+        <p>Every project follows ISO 9001 quality management standards, ensuring consistent excellence from foundation to finish.</p>
+      </div>
+      <div class="wu-card fi">
+        <div class="wu-num">02</div>
+        <h3>On-Time Delivery</h3>
+        <p>We've completed 98% of projects on or ahead of schedule — because your timeline is our commitment.</p>
+      </div>
+      <div class="wu-card fi">
+        <div class="wu-num">03</div>
+        <h3>Transparent Pricing</h3>
+        <p>No hidden costs. Detailed BOQ-based estimates upfront, with regular progress updates and invoicing.</p>
+      </div>
+      <div class="wu-card fi">
+        <div class="wu-num">04</div>
+        <h3>Expert Workforce</h3>
+        <p>Trained, safety-certified team with specialists in every trade — from structural to interior finishing.</p>
+      </div>
+      <div class="wu-card fi">
+        <div class="wu-num">05</div>
+        <h3>22+ Years Experience</h3>
+        <p>Over two decades of construction expertise across residential, commercial, and industrial sectors in India.</p>
+      </div>
+      <div class="wu-card fi">
+        <div class="wu-num">06</div>
+        <h3>Digital Site Management</h3>
+        <p>Powered by DGSystem — real-time attendance tracking, material management, and project dashboards.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ TESTIMONIALS ══ -->
+<section id="testimonials">
+  <div style="max-width:1160px;margin:0 auto">
+    <div style="text-align:center;margin-bottom:8px"><span class="sec-badge">Client Reviews</span></div>
+    <h2 class="sec-title" style="text-align:center">What Our <span class="g">Clients Say</span></h2>
+    <p class="sec-sub" style="text-align:center;margin:0 auto 0">Trusted by homeowners, developers, and businesses across Maharashtra</p>
+    <div class="tgrid">
+      <div class="tcard fi">
+        <div class="tquote">"</div>
+        <div class="tstars">★★★★★</div>
+        <p class="ttext">Dhakad Group built our 4-storey commercial complex in Pune on time and within budget. Their quality of work and professionalism is unmatched. Highly recommended!</p>
+        <div class="tauthor"><div class="tavatar">R</div><div><div class="tname">Rajesh Sharma</div><div class="trole">Director, Sharma Developers</div></div></div>
+      </div>
+      <div class="tcard fi">
+        <div class="tquote">"</div>
+        <div class="tstars">★★★★★</div>
+        <p class="ttext">The painting and interior work they did for our society renovation exceeded all expectations. Clean work, timely completion, and excellent finishing quality throughout.</p>
+        <div class="tauthor"><div class="tavatar">P</div><div><div class="tname">Priya Kulkarni</div><div class="trole">Housing Society Chairman, Nashik</div></div></div>
+      </div>
+      <div class="tcard fi">
+        <div class="tquote">"</div>
+        <div class="tstars">★★★★★</div>
+        <p class="ttext">We've worked with Dhakad Group on 3 industrial warehouse projects. Their digital tracking system gives us real-time updates and their team is always safety-conscious on site.</p>
+        <div class="tauthor"><div class="tavatar">A</div><div><div class="tname">Anil Dhakad</div><div class="trole">Operations Head, MNC Logistics</div></div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ COST ESTIMATOR ══ -->
+<section id="estimator">
+  <div class="est-wrap fi">
+    <span class="sec-badge">Free Tool</span>
+    <h2 class="sec-title">Quick Cost <span class="g">Estimator</span></h2>
+    <p class="sec-sub" style="margin:0 auto">Get a rough idea of your project cost instantly. Our team will provide a detailed quote.</p>
+    <div class="est-form">
+      <div>
+        <label class="est-label">Project Type</label>
+        <select class="est-input" id="est-type" onchange="calcEst()">
+          <option value="">Select type</option>
+          <option value="residential">Residential Building</option>
+          <option value="commercial">Commercial Complex</option>
+          <option value="industrial">Industrial / Warehouse</option>
+          <option value="renovation">Renovation</option>
+          <option value="painting">Painting &amp; Interior</option>
+        </select>
+      </div>
+      <div>
+        <label class="est-label">Area (sq ft)</label>
+        <input class="est-input" type="number" id="est-area" placeholder="e.g. 1500" oninput="calcEst()" min="100"/>
+      </div>
+      <div>
+        <label class="est-label">Floors</label>
+        <select class="est-input" id="est-floors" onchange="calcEst()">
+          <option value="1">1 Floor</option>
+          <option value="2">2 Floors</option>
+          <option value="3">3 Floors</option>
+          <option value="4">4+ Floors</option>
+        </select>
+      </div>
+      <div>
+        <label class="est-label">Finish Level</label>
+        <select class="est-input" id="est-finish" onchange="calcEst()">
+          <option value="standard">Standard</option>
+          <option value="premium">Premium</option>
+          <option value="luxury">Luxury</option>
+        </select>
+      </div>
+    </div>
+    <div class="est-result" id="est-result">
+      <p style="font-size:13px;color:var(--muted);margin-bottom:8px">Estimated Project Cost</p>
+      <div class="est-range" id="est-range">₹0 – ₹0</div>
+      <p class="est-note">This is a rough estimate only. Contact us for a detailed BOQ-based quote tailored to your project.</p>
+      <a href="#contact" class="btn-p" style="display:inline-flex;margin-top:16px;font-size:13px;padding:10px 24px">Get Detailed Quote →</a>
+    </div>
+  </div>
+</section>
+
 <section id="contact">
   <div class="contact-grid">
     <div class="fi">
@@ -415,7 +760,7 @@ footer{background:var(--d2);border-top:1px solid rgba(255,255,255,.05);padding:4
 <footer>
   <div class="ftop">
     <div><a href="#" class="flogo"><div class="flogo-icon">🏗️</div><h2>Dhakad Group</h2></a><p class="fdesc">Building excellence across India since 2010. Quality construction, on time, every time.</p></div>
-    <div class="fcol"><h4>Company</h4><a href="#about">About Us</a><a href="#services">Services</a><a href="#projects">Projects</a><a href="#contact">Contact</a></div>
+    <div class="fcol"><h4>Company</h4><a href="#about">About Us</a><a href="#services">Services</a><a href="#projects">Projects</a><a href="#why-us">Why Us</a><a href="#estimator">Estimator</a><a href="#contact">Contact</a></div>
     <div class="fcol"><h4>Services</h4><a href="#">Residential</a><a href="#">Commercial</a><a href="#">Industrial</a><a href="#">Renovation</a></div>
     <div class="fcol"><h4>Employee</h4><a href="https://admin.dhakadgroup.in/login">Admin Panel</a><a href="https://supervisor.dhakadgroup.in/login">Supervisor App</a><a href="https://driver.dhakadgroup.in/login">Driver App</a></div>
   </div>
@@ -494,6 +839,22 @@ async function lp(){
   }catch(e){g.innerHTML='<div style="grid-column:1/-1;text-align:center;padding:48px 0;color:var(--muted);font-size:14px">Could not load projects.</div>';}
 }
 lp();
+function calcEst(){
+  const type=document.getElementById('est-type').value;
+  const area=parseInt(document.getElementById('est-area').value)||0;
+  const floors=parseInt(document.getElementById('est-floors').value)||1;
+  const finish=document.getElementById('est-finish').value;
+  const res=document.getElementById('est-result');
+  if(!type||area<100){res.classList.remove('show');return;}
+  const rates={residential:{standard:[1800,2200],premium:[2500,3200],luxury:[3500,5000]},commercial:{standard:[2200,2800],premium:[3000,4000],luxury:[4500,6500]},industrial:{standard:[1200,1600],premium:[1800,2400],luxury:[2600,3500]},renovation:{standard:[800,1200],premium:[1400,2000],luxury:[2200,3200]},painting:{standard:[35,55],premium:[60,90],luxury:[95,150]}};
+  const r=rates[type][finish];
+  const mult=type==='painting'?1:(1+(floors-1)*0.12);
+  const lo=Math.round(area*r[0]*mult/100000)/10;
+  const hi=Math.round(area*r[1]*mult/100000)/10;
+  const fmt=v=>v>=100?Math.round(v)+'L':v.toFixed(1)+'L';
+  document.getElementById('est-range').textContent='₹'+fmt(lo)+' – ₹'+fmt(hi);
+  res.classList.add('show');
+}
 </script>
 </body>
 </html>

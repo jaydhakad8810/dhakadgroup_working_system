@@ -142,6 +142,7 @@ export default function MarkAttendance() {
 
   // ── Step 4: Task Execution
   const [taskCheckedIn, setTaskCheckedIn] = useState(false)
+  const [taskDescription, setTaskDescription] = useState('')
   const [materials, setMaterials] = useState([])
   const [matName, setMatName] = useState('')
   const [matQty, setMatQty] = useState('')
@@ -250,11 +251,16 @@ export default function MarkAttendance() {
   // ── Upload a photo file to Cloudinary, return URL
   const uploadPhoto = async (file) => {
     const form = new FormData()
-    form.append('image', file)
-    const res = await api.post('/upload/single', form, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    })
-    return res.data?.url || res.data?.data?.url || ''
+    form.append('file', file)  // multer expects 'file' field for /upload/single
+    try {
+      const res = await api.post('/upload/single', form, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      return res.data?.url || res.data?.data?.url || ''
+    } catch (err) {
+      console.error('Photo upload error:', err.response?.data || err.message)
+      throw err
+    }
   }
 
   // ── Per-labour check-in photo handler
@@ -340,6 +346,10 @@ export default function MarkAttendance() {
 
   // ── Complete day & save → step 5
   const completeDay = async () => {
+    if (!taskDescription.trim()) {
+      toast.error('Please enter a task description')
+      return
+    }
     // Validate every present/half-day labour has a checkout photo
     const missing = presentLabours.filter((l) => !checkoutPhotos[l._id || l.id])
     if (missing.length > 0) {
@@ -358,7 +368,9 @@ export default function MarkAttendance() {
         presentRecords.map((r) =>
           api.patch(`/attendance/${r._id || r.id}/checkout`, {
             check_out_photo: checkoutPhotos[r.labour_id],
-            task_note: taskNotes[r.labour_id] || '',
+            task_note: taskNotes[r.labour_id] || taskDescription || '',
+            task_description: taskDescription,
+            task_status: taskStatus,
             materials,
           })
         )
@@ -419,6 +431,7 @@ export default function MarkAttendance() {
     setUploadingCheckout({})
     setTaskNotes({})
     setTaskCheckedIn(false)
+    setTaskDescription('')
     setMaterials([])
     setMatName('')
     setMatQty('')
@@ -715,6 +728,15 @@ export default function MarkAttendance() {
               </button>
               <h2 className="text-base font-bold text-white">Task Execution</h2>
             </div>
+            <div className="mb-4">
+              <label className="label">Task Description *</label>
+              <input
+                className="input text-white"
+                placeholder="e.g. Wall putty, primer coat, final painting..."
+                value={taskDescription}
+                onChange={(e) => setTaskDescription(e.target.value)}
+              />
+            </div>
             <button
               className={`w-full flex items-center justify-center gap-2 rounded-xl py-3 font-medium min-h-[44px] transition-all ${
                 taskCheckedIn
@@ -813,23 +835,28 @@ export default function MarkAttendance() {
           </div>
 
           <div className="card">
-            <label className="label">Task Status</label>
-            <div className="flex gap-2">
-              {['completed', 'pending'].map((s) => (
-                <button
-                  key={s}
-                  onClick={() => setTaskStatus(s)}
-                  className={`flex-1 py-2.5 rounded-xl text-sm font-medium min-h-[44px] transition-all ${
-                    taskStatus === s
-                      ? s === 'completed'
-                        ? 'bg-green-500/30 text-green-400 border border-green-500/50'
-                        : 'bg-yellow-500/30 text-yellow-400 border border-yellow-500/50'
-                      : 'bg-surface-400 text-gray-500 border border-white/5'
-                  }`}
-                >
-                  {s === 'completed' ? 'Completed' : 'Pending'}
-                </button>
-              ))}
+            <label className="label">Checkout Status</label>
+            <div className="flex gap-3 mt-1">
+              <button
+                onClick={() => setTaskStatus('completed')}
+                className={`flex-1 py-3 rounded-xl text-sm font-semibold min-h-[44px] transition-all ${
+                  taskStatus === 'completed'
+                    ? 'bg-green-500 text-white'
+                    : 'border border-green-500/40 text-green-400 bg-transparent'
+                }`}
+              >
+                ✅ Mark as Completed
+              </button>
+              <button
+                onClick={() => setTaskStatus('pending')}
+                className={`flex-1 py-3 rounded-xl text-sm font-semibold min-h-[44px] transition-all ${
+                  taskStatus === 'pending'
+                    ? 'bg-orange-500 text-white'
+                    : 'border border-orange-500/40 text-orange-400 bg-transparent'
+                }`}
+              >
+                🕐 Mark as Pending
+              </button>
             </div>
           </div>
 

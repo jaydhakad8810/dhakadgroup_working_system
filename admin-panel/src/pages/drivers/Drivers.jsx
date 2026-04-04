@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { useNavigate } from 'react-router-dom'
 import api from '../../utils/api'
 import { PageHeader, LoadingPage, Modal, ConfirmDialog } from '../../components/ui'
 import { PhotoUpload, DocUpload } from '../../components/ui/PhotoUpload'
 import { Plus, Trash2, Edit, Eye } from 'lucide-react'
+import { Plus, Trash2, Edit, ChevronRight } from 'lucide-react'
 
 export default function Drivers() {
   const navigate = useNavigate()
@@ -77,7 +79,7 @@ export default function Drivers() {
       {tab === 'drivers' && (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {drivers.map(d => (
-            <div key={d.id} className="card">
+            <div key={d.id} className="card cursor-pointer hover:border-gold-500/40 transition-all" onClick={() => navigate(`/drivers/${d.id}`)}>
               <div className="flex items-center gap-3 mb-3">
                 {d.photo ? <img src={d.photo} className="w-12 h-12 rounded-xl object-cover border border-dark-600" />
                   : <div className="w-12 h-12 rounded-xl bg-gold-500/20 flex items-center justify-center text-gold-400 font-bold text-lg">{d.name[0]}</div>}
@@ -99,6 +101,8 @@ export default function Drivers() {
               <div className="flex gap-2">
                 <button onClick={() => navigate(`/drivers/${d.id}`)} className="btn-ghost flex-1 justify-center text-sm py-1.5 text-blue-400"><Eye size={14} />Details</button>
                 <button onClick={() => openEditDriver(d)} className="btn-outline flex-1 justify-center text-sm py-1.5"><Edit size={14} />Edit</button>
+                <button onClick={e => { e.stopPropagation(); openEditDriver(d) }} className="btn-outline flex-1 justify-center text-sm py-1.5"><Edit size={14} />Edit</button>
+                <button onClick={e => { e.stopPropagation(); navigate(`/drivers/${d.id}`) }} className="btn-ghost px-2 py-1.5 text-gold-400"><ChevronRight size={16} /></button>
               </div>
             </div>
           ))}
