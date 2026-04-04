@@ -20,6 +20,8 @@ import Machines from './pages/machines/Machines'
 import Drivers from './pages/drivers/Drivers'
 import DriverDetail from './pages/drivers/DriverDetail'
 import Trips from './pages/drivers/Trips'
+import Supervisors from './pages/supervisors/Supervisors'
+import SupervisorDetail from './pages/supervisors/SupervisorDetail'
 import Users from './pages/users/Users'
 import Supervisors from './pages/supervisors/Supervisors'
 import SupervisorDetail from './pages/supervisors/SupervisorDetail'
@@ -68,6 +70,8 @@ export default function App() {
             <Route path="drivers" element={<Drivers />} />
             <Route path="drivers/:id" element={<DriverDetail />} />
             <Route path="trips" element={<Trips />} />
+            <Route path="supervisors" element={<Supervisors />} />
+            <Route path="supervisors/:id" element={<SupervisorDetail />} />
             <Route path="users" element={<Users />} />
             <Route path="supervisors" element={<Supervisors />} />
             <Route path="supervisors/:id" element={<SupervisorDetail />} />
