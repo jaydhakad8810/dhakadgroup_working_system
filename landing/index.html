@@ -24,6 +24,25 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;padding:14px 5%;display:flex
 #hero{min-height:100vh;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;padding:120px 5% 60px;text-align:center}
 .hero-bg{position:absolute;inset:0;background:radial-gradient(ellipse at 20% 50%,rgba(201,168,76,.07),transparent 60%),radial-gradient(ellipse at 80% 20%,rgba(249,115,22,.05),transparent 50%)}
 .hero-grid{position:absolute;inset:0;background-image:linear-gradient(rgba(255,255,255,.018) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.018) 1px,transparent 1px);background-size:60px 60px;mask-image:radial-gradient(ellipse at center,#000 40%,transparent 80%)}
+/* Hero floating shapes */
+.hero-shape{position:absolute;pointer-events:none;opacity:.06}
+.hero-shape-1{width:320px;height:320px;border:2px solid var(--gold);border-radius:50%;top:10%;left:-80px;animation:shapeFloat1 12s ease-in-out infinite}
+.hero-shape-2{width:180px;height:180px;border:1.5px solid var(--gold);border-radius:50%;bottom:15%;right:-40px;animation:shapeFloat2 9s ease-in-out infinite}
+.hero-shape-3{width:100px;height:100px;background:var(--gold);border-radius:18px;top:20%;right:12%;transform:rotate(35deg);animation:shapeFloat3 11s ease-in-out infinite}
+.hero-shape-4{width:60px;height:60px;background:var(--orange);border-radius:50%;bottom:30%;left:8%;animation:shapeFloat2 8s ease-in-out infinite 1s}
+@keyframes shapeFloat1{0%,100%{transform:translateY(0) rotate(0deg)}50%{transform:translateY(-30px) rotate(15deg)}}
+@keyframes shapeFloat2{0%,100%{transform:translateY(0)}50%{transform:translateY(-20px)}}
+@keyframes shapeFloat3{0%,100%{transform:rotate(35deg) translateY(0)}50%{transform:rotate(55deg) translateY(-18px)}}
+/* Gold line reveal */
+.hero-line{position:absolute;bottom:0;left:0;height:2px;background:linear-gradient(90deg,transparent,var(--gold),transparent);width:0;animation:lineReveal 1.8s ease-out .4s forwards}
+@keyframes lineReveal{to{width:100%}}
+/* Scroll indicator */
+.scroll-ind{position:absolute;bottom:36px;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:6px;opacity:.5;animation:fadeInUp .8s ease 1.5s both}
+.scroll-ind span{font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--muted)}
+.scroll-mouse{width:22px;height:34px;border:2px solid var(--muted);border-radius:11px;position:relative}
+.scroll-dot{position:absolute;top:6px;left:50%;transform:translateX(-50%);width:4px;height:6px;background:var(--gold);border-radius:3px;animation:scrollBounce 2s ease-in-out infinite}
+@keyframes scrollBounce{0%,100%{transform:translateX(-50%) translateY(0);opacity:1}50%{transform:translateX(-50%) translateY(10px);opacity:.3}}
+@keyframes fadeInUp{from{opacity:0;transform:translate(-50%,10px)}to{opacity:.5;transform:translate(-50%,0)}}
 .hero-content{position:relative;z-index:1;max-width:880px;margin:0 auto}
 .badge{display:inline-flex;align-items:center;gap:7px;background:rgba(201,168,76,.1);border:1px solid rgba(201,168,76,.3);border-radius:50px;padding:6px 15px;font-size:12px;color:var(--gold);margin-bottom:26px;font-weight:600}
 .badge-dot{width:7px;height:7px;background:var(--gold);border-radius:50%;animation:pulse 2s infinite}
@@ -36,10 +55,45 @@ h1.hero-title{font-size:clamp(38px,7vw,84px);font-weight:900;line-height:1.02;le
 .btn-p:hover{background:var(--gold-l);transform:translateY(-2px);box-shadow:0 8px 30px rgba(201,168,76,.25)}
 .btn-o{border:1px solid rgba(255,255,255,.18);color:#fff;padding:13px 30px;border-radius:50px;font-weight:600;text-decoration:none;font-size:14px;transition:all .2s;display:inline-flex;align-items:center;gap:7px}
 .btn-o:hover{border-color:var(--gold);color:var(--gold);transform:translateY(-2px)}
-.stats{background:var(--d2);border-top:1px solid rgba(201,168,76,.1);border-bottom:1px solid rgba(201,168,76,.1);padding:28px 5%;display:grid;grid-template-columns:repeat(4,1fr)}
-.stat{text-align:center;padding:8px;border-right:1px solid rgba(255,255,255,.05)}.stat:last-child{border:none}
-.sn{font-size:clamp(26px,4vw,46px);font-weight:900;background:linear-gradient(135deg,var(--gold),var(--gold-l));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;line-height:1}
-.sl{font-size:12px;color:var(--muted);margin-top:3px;font-weight:500}
+.stats{background:var(--d2);border-top:1px solid rgba(201,168,76,.1);border-bottom:1px solid rgba(201,168,76,.1);padding:36px 5%;display:grid;grid-template-columns:repeat(4,1fr)}
+.stat{text-align:center;padding:12px 8px;border-right:1px solid rgba(255,255,255,.05);position:relative}.stat:last-child{border:none}
+.stat-icon{font-size:22px;margin-bottom:6px;display:block}
+.sn{font-size:clamp(26px,4vw,48px);font-weight:900;background:linear-gradient(135deg,var(--gold),var(--gold-l));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;line-height:1}
+.sl{font-size:12px;color:var(--muted);margin-top:5px;font-weight:500}
+/* Why Us section */
+#why-us{background:var(--dark)}
+.wu-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:24px;margin-top:48px;max-width:1160px;margin-left:auto;margin-right:auto}
+.wu-card{background:var(--d2);border:1px solid rgba(255,255,255,.06);border-radius:20px;padding:32px 26px;transition:all .3s;position:relative;overflow:hidden}
+.wu-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--gold),var(--gold-l));transform:scaleX(0);transform-origin:left;transition:transform .4s}
+.wu-card:hover::before{transform:scaleX(1)}
+.wu-card:hover{border-color:rgba(201,168,76,.2);transform:translateY(-4px);box-shadow:0 20px 50px rgba(0,0,0,.3)}
+.wu-num{font-size:48px;font-weight:900;background:linear-gradient(135deg,var(--gold),var(--gold-l));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;line-height:1;margin-bottom:16px;opacity:.25}
+.wu-card h3{font-size:17px;font-weight:700;margin-bottom:9px}
+.wu-card p{color:var(--muted);font-size:13px;line-height:1.65}
+/* Testimonials */
+#testimonials{background:var(--d2)}
+.tgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;margin-top:48px;max-width:1160px;margin-left:auto;margin-right:auto}
+.tcard{background:var(--d3);border:1px solid rgba(255,255,255,.07);border-radius:18px;padding:28px;transition:all .3s}
+.tcard:hover{border-color:rgba(201,168,76,.25);transform:translateY(-3px);box-shadow:0 14px 40px rgba(0,0,0,.3)}
+.tquote{font-size:28px;color:var(--gold);line-height:1;margin-bottom:14px;opacity:.6}
+.ttext{color:#ccc;font-size:14px;line-height:1.7;margin-bottom:20px;font-style:italic}
+.tauthor{display:flex;align-items:center;gap:12px}
+.tavatar{width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,var(--gold),#9a7224);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:#000;flex-shrink:0}
+.tname{font-size:13px;font-weight:700;color:#fff}
+.trole{font-size:11px;color:var(--muted);margin-top:2px}
+.tstars{color:var(--gold);font-size:12px;letter-spacing:1px;margin-bottom:14px}
+/* Estimator */
+#estimator{background:linear-gradient(135deg,var(--d3),var(--d2));border-top:1px solid rgba(201,168,76,.12);border-bottom:1px solid rgba(201,168,76,.12)}
+.est-wrap{max-width:760px;margin:0 auto;text-align:center}
+.est-form{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:36px;text-align:left}
+.est-label{font-size:12px;font-weight:600;color:var(--muted);margin-bottom:6px;display:block;text-transform:uppercase;letter-spacing:.8px}
+.est-input{width:100%;background:var(--d4);border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:12px 16px;color:#fff;font-size:14px;outline:none;font-family:inherit;transition:border-color .2s}
+.est-input:focus{border-color:var(--gold)}
+.est-full{grid-column:1/-1}
+.est-result{background:rgba(201,168,76,.08);border:1px solid rgba(201,168,76,.2);border-radius:16px;padding:24px 28px;margin-top:22px;display:none}
+.est-result.show{display:block}
+.est-range{font-size:28px;font-weight:900;background:linear-gradient(135deg,var(--gold),var(--gold-l));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:6px}
+.est-note{font-size:12px;color:var(--muted)}
 section{padding:70px 5%}
 .sec-badge{display:inline-block;background:rgba(201,168,76,.1);color:var(--gold);font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;padding:5px 13px;border-radius:50px;margin-bottom:14px}
 .sec-title{font-size:clamp(26px,4vw,44px);font-weight:800;line-height:1.1;margin-bottom:14px}
@@ -131,15 +185,19 @@ footer{background:var(--d2);border-top:1px solid rgba(255,255,255,.05);padding:4
 .fi.vis{opacity:1;transform:translateY(0)}
 @media(max-width:900px){
   .about-grid,.contact-grid,.ftop{grid-template-columns:1fr}
-  .svcs{grid-template-columns:1fr 1fr}
+  .svcs,.wu-grid,.tgrid{grid-template-columns:1fr 1fr}
   .lcards{grid-template-columns:1fr}
   .atag{right:0;bottom:-36px}
   .nav-links,.nav-cta{display:none}
   .hamburger{display:flex}
   .stats{grid-template-columns:repeat(2,1fr)}
   .stat{border-right:none;border-bottom:1px solid rgba(255,255,255,.05)}
+  .est-form{grid-template-columns:1fr}
+  .est-full{grid-column:1}
+  .hero-shape-1,.hero-shape-2{opacity:.03}
+  .hero-shape-3,.hero-shape-4{display:none}
 }
-@media(max-width:560px){.svcs,.projects-grid{grid-template-columns:1fr}.btns{flex-direction:column;align-items:center}}
+@media(max-width:560px){.svcs,.projects-grid,.wu-grid,.tgrid{grid-template-columns:1fr}.btns{flex-direction:column;align-items:center}}
 </style>
 </head>
 <body>
@@ -148,17 +206,24 @@ footer{background:var(--d2);border-top:1px solid rgba(255,255,255,.05);padding:4
   <a href="#about" onclick="cm()">About</a>
   <a href="#projects" onclick="cm()">Projects</a>
   <a href="#services" onclick="cm()">Services</a>
+  <a href="#why-us" onclick="cm()">Why Us</a>
+  <a href="#estimator" onclick="cm()">Estimator</a>
   <a href="#contact" onclick="cm()">Contact</a>
   <a href="#emp" onclick="cm()" style="color:var(--gold)">Employee Login</a>
 </div>
 <nav id="nav">
   <a href="#" class="logo"><div class="logo-icon">🏗️</div><div><h1>Dhakad Group</h1><p>CONSTRUCTION</p></div></a>
-  <div class="nav-links"><a href="#about">About</a><a href="#projects">Projects</a><a href="#services">Services</a><a href="#contact">Contact</a></div>
+  <div class="nav-links"><a href="#about">About</a><a href="#projects">Projects</a><a href="#services">Services</a><a href="#why-us">Why Us</a><a href="#estimator">Estimator</a><a href="#contact">Contact</a></div>
   <a href="#emp" class="nav-cta">Employee Portal</a>
   <div class="hamburger" onclick="om()"><span></span><span></span><span></span></div>
 </nav>
 <section id="hero">
   <div class="hero-bg"></div><div class="hero-grid"></div>
+  <div class="hero-shape hero-shape-1"></div>
+  <div class="hero-shape hero-shape-2"></div>
+  <div class="hero-shape hero-shape-3"></div>
+  <div class="hero-shape hero-shape-4"></div>
+  <div class="hero-line"></div>
   <div class="hero-content fi">
     <div class="badge"><span class="badge-dot"></span><span id="hero-badge-text">Trusted Construction Partner Since 2010</span></div>
     <h1 class="hero-title" id="hero-title">Building <span class="g">Tomorrow's</span><br>Infrastructure Today</h1>
@@ -168,12 +233,16 @@ footer{background:var(--d2);border-top:1px solid rgba(255,255,255,.05);padding:4
       <a href="#contact" class="btn-o">📞 Contact Us</a>
     </div>
   </div>
+  <div class="scroll-ind">
+    <span>Scroll</span>
+    <div class="scroll-mouse"><div class="scroll-dot"></div></div>
+  </div>
 </section>
 <div class="stats" id="sb">
-  <div class="stat"><div class="sn" data-t="150" id="stat-projects">0</div><div class="sl">Projects Completed</div></div>
-  <div class="stat"><div class="sn" data-t="12" id="stat-years">0</div><div class="sl">Years of Excellence</div></div>
-  <div class="stat"><div class="sn" data-t="500" id="stat-workers">0</div><div class="sl">Workers Employed</div></div>
-  <div class="stat"><div class="sn" data-t="25" id="stat-ongoing">0</div><div class="sl">Ongoing Projects</div></div>
+  <div class="stat"><span class="stat-icon">🏗️</span><div class="sn" data-t="500" id="stat-projects">0</div><div class="sl">Projects Completed</div></div>
+  <div class="stat"><span class="stat-icon">📅</span><div class="sn" data-t="22" id="stat-years">0</div><div class="sl">Years of Excellence</div></div>
+  <div class="stat"><span class="stat-icon">🎨</span><div class="sn" data-t="50" id="stat-workers">0</div><div class="sl">Expert Painters</div></div>
+  <div class="stat"><span class="stat-icon">⭐</span><div class="sn" id="stat-ongoing" style="font-size:clamp(22px,3.5vw,42px)">100%</div><div class="sl">Client Satisfaction</div></div>
 </div>
 <section id="about">
   <div class="about-grid">
@@ -372,6 +441,125 @@ footer{background:var(--d2);border-top:1px solid rgba(255,255,255,.05);padding:4
     </div>
   </div>
 </section>
+<!-- ══ WHY US ══ -->
+<section id="why-us">
+  <div style="max-width:1160px;margin:0 auto">
+    <div style="text-align:center;margin-bottom:8px"><span class="sec-badge">Why Choose Us</span></div>
+    <h2 class="sec-title" style="text-align:center">The Dhakad Group <span class="g">Difference</span></h2>
+    <p class="sec-sub" style="text-align:center;margin:0 auto 0">What makes us the preferred construction partner across Maharashtra</p>
+    <div class="wu-grid">
+      <div class="wu-card fi">
+        <div class="wu-num">01</div>
+        <h3>ISO Certified Quality</h3>
+        <p>Every project follows ISO 9001 quality management standards, ensuring consistent excellence from foundation to finish.</p>
+      </div>
+      <div class="wu-card fi">
+        <div class="wu-num">02</div>
+        <h3>On-Time Delivery</h3>
+        <p>We've completed 98% of projects on or ahead of schedule — because your timeline is our commitment.</p>
+      </div>
+      <div class="wu-card fi">
+        <div class="wu-num">03</div>
+        <h3>Transparent Pricing</h3>
+        <p>No hidden costs. Detailed BOQ-based estimates upfront, with regular progress updates and invoicing.</p>
+      </div>
+      <div class="wu-card fi">
+        <div class="wu-num">04</div>
+        <h3>Expert Workforce</h3>
+        <p>Trained, safety-certified team with specialists in every trade — from structural to interior finishing.</p>
+      </div>
+      <div class="wu-card fi">
+        <div class="wu-num">05</div>
+        <h3>22+ Years Experience</h3>
+        <p>Over two decades of construction expertise across residential, commercial, and industrial sectors in India.</p>
+      </div>
+      <div class="wu-card fi">
+        <div class="wu-num">06</div>
+        <h3>Digital Site Management</h3>
+        <p>Powered by DGSystem — real-time attendance tracking, material management, and project dashboards.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ TESTIMONIALS ══ -->
+<section id="testimonials">
+  <div style="max-width:1160px;margin:0 auto">
+    <div style="text-align:center;margin-bottom:8px"><span class="sec-badge">Client Reviews</span></div>
+    <h2 class="sec-title" style="text-align:center">What Our <span class="g">Clients Say</span></h2>
+    <p class="sec-sub" style="text-align:center;margin:0 auto 0">Trusted by homeowners, developers, and businesses across Maharashtra</p>
+    <div class="tgrid">
+      <div class="tcard fi">
+        <div class="tquote">"</div>
+        <div class="tstars">★★★★★</div>
+        <p class="ttext">Dhakad Group built our 4-storey commercial complex in Pune on time and within budget. Their quality of work and professionalism is unmatched. Highly recommended!</p>
+        <div class="tauthor"><div class="tavatar">R</div><div><div class="tname">Rajesh Sharma</div><div class="trole">Director, Sharma Developers</div></div></div>
+      </div>
+      <div class="tcard fi">
+        <div class="tquote">"</div>
+        <div class="tstars">★★★★★</div>
+        <p class="ttext">The painting and interior work they did for our society renovation exceeded all expectations. Clean work, timely completion, and excellent finishing quality throughout.</p>
+        <div class="tauthor"><div class="tavatar">P</div><div><div class="tname">Priya Kulkarni</div><div class="trole">Housing Society Chairman, Nashik</div></div></div>
+      </div>
+      <div class="tcard fi">
+        <div class="tquote">"</div>
+        <div class="tstars">★★★★★</div>
+        <p class="ttext">We've worked with Dhakad Group on 3 industrial warehouse projects. Their digital tracking system gives us real-time updates and their team is always safety-conscious on site.</p>
+        <div class="tauthor"><div class="tavatar">A</div><div><div class="tname">Anil Dhakad</div><div class="trole">Operations Head, MNC Logistics</div></div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ COST ESTIMATOR ══ -->
+<section id="estimator">
+  <div class="est-wrap fi">
+    <span class="sec-badge">Free Tool</span>
+    <h2 class="sec-title">Quick Cost <span class="g">Estimator</span></h2>
+    <p class="sec-sub" style="margin:0 auto">Get a rough idea of your project cost instantly. Our team will provide a detailed quote.</p>
+    <div class="est-form">
+      <div>
+        <label class="est-label">Project Type</label>
+        <select class="est-input" id="est-type" onchange="calcEst()">
+          <option value="">Select type</option>
+          <option value="residential">Residential Building</option>
+          <option value="commercial">Commercial Complex</option>
+          <option value="industrial">Industrial / Warehouse</option>
+          <option value="renovation">Renovation</option>
+          <option value="painting">Painting &amp; Interior</option>
+        </select>
+      </div>
+      <div>
+        <label class="est-label">Area (sq ft)</label>
+        <input class="est-input" type="number" id="est-area" placeholder="e.g. 1500" oninput="calcEst()" min="100"/>
+      </div>
+      <div>
+        <label class="est-label">Floors</label>
+        <select class="est-input" id="est-floors" onchange="calcEst()">
+          <option value="1">1 Floor</option>
+          <option value="2">2 Floors</option>
+          <option value="3">3 Floors</option>
+          <option value="4">4+ Floors</option>
+        </select>
+      </div>
+      <div>
+        <label class="est-label">Finish Level</label>
+        <select class="est-input" id="est-finish" onchange="calcEst()">
+          <option value="standard">Standard</option>
+          <option value="premium">Premium</option>
+          <option value="luxury">Luxury</option>
+        </select>
+      </div>
+    </div>
+    <div class="est-result" id="est-result">
+      <p style="font-size:13px;color:var(--muted);margin-bottom:8px">Estimated Project Cost</p>
+      <div class="est-range" id="est-range">₹0 – ₹0</div>
+      <p class="est-note">This is a rough estimate only. Contact us for a detailed BOQ-based quote tailored to your project.</p>
+      <a href="#contact" class="btn-p" style="display:inline-flex;margin-top:16px;font-size:13px;padding:10px 24px">Get Detailed Quote →</a>
+    </div>
+  </div>
+</section>
+
 <section id="contact">
   <div class="contact-grid">
     <div class="fi">
@@ -423,7 +611,7 @@ footer{background:var(--d2);border-top:1px solid rgba(255,255,255,.05);padding:4
 <footer>
   <div class="ftop">
     <div><a href="#" class="flogo"><div class="flogo-icon">🏗️</div><h2>Dhakad Group</h2></a><p class="fdesc">Building excellence across India since 2010. Quality construction, on time, every time.</p></div>
-    <div class="fcol"><h4>Company</h4><a href="#about">About Us</a><a href="#services">Services</a><a href="#projects">Projects</a><a href="#contact">Contact</a></div>
+    <div class="fcol"><h4>Company</h4><a href="#about">About Us</a><a href="#services">Services</a><a href="#projects">Projects</a><a href="#why-us">Why Us</a><a href="#estimator">Estimator</a><a href="#contact">Contact</a></div>
     <div class="fcol"><h4>Services</h4><a href="#">Residential</a><a href="#">Commercial</a><a href="#">Industrial</a><a href="#">Renovation</a></div>
     <div class="fcol"><h4>Employee</h4><a href="https://admin.dhakadgroup.in/login">Admin Panel</a><a href="https://supervisor.dhakadgroup.in/login">Supervisor App</a><a href="https://driver.dhakadgroup.in/login">Driver App</a></div>
   </div>
@@ -502,6 +690,22 @@ async function lp(){
   }catch(e){g.innerHTML='<div style="grid-column:1/-1;text-align:center;padding:48px 0;color:var(--muted);font-size:14px">Could not load projects.</div>';}
 }
 lp();
+function calcEst(){
+  const type=document.getElementById('est-type').value;
+  const area=parseInt(document.getElementById('est-area').value)||0;
+  const floors=parseInt(document.getElementById('est-floors').value)||1;
+  const finish=document.getElementById('est-finish').value;
+  const res=document.getElementById('est-result');
+  if(!type||area<100){res.classList.remove('show');return;}
+  const rates={residential:{standard:[1800,2200],premium:[2500,3200],luxury:[3500,5000]},commercial:{standard:[2200,2800],premium:[3000,4000],luxury:[4500,6500]},industrial:{standard:[1200,1600],premium:[1800,2400],luxury:[2600,3500]},renovation:{standard:[800,1200],premium:[1400,2000],luxury:[2200,3200]},painting:{standard:[35,55],premium:[60,90],luxury:[95,150]}};
+  const r=rates[type][finish];
+  const mult=type==='painting'?1:(1+(floors-1)*0.12);
+  const lo=Math.round(area*r[0]*mult/100000)/10;
+  const hi=Math.round(area*r[1]*mult/100000)/10;
+  const fmt=v=>v>=100?Math.round(v)+'L':v.toFixed(1)+'L';
+  document.getElementById('est-range').textContent='₹'+fmt(lo)+' – ₹'+fmt(hi);
+  res.classList.add('show');
+}
 </script>
 </body>
 </html>
