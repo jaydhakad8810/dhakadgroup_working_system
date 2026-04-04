@@ -1,12 +1,10 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
-import { useNavigate } from 'react-router-dom'
 import api from '../../utils/api'
 import { PageHeader, LoadingPage, Modal, ConfirmDialog } from '../../components/ui'
 import { PhotoUpload, DocUpload } from '../../components/ui/PhotoUpload'
-import { Plus, Trash2, Edit, Eye } from 'lucide-react'
-import { Plus, Trash2, Edit, ChevronRight } from 'lucide-react'
+import { Plus, Trash2, Edit, Eye, ChevronRight } from 'lucide-react'
 
 export default function Drivers() {
   const navigate = useNavigate()
