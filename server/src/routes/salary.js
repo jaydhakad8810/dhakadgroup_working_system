@@ -144,6 +144,55 @@ router.get('/', async (req, res) => {
   } catch (e) { res.status(500).json({ message: e.message }); }
 });
 
+// Labour salary summary for a date range
+router.get('/labour/:id/summary', async (req, res) => {
+  try {
+    const { from, to } = req.query;
+    if (!from || !to) return res.status(400).json({ message: 'from and to query params required' });
+    const labour = await Labour.findByPk(req.params.id);
+    if (!labour) return res.status(404).json({ message: 'Labour not found' });
+    const attendance = await Attendance.findAll({
+      where: { labour_id: req.params.id, date: { [Op.between]: [from, to] } },
+      order: [['date', 'ASC']]
+    });
+    let totalDaysPresent = 0;
+    let effectiveDays = 0;
+    let totalSalary = 0;
+    const breakdown = attendance.map(a => {
+      const multiplier = parseFloat(a.day_multiplier) || 1.0;
+      const dailyWage = parseFloat(labour.daily_wage) || 0;
+      let daySalary = 0;
+      if (a.status === 'present') {
+        totalDaysPresent++;
+        effectiveDays += multiplier;
+        daySalary = dailyWage * multiplier;
+        totalSalary += daySalary;
+      } else if (a.status === 'half_day') {
+        effectiveDays += 0.5;
+        daySalary = dailyWage * 0.5;
+        totalSalary += daySalary;
+      }
+      return {
+        date: a.date,
+        status: a.status,
+        hours_worked: a.hours_worked,
+        day_multiplier: a.status === 'present' ? multiplier : (a.status === 'half_day' ? 0.5 : 0),
+        day_salary: daySalary
+      };
+    });
+    res.json({
+      labour_id: labour.id,
+      name: labour.name,
+      daily_wage: parseFloat(labour.daily_wage),
+      period: { from, to },
+      total_days_present: totalDaysPresent,
+      effective_days: Math.round(effectiveDays * 100) / 100,
+      total_salary: Math.round(totalSalary * 100) / 100,
+      breakdown
+    });
+  } catch (e) { res.status(500).json({ message: e.message }); }
+});
+
 router.patch('/:id/pay', supervisorOrAdmin, async (req, res) => {
   try {
     const record = await SalaryRecord.findByPk(req.params.id);

@@ -137,7 +137,18 @@ router.patch('/:id/checkout', supervisorOrAdmin, async (req, res) => {
   try {
     const att = await Attendance.findByPk(req.params.id);
     if (!att) return res.status(404).json({ message: 'Not found' });
-    const update = { check_out_time: new Date() };
+    const checkOutTime = new Date();
+    const checkInTime = att.check_in_time || att.createdAt;
+    const hoursWorked = (checkOutTime - new Date(checkInTime)) / (1000 * 60 * 60);
+    let dayMultiplier = 1.0;
+    if (hoursWorked >= 14) dayMultiplier = 2.0;
+    else if (hoursWorked >= 10) dayMultiplier = 1.5;
+    else dayMultiplier = 1.0;
+    const update = {
+      check_out_time: checkOutTime,
+      hours_worked: Math.round(hoursWorked * 100) / 100,
+      day_multiplier: dayMultiplier,
+    };
     if (req.body.check_out_photo !== undefined) update.check_out_photo = req.body.check_out_photo;
     if (req.body.task_note !== undefined) update.task_note = req.body.task_note;
     if (req.body.materials !== undefined) update.materials = req.body.materials;

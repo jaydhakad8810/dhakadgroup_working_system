@@ -13,6 +13,7 @@ const Attendance = sequelize.define('Attendance', {
   check_in_lng: { type: DataTypes.DECIMAL(10, 7), allowNull: true },
   check_in_photo: { type: DataTypes.TEXT, allowNull: true },
   check_out_photo: { type: DataTypes.TEXT, allowNull: true },
+  hours_worked: { type: DataTypes.FLOAT, defaultValue: null, allowNull: true },
   day_multiplier: { type: DataTypes.DECIMAL(3, 1), defaultValue: 1.0 },
   absent_reason: { type: DataTypes.STRING(200), allowNull: true },
   task_note: { type: DataTypes.TEXT, allowNull: true },
