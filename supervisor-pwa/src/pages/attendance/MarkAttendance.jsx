@@ -5,6 +5,7 @@ import {
   Calendar, Plus, Trash2, CheckCircle, Clock,
   ArrowRight, ArrowLeft, RefreshCw, FileText
 } from 'lucide-react'
+import { useAuth } from '../../context/AuthContext'
 import api from '../../utils/api'
 import toast from 'react-hot-toast'
 
@@ -173,6 +174,7 @@ export default function MarkAttendance() {
 
   // ── Step 1: Site & Date
   const [sites, setSites] = useState([])
+  const { user } = useAuth()
   const [selectedSite, setSelectedSite] = useState('')
   const [attendanceDate, setAttendanceDate] = useState(new Date().toISOString().split('T')[0])
   const [loadingSites, setLoadingSites] = useState(false)
