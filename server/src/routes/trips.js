@@ -133,7 +133,7 @@ router.put('/:id', async (req, res) => {
   } catch (e) { res.status(500).json({ message: e.message }); }
 });
 
-// PATCH /api/trips/:id/pickup - Driver confirms stock pickup
+// PATCH /api/trips/:id/pickup - Driver confirms stock pickup → auto-deduct godown stock
 router.patch('/:id/pickup', async (req, res) => {
   try {
     const trip = await Trip.findByPk(req.params.id, {
@@ -147,6 +147,20 @@ router.patch('/:id/pickup', async (req, res) => {
       pickup_confirmed_at: new Date(),
       status: 'in_progress'
     });
+    // Auto-deduct stock from godown if material_name and godown_id present
+    if (trip.material_name && trip.quantity && trip.godown_id) {
+      try {
+        const { GodownStock, MaterialCategory, StockHistory } = require('../models');
+        const cats = await MaterialCategory.findAll({ where: { name: trip.material_name } });
+        if (cats.length > 0) {
+          const stock = await GodownStock.findOne({ where: { godown_id: trip.godown_id, category_id: cats[0].id } });
+          if (stock && parseFloat(stock.quantity) >= parseFloat(trip.quantity)) {
+            await stock.update({ quantity: parseFloat(stock.quantity) - parseFloat(trip.quantity) });
+            await StockHistory.create({ godown_id: trip.godown_id, category_id: cats[0].id, type: 'dispatch', quantity: trip.quantity, notes: `Auto-deducted for trip ${trip.master_card_number}`, created_by: req.user?.id || null });
+          }
+        }
+      } catch (_) {}
+    }
     // Notify admin
     const admins = await User.findAll({ where: { role: 'admin' } });
     for (const admin of admins) {

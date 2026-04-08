@@ -6,6 +6,21 @@ const PDFDocument = require('pdfkit');
 const https = require('https');
 const http = require('http');
 
+// Helper: fetch image URL into a Buffer
+function fetchImageBuffer(url) {
+  return new Promise((resolve) => {
+    if (!url || typeof url !== 'string') return resolve(null);
+    const client = url.startsWith('https') ? https : http;
+    client.get(url, (res) => {
+      if (res.statusCode !== 200) return resolve(null);
+      const chunks = [];
+      res.on('data', c => chunks.push(c));
+      res.on('end', () => resolve(Buffer.concat(chunks)));
+      res.on('error', () => resolve(null));
+    }).on('error', () => resolve(null));
+  });
+}
+
 router.use(auth);
 
 router.get('/', async (req, res) => {
@@ -249,6 +264,43 @@ router.get('/report/pdf', async (req, res) => {
       matList.forEach(m => {
         doc.fontSize(9).font('Helvetica').text(`• ${m.name}: ${m.quantity} ${m.unit}`);
       });
+    }
+
+    // Photo section: embed check-in and checkout photos
+    const photoRecords = records.filter(r => r.check_in_photo || r.check_out_photo);
+    if (photoRecords.length > 0) {
+      doc.addPage();
+      doc.fontSize(12).font('Helvetica-Bold').text('Labour Photos', 40, 40);
+      doc.moveDown(0.5);
+      doc.moveTo(40, doc.y).lineTo(555, doc.y).stroke('#aaa');
+      doc.moveDown(0.5);
+      const IMG_W = 120;
+      const IMG_H = 90;
+      const COLS = 4;
+      const colGap = 10;
+      const startX = 40;
+      let col = 0;
+      let rowY = doc.y;
+      for (const r of photoRecords) {
+        const name = r.labour ? r.labour.name : 'Labour';
+        const photos = [r.check_in_photo ? { url: r.check_in_photo, label: 'Check-In' } : null, r.check_out_photo ? { url: r.check_out_photo, label: 'Checkout' } : null].filter(Boolean);
+        for (const ph of photos) {
+          const x = startX + col * (IMG_W + colGap);
+          const buf = await fetchImageBuffer(ph.url);
+          if (buf) {
+            try {
+              doc.image(buf, x, rowY, { width: IMG_W, height: IMG_H, fit: [IMG_W, IMG_H] });
+            } catch (_) {}
+          } else {
+            doc.rect(x, rowY, IMG_W, IMG_H).stroke('#ddd');
+            doc.fontSize(7).font('Helvetica').text('Photo unavailable', x + 4, rowY + 38, { width: IMG_W - 8 });
+          }
+          doc.fontSize(7).font('Helvetica').fillColor('#555').text(`${name} – ${ph.label}`, x, rowY + IMG_H + 2, { width: IMG_W });
+          doc.fillColor('#000');
+          col++;
+          if (col >= COLS) { col = 0; rowY += IMG_H + 28; if (rowY > 680) { doc.addPage(); rowY = 40; } }
+        }
+      }
     }
 
     doc.end();
