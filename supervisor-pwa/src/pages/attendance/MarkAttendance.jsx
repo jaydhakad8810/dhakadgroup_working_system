@@ -453,7 +453,8 @@ export default function MarkAttendance() {
       const firstCheckoutPhoto = Object.values(checkoutPhotos)[0] || null
       await api.post('/visit-reports', {
         site_id: selectedSite,
-        date: attendanceDate,
+        title: `Daily Report - ${attendanceDate}`,
+        report_date: attendanceDate,
         present_count: presentCount,
         half_day_count: halfDayCount,
         absent_count: absentCount,
