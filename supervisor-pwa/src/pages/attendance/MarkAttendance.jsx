@@ -1015,10 +1015,24 @@ export default function MarkAttendance() {
               </p>
               <button
                 className="btn-primary w-full flex items-center justify-center gap-2 min-h-[44px] mt-4"
-                onClick={startNewDay}
+                onClick={() => window.location.href = '/'}
               >
-                <RefreshCw size={18} />
-                Start New Day
+                🏠 Go to Home
+              </button>
+              <button
+                className="w-full flex items-center justify-center gap-2 min-h-[44px] mt-2 rounded-xl border border-primary-500 text-primary-400 font-semibold text-sm"
+                onClick={generatePdfReport}
+              >
+                📄 Generate & Share Report
+              </button>
+              <button
+                className="w-full flex items-center justify-center gap-2 min-h-[44px] mt-2 rounded-xl bg-green-600 text-white font-semibold text-sm"
+                onClick={() => {
+                  const summary = `🏗️ *Dhakad Group — Daily Report*%0A📅 Date: ${attendanceDate}%0A✅ Present: ${presentCount}%0A🌓 Half Day: ${halfDayCount}%0A❌ Absent: ${absentCount}%0A📋 Task Status: ${reportTaskStatus || 'Done'}`;
+                  window.open(`https://wa.me/?text=${summary}`, '_blank');
+                }}
+              >
+                📤 Share on WhatsApp
               </button>
             </div>
           ) : (
