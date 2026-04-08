@@ -443,13 +443,11 @@ export default function MarkAttendance() {
   // ── Generate PDF report
   const generatePdfReport = () => {
     const base = api.defaults?.baseURL || '/api'
-    const token = localStorage.getItem('token')
-      || localStorage.getItem('authToken')
-      || localStorage.getItem('accessToken')
-      || sessionStorage.getItem('token')
-      || (api.defaults.headers.common['Authorization'] || '').replace('Bearer ', '')
+    const token = sessionStorage.getItem('sv_token')
+      || localStorage.getItem('sv_token')
+      || (api.defaults.headers.common?.Authorization || '').replace('Bearer ', '')
       || ''
-    const finalToken = token || (api.defaults.headers.common?.Authorization || '').replace('Bearer ', '')
+    const finalToken = token
     const url = `${base}/attendance/report/pdf?site_id=${selectedSite}&date=${attendanceDate}&token=${finalToken}`
     window.open(url, '_blank')
   }
