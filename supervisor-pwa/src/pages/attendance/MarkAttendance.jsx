@@ -541,7 +541,7 @@ export default function MarkAttendance() {
 
       {/* ── STEP 1: Select Site ── */}
       {step === 1 && (
-        <div className="page-content" style={{ paddingBottom: 80 }}>
+        <div className="page-content" style={{ paddingBottom: 140 }}>
           <div className="card">
             <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
               <MapPin size={18} className="text-primary-400" />
@@ -591,7 +591,7 @@ export default function MarkAttendance() {
 
       {/* ── STEP 2: Bulk Attendance ── */}
       {step === 2 && (
-        <div className="page-content" style={{ paddingBottom: 80 }}>
+        <div className="page-content" style={{ paddingBottom: 140 }}>
           <div className="card">
             <div className="flex items-center justify-between mb-2">
               <button onClick={() => setStep(1)} className="btn-ghost p-1">
@@ -700,7 +700,7 @@ export default function MarkAttendance() {
 
       {/* ── STEP 3: Per-Labour Check-In Photos ── */}
       {step === 3 && (
-        <div className="page-content" style={{ paddingBottom: 80 }}>
+        <div className="page-content" style={{ paddingBottom: 140 }}>
           <div className="card">
             <div className="flex items-center gap-2 mb-4">
               <button onClick={() => setStep(2)} className="btn-ghost p-1">
@@ -782,7 +782,7 @@ export default function MarkAttendance() {
 
       {/* ── STEP 4: Task Execution + Per-Labour Checkout Photos ── */}
       {step === 4 && (
-        <div className="page-content" style={{ paddingBottom: 80 }}>
+        <div className="page-content" style={{ paddingBottom: 140 }}>
           <div className="card">
             <div className="flex items-center gap-2 mb-4">
               <button onClick={() => setStep(3)} className="btn-ghost p-1">
@@ -1010,7 +1010,7 @@ export default function MarkAttendance() {
 
       {/* ── STEP 5: Day Completion & Report ── */}
       {step === 5 && (
-        <div className="page-content" style={{ paddingBottom: 120 }}>
+        <div className="page-content" style={{ paddingBottom: 140 }}>
           {reportSubmitted ? (
             <div className="flex flex-col items-center justify-center py-12 gap-4">
               <div className="w-16 h-16 rounded-full bg-green-500/20 flex items-center justify-center">
@@ -1190,7 +1190,7 @@ export default function MarkAttendance() {
           <div className="absolute inset-0 bg-black/60" onClick={closeTransfer} />
           <div
             className="relative bg-surface-300 rounded-t-2xl w-full p-4 space-y-4"
-            style={{ paddingBottom: 80 }}
+            style={{ paddingBottom: 140 }}
           >
             <div className="flex items-center justify-between">
               <h3 className="text-base font-bold text-white">Transfer Labour</h3>

@@ -347,7 +347,7 @@ export default function GodownSupervisor() {
       )}
 
       {/* ── REQUEST MATERIAL MODAL ── */}
-      <Modal open={reqModal} onClose={() => setReqModal(false)} title="Request Material">
+      <Modal open={reqModal} onClose={() => setReqModal(false)} title="Request Material"><div style={{ paddingBottom: 100 }}>
         <form onSubmit={handleRequest} className="space-y-4">
           <div>
             <label className="label">Material Name *</label>
@@ -394,7 +394,7 @@ export default function GodownSupervisor() {
             {requesting ? 'Sending…' : 'Send Request'}
           </button>
         </form>
-      </Modal>
+      </div></Modal>
 
       {/* ── STOCK IN MODAL ── */}
       <Modal open={stockInModal} onClose={() => setStockInModal(false)} title="📥 Stock In">
