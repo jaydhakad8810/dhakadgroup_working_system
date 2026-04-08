@@ -441,7 +441,13 @@ export default function MarkAttendance() {
   // ── Generate PDF report
   const generatePdfReport = () => {
     const base = api.defaults?.baseURL || '/api'
-    const url = `${base}/attendance/report/pdf?site_id=${selectedSite}&date=${attendanceDate}`
+    const token = localStorage.getItem('token')
+      || localStorage.getItem('authToken')
+      || localStorage.getItem('accessToken')
+      || sessionStorage.getItem('token')
+      || (api.defaults.headers.common['Authorization'] || '').replace('Bearer ', '')
+      || ''
+    const url = `${base}/attendance/report/pdf?site_id=${selectedSite}&date=${attendanceDate}&token=${token}`
     window.open(url, '_blank')
   }
 
@@ -1014,22 +1020,33 @@ export default function MarkAttendance() {
                 Daily report has been submitted successfully.
               </p>
               <button
-                className="btn-primary w-full flex items-center justify-center gap-2 min-h-[44px] mt-4"
+                className="btn-primary w-full flex items-center justify-center gap-2 min-h-[52px] mt-4"
                 onClick={() => window.location.href = '/'}
               >
                 🏠 Go to Home
               </button>
               <button
-                className="w-full flex items-center justify-center gap-2 min-h-[44px] mt-2 rounded-xl border border-primary-500 text-primary-400 font-semibold text-sm"
+                className="w-full flex items-center justify-center gap-2 min-h-[52px] mt-3 rounded-xl border-2 border-primary-500 text-primary-400 font-semibold text-base"
                 onClick={generatePdfReport}
               >
                 📄 Generate & Share Report
               </button>
               <button
-                className="w-full flex items-center justify-center gap-2 min-h-[44px] mt-2 rounded-xl bg-green-600 text-white font-semibold text-sm"
+                className="w-full flex items-center justify-center gap-2 min-h-[52px] mt-3 mb-8 rounded-xl bg-green-600 text-white font-semibold text-base"
                 onClick={() => {
-                  const summary = `🏗️ *Dhakad Group — Daily Report*%0A📅 Date: ${attendanceDate}%0A✅ Present: ${presentCount}%0A🌓 Half Day: ${halfDayCount}%0A❌ Absent: ${absentCount}%0A📋 Task Status: ${reportTaskStatus || 'Done'}`;
-                  window.open(`https://wa.me/?text=${summary}`, '_blank');
+                  const siteName = selectedSiteObj?.name || selectedSiteObj?.site_name || selectedSite
+                  const supervisorName = user?.name || 'Supervisor'
+                  const lines = [
+                    '🏗️ *Dhakad Group — Daily Report*',
+                    `📅 Date: ${attendanceDate}`,
+                    `🏢 Site: ${siteName}`,
+                    `👷 Supervisor: ${supervisorName}`,
+                    `✅ Present: ${presentCount}`,
+                    `🌓 Half Day: ${halfDayCount}`,
+                    `❌ Absent: ${absentCount}`,
+                    `📋 Task Status: ${reportTaskStatus || 'Done'}`,
+                  ].join('%0A')
+                  window.open(`https://wa.me/?text=${lines}`, '_blank')
                 }}
               >
                 📤 Share on WhatsApp
