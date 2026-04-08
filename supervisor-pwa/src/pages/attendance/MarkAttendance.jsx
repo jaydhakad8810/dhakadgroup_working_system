@@ -449,7 +449,8 @@ export default function MarkAttendance() {
       || sessionStorage.getItem('token')
       || (api.defaults.headers.common['Authorization'] || '').replace('Bearer ', '')
       || ''
-    const url = `${base}/attendance/report/pdf?site_id=${selectedSite}&date=${attendanceDate}&token=${token}`
+    const finalToken = token || (api.defaults.headers.common?.Authorization || '').replace('Bearer ', '')
+    const url = `${base}/attendance/report/pdf?site_id=${selectedSite}&date=${attendanceDate}&token=${finalToken}`
     window.open(url, '_blank')
   }
 
@@ -1011,7 +1012,7 @@ export default function MarkAttendance() {
 
       {/* ── STEP 5: Day Completion & Report ── */}
       {step === 5 && (
-        <div className="page-content" style={{ paddingBottom: 80 }}>
+        <div className="page-content" style={{ paddingBottom: 120 }}>
           {reportSubmitted ? (
             <div className="flex flex-col items-center justify-center py-12 gap-4">
               <div className="w-16 h-16 rounded-full bg-green-500/20 flex items-center justify-center">
@@ -1043,7 +1044,7 @@ export default function MarkAttendance() {
                     `📅 Date: ${attendanceDate}`,
                     `🏢 Site: ${siteName}`,
                     `👷 Supervisor: ${supervisorName}`,
-                    `✅ Present: ${presentCount}`,
+                    `✅ Present: ${presentCount} — ${presentLabours.map(l => l.name || l.labour_name).join(', ')}`,
                     `🌓 Half Day: ${halfDayCount}`,
                     `❌ Absent: ${absentCount}`,
                     `📋 Task Status: ${reportTaskStatus || 'Done'}`,
