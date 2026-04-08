@@ -296,14 +296,48 @@ router.post('/requests', supervisorOrAdmin, async (req, res) => {
     const { MaterialRequest } = require('../models');
     if (!MaterialRequest) return res.status(400).json({ message: 'MaterialRequest model not available' });
     const request = await MaterialRequest.create({ ...req.body, requested_by: req.user.id, status: 'pending' });
-    // Notify admin and drivers
+    // Fetch site name for richer notification
+    const site = req.body.site_id ? await Site.findByPk(req.body.site_id, { attributes: ['id', 'name'] }).catch(() => null) : null;
+    const metadata = {
+      request_id: request.id,
+      material_name: req.body.material_name,
+      quantity: req.body.quantity,
+      unit: req.body.unit || 'units',
+      site_id: req.body.site_id || null,
+      site_name: site?.name || null,
+      urgency: req.body.urgency || 'normal',
+      supervisor_id: req.user.id,
+      supervisor_name: req.user.name || null,
+    };
     await Notification.create({
       title: 'New Material Request',
-      message: `Material requested: ${req.body.quantity} ${req.body.material_name} for site`,
+      message: JSON.stringify(metadata),
       type: 'warning', target_role: 'admin', sent_by: req.user.id
     });
     if (req.io) req.io.emit('material_request', request);
     res.status(201).json(request);
+  } catch (e) { res.status(500).json({ message: e.message }); }
+});
+
+// Purchase requisitions (when godown stock is insufficient)
+router.get('/requisitions', adminOnly, async (req, res) => {
+  try {
+    const { PurchaseRequisition } = require('../models');
+    if (!PurchaseRequisition) return res.json([]);
+    res.json(await PurchaseRequisition.findAll({ include: [{ model: Site, as: 'site', attributes: ['id', 'name'] }], order: [['createdAt', 'DESC']] }));
+  } catch (e) { res.status(500).json({ message: e.message }); }
+});
+
+router.post('/requisitions', adminOnly, async (req, res) => {
+  try {
+    const { PurchaseRequisition } = require('../models');
+    if (!PurchaseRequisition) {
+      // Fallback: create a notification instead
+      await Notification.create({ title: 'Purchase Requisition', message: `Need to purchase: ${req.body.quantity} ${req.body.unit || 'units'} of ${req.body.material_name} for ${req.body.site_name || 'site'}. Urgency: ${req.body.urgency || 'normal'}`, type: 'error', target_role: 'admin', sent_by: req.user.id });
+      return res.status(201).json({ message: 'Requisition recorded as notification', ...req.body });
+    }
+    const rec = await PurchaseRequisition.create({ ...req.body, created_by: req.user.id, status: 'pending_purchase' });
+    res.status(201).json(rec);
   } catch (e) { res.status(500).json({ message: e.message }); }
 });
 

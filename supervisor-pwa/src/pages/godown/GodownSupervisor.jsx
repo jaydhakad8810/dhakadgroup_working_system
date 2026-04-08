@@ -15,7 +15,7 @@ function PhotoPicker({ value, onChange, label }) {
     setUploading(true)
     try {
       const form = new FormData()
-      form.append('image', file)
+      form.append('file', file)  // multer expects 'file' field
       const res = await api.post('/upload/single', form, { headers: { 'Content-Type': 'multipart/form-data' } })
       onChange(res.data?.url || res.data?.data?.url || '')
     } catch { toast.error('Photo upload failed') }
@@ -124,11 +124,14 @@ export default function GodownSupervisor() {
   const otherGodowns   = allGodowns.filter(g => g.id !== selected)
 
   // ── Request Material
+  const [lastRequest, setLastRequest] = useState(null)
+
   const handleRequest = async (e) => {
     e.preventDefault(); setRequesting(true)
     try {
-      await api.post('/godown/requests', reqForm)
-      toast.success('Material request sent to admin!')
+      const res = await api.post('/godown/requests', reqForm)
+      setLastRequest({ ...reqForm, id: res.data?.id })
+      toast.success(`✅ Request sent: ${reqForm.quantity} ${reqForm.unit || ''} of ${reqForm.material_name}`)
       setReqModal(false)
       setReqForm({ urgency: 'normal', quantity: '' })
       load()
@@ -241,6 +244,13 @@ export default function GodownSupervisor() {
           <button onClick={openReqModal} className="btn-primary w-full">
             <Plus size={18} /> Request Material from Godown
           </button>
+          {lastRequest && (
+            <div className="p-3 bg-green-500/10 border border-green-500/20 rounded-xl space-y-1">
+              <p className="text-green-400 font-semibold text-sm">✅ Last Request Sent</p>
+              <p className="text-xs text-gray-300">📦 {lastRequest.quantity} {lastRequest.unit || ''} of <strong>{lastRequest.material_name}</strong></p>
+              <p className="text-xs text-gray-400">Urgency: {lastRequest.urgency} · Admin will review and dispatch</p>
+            </div>
+          )}
           {requests.map(r => (
             <div key={r.id} className="card space-y-2">
               <div className="flex items-start justify-between">
@@ -329,15 +339,21 @@ export default function GodownSupervisor() {
         <div className="space-y-2">
           {history.map(h => (
             <div key={h.id} className="card-sm flex items-center gap-3">
-              <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${h.type === 'in' ? 'bg-green-500/20' : 'bg-red-500/20'}`}>
-                <span className={`text-sm font-bold ${h.type === 'in' ? 'text-green-400' : 'text-red-400'}`}>{h.type === 'in' ? '↑' : '↓'}</span>
+              <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${h.type === 'in' ? 'bg-green-500/20' : h.type === 'dispatch' ? 'bg-orange-500/20' : 'bg-red-500/20'}`}>
+                <span className={`text-base font-bold ${h.type === 'in' ? 'text-green-400' : h.type === 'dispatch' ? 'text-orange-400' : 'text-red-400'}`}>
+                  {h.type === 'in' ? '↓' : h.type === 'dispatch' ? '🚚' : '↑'}
+                </span>
               </div>
-              <div className="flex-1">
-                <p className="text-white text-sm">{h.category?.name}</p>
-                <p className="text-gray-500 text-xs">{h.notes || '—'} · {new Date(h.createdAt).toLocaleDateString('en-IN')}</p>
+              <div className="flex-1 min-w-0">
+                <p className="text-white text-sm font-medium truncate">{h.category?.name || 'Material'}</p>
+                <p className="text-gray-500 text-xs">{new Date(h.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
+                {h.notes && <p className="text-gray-600 text-xs truncate">{h.notes}</p>}
               </div>
-              <div className="text-right">
-                <p className={`font-bold ${h.type === 'in' ? 'text-green-400' : 'text-red-400'}`}>{h.type === 'in' ? '+' : '-'}{h.quantity}</p>
+              <div className="text-right shrink-0">
+                <p className={`font-bold text-sm ${h.type === 'in' ? 'text-green-400' : 'text-red-400'}`}>
+                  {h.type === 'in' ? '+' : '-'}{h.quantity}
+                </p>
+                <p className="text-gray-500 text-xs capitalize">{h.type}</p>
                 {h.photo && <a href={h.photo} target="_blank" rel="noreferrer" className="text-xs text-blue-400">📷</a>}
               </div>
             </div>
@@ -347,6 +363,8 @@ export default function GodownSupervisor() {
       )}
 
       {/* ── REQUEST MATERIAL MODAL ── */}
+      <Modal open={reqModal} onClose={() => setReqModal(false)} title="Request Material">
+        <form onSubmit={handleRequest} className="space-y-4" style={{ paddingBottom: 120 }}>
       <Modal open={reqModal} onClose={() => setReqModal(false)} title="Request Material"><div style={{ paddingBottom: 100 }}>
         <form onSubmit={handleRequest} className="space-y-4">
           <div>
