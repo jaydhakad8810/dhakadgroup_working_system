@@ -4,7 +4,7 @@ import toast from 'react-hot-toast'
 import api from '../../utils/api'
 import { PageHeader, LoadingPage, Modal, ConfirmDialog } from '../../components/ui'
 import { PhotoUpload, DocUpload } from '../../components/ui/PhotoUpload'
-import { Plus, Trash2, Edit, ChevronRight } from 'lucide-react'
+import { Plus, Trash2, Edit, Eye, ChevronRight } from 'lucide-react'
 
 export default function Drivers() {
   const navigate = useNavigate()
@@ -97,6 +97,8 @@ export default function Drivers() {
                 <p>🚗 {d.vehicles?.length || 0} vehicle(s)</p>
               </div>
               <div className="flex gap-2">
+                <button onClick={() => navigate(`/drivers/${d.id}`)} className="btn-ghost flex-1 justify-center text-sm py-1.5 text-blue-400"><Eye size={14} />Details</button>
+                <button onClick={() => openEditDriver(d)} className="btn-outline flex-1 justify-center text-sm py-1.5"><Edit size={14} />Edit</button>
                 <button onClick={e => { e.stopPropagation(); openEditDriver(d) }} className="btn-outline flex-1 justify-center text-sm py-1.5"><Edit size={14} />Edit</button>
                 <button onClick={e => { e.stopPropagation(); navigate(`/drivers/${d.id}`) }} className="btn-ghost px-2 py-1.5 text-gold-400"><ChevronRight size={16} /></button>
               </div>

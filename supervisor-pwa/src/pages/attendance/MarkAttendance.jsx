@@ -5,6 +5,7 @@ import {
   Calendar, Plus, Trash2, CheckCircle, Clock,
   ArrowRight, ArrowLeft, RefreshCw, FileText
 } from 'lucide-react'
+import { useAuth } from '../../context/AuthContext'
 import api from '../../utils/api'
 import toast from 'react-hot-toast'
 
@@ -173,6 +174,7 @@ export default function MarkAttendance() {
 
   // ── Step 1: Site & Date
   const [sites, setSites] = useState([])
+  const { user } = useAuth()
   const [selectedSite, setSelectedSite] = useState('')
   const [attendanceDate, setAttendanceDate] = useState(new Date().toISOString().split('T')[0])
   const [loadingSites, setLoadingSites] = useState(false)
@@ -441,7 +443,12 @@ export default function MarkAttendance() {
   // ── Generate PDF report
   const generatePdfReport = () => {
     const base = api.defaults?.baseURL || '/api'
-    const url = `${base}/attendance/report/pdf?site_id=${selectedSite}&date=${attendanceDate}`
+    const token = sessionStorage.getItem('sv_token')
+      || localStorage.getItem('sv_token')
+      || (api.defaults.headers.common?.Authorization || '').replace('Bearer ', '')
+      || ''
+    const finalToken = token
+    const url = `${base}/attendance/report/pdf?site_id=${selectedSite}&date=${attendanceDate}&token=${finalToken}`
     window.open(url, '_blank')
   }
 
@@ -453,7 +460,8 @@ export default function MarkAttendance() {
       const firstCheckoutPhoto = Object.values(checkoutPhotos)[0] || null
       await api.post('/visit-reports', {
         site_id: selectedSite,
-        date: attendanceDate,
+        title: `Daily Report - ${attendanceDate}`,
+        report_date: attendanceDate,
         present_count: presentCount,
         half_day_count: halfDayCount,
         absent_count: absentCount,
@@ -533,7 +541,7 @@ export default function MarkAttendance() {
 
       {/* ── STEP 1: Select Site ── */}
       {step === 1 && (
-        <div className="page-content" style={{ paddingBottom: 80 }}>
+        <div className="page-content" style={{ paddingBottom: 140 }}>
           <div className="card">
             <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
               <MapPin size={18} className="text-primary-400" />
@@ -583,7 +591,7 @@ export default function MarkAttendance() {
 
       {/* ── STEP 2: Bulk Attendance ── */}
       {step === 2 && (
-        <div className="page-content" style={{ paddingBottom: 80 }}>
+        <div className="page-content" style={{ paddingBottom: 140 }}>
           <div className="card">
             <div className="flex items-center justify-between mb-2">
               <button onClick={() => setStep(1)} className="btn-ghost p-1">
@@ -692,7 +700,7 @@ export default function MarkAttendance() {
 
       {/* ── STEP 3: Per-Labour Check-In Photos ── */}
       {step === 3 && (
-        <div className="page-content" style={{ paddingBottom: 80 }}>
+        <div className="page-content" style={{ paddingBottom: 140 }}>
           <div className="card">
             <div className="flex items-center gap-2 mb-4">
               <button onClick={() => setStep(2)} className="btn-ghost p-1">
@@ -774,7 +782,7 @@ export default function MarkAttendance() {
 
       {/* ── STEP 4: Task Execution + Per-Labour Checkout Photos ── */}
       {step === 4 && (
-        <div className="page-content" style={{ paddingBottom: 80 }}>
+        <div className="page-content" style={{ paddingBottom: 140 }}>
           <div className="card">
             <div className="flex items-center gap-2 mb-4">
               <button onClick={() => setStep(3)} className="btn-ghost p-1">
@@ -1002,7 +1010,7 @@ export default function MarkAttendance() {
 
       {/* ── STEP 5: Day Completion & Report ── */}
       {step === 5 && (
-        <div className="page-content" style={{ paddingBottom: 80 }}>
+        <div className="page-content" style={{ paddingBottom: 140 }}>
           {reportSubmitted ? (
             <div className="flex flex-col items-center justify-center py-12 gap-4">
               <div className="w-16 h-16 rounded-full bg-green-500/20 flex items-center justify-center">
@@ -1013,11 +1021,36 @@ export default function MarkAttendance() {
                 Daily report has been submitted successfully.
               </p>
               <button
-                className="btn-primary w-full flex items-center justify-center gap-2 min-h-[44px] mt-4"
-                onClick={startNewDay}
+                className="btn-primary w-full flex items-center justify-center gap-2 min-h-[52px] mt-4"
+                onClick={() => window.location.href = '/'}
               >
-                <RefreshCw size={18} />
-                Start New Day
+                🏠 Go to Home
+              </button>
+              <button
+                className="w-full flex items-center justify-center gap-2 min-h-[52px] mt-3 rounded-xl border-2 border-primary-500 text-primary-400 font-semibold text-base"
+                onClick={generatePdfReport}
+              >
+                📄 Generate & Share Report
+              </button>
+              <button
+                className="w-full flex items-center justify-center gap-2 min-h-[52px] mt-3 mb-8 rounded-xl bg-green-600 text-white font-semibold text-base"
+                onClick={() => {
+                  const siteName = selectedSiteObj?.name || selectedSiteObj?.site_name || selectedSite
+                  const supervisorName = user?.name || 'Supervisor'
+                  const lines = [
+                    '🏗️ *Dhakad Group — Daily Report*',
+                    `📅 Date: ${attendanceDate}`,
+                    `🏢 Site: ${siteName}`,
+                    `👷 Supervisor: ${supervisorName}`,
+                    `✅ Present: ${presentCount} — ${presentLabours.map(l => l.name || l.labour_name).join(', ')}`,
+                    `🌓 Half Day: ${halfDayCount}`,
+                    `❌ Absent: ${absentCount}`,
+                    `📋 Task Status: ${reportTaskStatus || 'Done'}`,
+                  ].join('%0A')
+                  window.open(`https://wa.me/?text=${lines}`, '_blank')
+                }}
+              >
+                📤 Share on WhatsApp
               </button>
             </div>
           ) : (
@@ -1157,7 +1190,7 @@ export default function MarkAttendance() {
           <div className="absolute inset-0 bg-black/60" onClick={closeTransfer} />
           <div
             className="relative bg-surface-300 rounded-t-2xl w-full p-4 space-y-4"
-            style={{ paddingBottom: 80 }}
+            style={{ paddingBottom: 140 }}
           >
             <div className="flex items-center justify-between">
               <h3 className="text-base font-bold text-white">Transfer Labour</h3>
