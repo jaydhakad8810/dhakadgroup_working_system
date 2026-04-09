@@ -63,15 +63,15 @@ export default function Layout() {
     <>
       <div className="flex items-center justify-between px-4 py-4 border-b" style={{ borderColor: 'var(--border)' }}>
         {(!collapsed || mobile) && (
-          <div className="flex items-center gap-2">
-            <span className="text-2xl">🏗️</span>
+          <div className="flex items-center gap-3">
+            <img src="/dhakad-logo.png" alt="Dhakad Group" className="h-10 w-auto object-contain" />
             <div>
-              <h1 className="text-gold-500 font-bold text-lg leading-none">DGSystem</h1>
-              <p className="text-xs" style={{ color: 'var(--muted)' }}>Admin Panel</p>
+              <p className="text-white font-bold text-sm">Dhakad Group</p>
+              <p className="text-gray-500 text-xs">Admin Panel</p>
             </div>
           </div>
         )}
-        {collapsed && !mobile && <span className="text-2xl mx-auto">🏗️</span>}
+        {collapsed && !mobile && <img src="/dhakad-logo.png" alt="Dhakad Group" className="h-8 w-auto object-contain mx-auto" />}
         {mobile ? (
           <button onClick={closeMobile} className="text-gray-400 hover:text-white ml-auto">
             <X size={20} />
@@ -140,7 +140,7 @@ export default function Layout() {
             <button onClick={() => setMobileOpen(true)} className="text-gray-400 hover:text-gold-500">
               <Menu size={22} />
             </button>
-            <span className="text-gold-500 font-bold text-lg flex-1">DGSystem</span>
+            <img src="/dhakad-logo.png" alt="Dhakad Group" className="h-8 w-auto object-contain flex-1" />
             <div className="w-7 h-7 rounded-full bg-gold-500/20 border border-gold-500/50 flex items-center justify-center text-gold-400 text-xs font-bold">
               {user?.name?.[0] || 'A'}
             </div>
@@ -263,7 +263,7 @@ export default function Layout() {
           <button onClick={() => setMobileOpen(true)} className="text-gray-400 hover:text-gold-500">
             <Menu size={22} />
           </button>
-          <span className="text-gold-500 font-bold text-lg">DGSystem</span>
+          <img src="/dhakad-logo.png" alt="Dhakad Group" className="h-8 w-auto object-contain" />
         </div>
         <div className="p-3 md:p-6">
           <Outlet />

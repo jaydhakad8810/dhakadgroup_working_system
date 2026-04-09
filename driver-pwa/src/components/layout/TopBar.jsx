@@ -29,8 +29,8 @@ export function TopBar() {
             ? <button onClick={() => navigate(-1)} className="w-9 h-9 rounded-xl bg-surface-300 flex items-center justify-center text-gray-300 active:scale-95 transition-all">
                 <ArrowLeft size={18} />
               </button>
-            : <div className="w-9 h-9 rounded-xl bg-primary-500/20 flex items-center justify-center">
-                <span className="text-lg">🚛</span>
+            : <div className="w-9 h-9 rounded-xl flex items-center justify-center overflow-hidden">
+                <img src="/dhakad-logo.png" alt="Dhakad Group" className="h-8 w-auto object-contain" />
               </div>
           }
           <div>

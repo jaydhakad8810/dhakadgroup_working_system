@@ -363,8 +363,6 @@ export default function GodownSupervisor() {
       )}
 
       {/* ── REQUEST MATERIAL MODAL ── */}
-      <Modal open={reqModal} onClose={() => setReqModal(false)} title="Request Material">
-        <form onSubmit={handleRequest} className="space-y-4" style={{ paddingBottom: 120 }}>
       <Modal open={reqModal} onClose={() => setReqModal(false)} title="Request Material"><div style={{ paddingBottom: 100 }}>
         <form onSubmit={handleRequest} className="space-y-4">
           <div>
