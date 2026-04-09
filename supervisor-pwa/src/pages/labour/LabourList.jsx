@@ -96,12 +96,18 @@ export default function LabourList() {
     setAdding(false)
   }
 
-  const openTransfer = (l) => {
+  const openTransfer = async (l) => {
     setTransferModal(l)
     setTransferToSite('')
     setTransferDays('1')
     setTransferReason('')
     setTransferDate(new Date().toISOString().split('T')[0])
+    if (sites.length === 0) {
+      try {
+        const s = await api.get('/sites')
+        setSites(s.data)
+      } catch {}
+    }
   }
 
   const handleTransfer = async () => {
@@ -263,7 +269,7 @@ export default function LabourList() {
               <div>
                 <label className="label">Destination Site *</label>
                 <select className="select w-full" value={transferToSite} onChange={e => setTransferToSite(e.target.value)}>
-                  <option value="">Select site</option>
+                  <option value="">{sites.length === 0 ? 'Loading sites...' : 'Select site'}</option>
                   {sites
                     .filter(s => s.id !== transferModal.assigned_site_id)
                     .map(s => <option key={s.id} value={s.id}>{s.name}</option>)}

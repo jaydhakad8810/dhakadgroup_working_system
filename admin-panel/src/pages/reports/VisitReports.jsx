@@ -135,7 +135,7 @@ export default function VisitReports() {
             </tr>
           </thead>
           <tbody>
-            {reports.map(r => {
+            {reports.filter(r => !r.title?.startsWith('Daily Report')).map(r => {
               const doneTasks    = r.tasks?.filter(t => t.status === 'done').length || 0
               const pendingTasks = r.tasks?.filter(t => t.status === 'pending').length || 0
               return (

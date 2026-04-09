@@ -344,22 +344,22 @@ footer{background:var(--dark-footer);border-top:1px solid rgba(255,255,255,.05);
         <a href="#contact" class="btn-o">Contact Us</a>
       </div>
     </div>
-    <div class="hero-right">
+    <div class="hero-right stats-section">
       <div class="hero-stats">
         <div class="hstat">
-          <div class="hstat-num">500+</div>
+          <div class="hstat-num" data-count="500" data-suffix="+">500+</div>
           <div class="hstat-label">Projects</div>
         </div>
         <div class="hstat">
-          <div class="hstat-num">22+</div>
+          <div class="hstat-num" data-count="22" data-suffix="+">22+</div>
           <div class="hstat-label">Years</div>
         </div>
         <div class="hstat">
-          <div class="hstat-num">50+</div>
+          <div class="hstat-num" data-count="50" data-suffix="+">50+</div>
           <div class="hstat-label">Painters</div>
         </div>
         <div class="hstat">
-          <div class="hstat-num">100%</div>
+          <div class="hstat-num" data-count="100" data-suffix="%">100%</div>
           <div class="hstat-label">Quality</div>
         </div>
       </div>
@@ -368,11 +368,11 @@ footer{background:var(--dark-footer);border-top:1px solid rgba(255,255,255,.05);
 </section>
 
 <!-- Stats Bar -->
-<div class="stats-bar" id="sb">
-  <div class="sbar-stat"><div class="sn" data-t="500" id="stat-projects">0</div><div class="sl">Projects Completed</div></div>
-  <div class="sbar-stat"><div class="sn" data-t="22" id="stat-years">0</div><div class="sl">Years of Excellence</div></div>
-  <div class="sbar-stat"><div class="sn" data-t="50" id="stat-workers">0</div><div class="sl">Expert Painters</div></div>
-  <div class="sbar-stat"><div class="sn" id="stat-ongoing" style="font-size:clamp(20px,3vw,38px)">100%</div><div class="sl">Client Satisfaction</div></div>
+<div class="stats-bar stats-section" id="sb">
+  <div class="sbar-stat"><div class="sn" data-count="500" data-suffix="+" id="stat-projects">500+</div><div class="sl">Projects Completed</div></div>
+  <div class="sbar-stat"><div class="sn" data-count="22" data-suffix="+" id="stat-years">22+</div><div class="sl">Years of Excellence</div></div>
+  <div class="sbar-stat"><div class="sn" data-count="50" data-suffix="+" id="stat-workers">50+</div><div class="sl">Expert Painters</div></div>
+  <div class="sbar-stat"><div class="sn" data-count="100" data-suffix="%" id="stat-ongoing" style="font-size:clamp(20px,3vw,38px)">100%</div><div class="sl">Client Satisfaction</div></div>
 </div>
 
 <!-- Painter Section -->
@@ -785,10 +785,11 @@ async function fetchContent(){
     if(s('hero','badge'))setText('hero-badge-text',s('hero','badge'));
     if(s('hero','title'))set('hero-title',s('hero','title'));
     if(s('hero','subtitle'))setText('hero-sub-text',s('hero','subtitle'));
-    if(s('stats','projects'))setText('stat-projects',s('stats','projects')+'+');
-    if(s('stats','years'))setText('stat-years',s('stats','years')+'+');
-    if(s('stats','workers'))setText('stat-workers',s('stats','workers')+'+');
-    if(s('stats','ongoing'))setText('stat-ongoing',s('stats','ongoing')+'+');
+    const setCount=(id,v)=>{const el=document.getElementById(id);if(el&&v){el.dataset.count=v;el.textContent=v+(el.dataset.suffix||'');}};
+    if(s('stats','projects'))setCount('stat-projects',s('stats','projects'));
+    if(s('stats','years'))setCount('stat-years',s('stats','years'));
+    if(s('stats','workers'))setCount('stat-workers',s('stats','workers'));
+    if(s('stats','ongoing'))setCount('stat-ongoing',s('stats','ongoing'));
     if(s('about','title'))set('about-title',s('about','title'));
     if(s('about','description'))setText('about-desc',s('about','description'));
     if(s('contact','address'))setText('contact-address',s('contact','address'));
@@ -799,8 +800,27 @@ async function fetchContent(){
 }
 fetchContent();
 
-const cobs=new IntersectionObserver(es=>{es.forEach(e=>{if(e.isIntersecting){e.target.querySelectorAll('[data-t]').forEach(el=>{const t=parseInt(el.dataset.t);let c=0,step=t/55;const iv=setInterval(()=>{c+=step;if(c>=t){el.textContent=t+'+';clearInterval(iv)}else el.textContent=Math.floor(c)+'+'},16)});cobs.disconnect()}})},{threshold:.5});
-const sb=document.getElementById('sb');if(sb)cobs.observe(sb);
+function countUp(el){
+  const target=parseInt(el.dataset.count);
+  const suffix=el.dataset.suffix||'';
+  if(!target)return;
+  let current=0;
+  const step=target/60;
+  const iv=setInterval(()=>{
+    current+=step;
+    if(current>=target){el.textContent=target+suffix;clearInterval(iv);}
+    else el.textContent=Math.floor(current)+suffix;
+  },16);
+}
+const cuObs=new IntersectionObserver(entries=>{
+  entries.forEach(e=>{
+    if(e.isIntersecting){
+      e.target.querySelectorAll('[data-count]').forEach(countUp);
+      cuObs.unobserve(e.target);
+    }
+  });
+},{threshold:0.3});
+document.querySelectorAll('.stats-section').forEach(s=>cuObs.observe(s));
 
 window.addEventListener('scroll',()=>{const n=document.getElementById('nav');if(window.scrollY>40){n.classList.add('scrolled')}else{n.classList.remove('scrolled')}});
 

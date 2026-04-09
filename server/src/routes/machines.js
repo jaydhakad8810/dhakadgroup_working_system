@@ -71,7 +71,7 @@ router.get('/', async (req, res) => {
     const where = {};
     if (req.query.status) where.status = req.query.status;
     if (req.query.site_id) where.assigned_site_id = req.query.site_id;
-    if (req.user.role === 'supervisor') {
+    if (req.user.role === 'supervisor' && req.query.all !== 'true') {
       const { Op } = require('sequelize');
       const mySites = await Site.findAll({ where: { supervisor_id: req.user.id }, attributes: ['id'] });
       where.assigned_site_id = { [Op.in]: mySites.map(s => s.id) };

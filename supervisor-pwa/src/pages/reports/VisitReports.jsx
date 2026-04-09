@@ -23,6 +23,7 @@ export default function VisitReports() {
   const fileRef = useRef()
   const cameraRef = useRef()
   const { user } = useAuth()
+  const navigate = useNavigate()
 
   useEffect(() => { api.get('/sites').then(r => setSites(r.data)).catch(() => {}) }, [])
 
@@ -39,8 +40,8 @@ export default function VisitReports() {
   }
   useEffect(() => { load() }, [filterStatus, filterSite])
 
-  const myReports = reports.filter(r => r.supervisor_id === user?.id || r.created_by === user?.id)
-  const adminReports = reports.filter(r => r.supervisor_id !== user?.id && r.created_by !== user?.id)
+  const myReports = reports.filter(r => (r.supervisor_id === user?.id || r.created_by === user?.id) && !r.title?.startsWith('Daily Report'))
+  const adminReports = reports.filter(r => r.supervisor_id !== user?.id && r.created_by !== user?.id && !r.title?.startsWith('Daily Report'))
   const displayReports = tab === 'my' ? myReports : adminReports
   const pendingTasks = reports.flatMap(r => (r.tasks||[]).map(t=>({...t,report:r}))).filter(t => t.status !== 'done')
   const selectedReport = reports.find(r => r.id === viewModal)
