@@ -38,10 +38,7 @@ export default function Login() {
       <div className="relative w-full max-w-sm">
         {/* Logo */}
         <div className="text-center mb-10">
-          <div className="w-20 h-20 rounded-3xl bg-primary-500/20 border border-primary-500/30 flex items-center justify-center mx-auto mb-4 shadow-lg shadow-primary-500/10">
-            <span className="text-4xl">🚛</span>
-          </div>
-          <h1 className="text-3xl font-bold text-white">DGSystem</h1>
+          <img src="/dhakad-logo.png" alt="Dhakad Group" className="h-20 w-auto object-contain mx-auto mb-6" />
           <p className="text-primary-400 font-medium mt-1">Driver Portal</p>
         </div>
 
