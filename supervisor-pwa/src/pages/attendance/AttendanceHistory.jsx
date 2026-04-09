@@ -133,7 +133,7 @@ export default function AttendanceHistory() {
 
   // PDF export
   const handleExport = () => {
-    const token = sessionStorage.getItem('sv_token') || localStorage.getItem('token') || ''
+    const token = sessionStorage.getItem('sv_token') || localStorage.getItem('sv_token') || ''
     const params = new URLSearchParams()
     if (appliedFilters.site_id) params.append('site_id', appliedFilters.site_id)
     if (appliedFilters.from) params.append('date', appliedFilters.from)

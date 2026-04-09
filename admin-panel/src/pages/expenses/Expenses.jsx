@@ -12,6 +12,7 @@ export default function Expenses() {
   const [loading, setLoading] = useState(true)
   const [modal, setModal] = useState(false)
   const [form, setForm] = useState({ expense_date: new Date().toISOString().split('T')[0], payment_mode: 'cash' })
+  const [addToLedger, setAddToLedger] = useState(false)
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(null)
   const [filterSite, setFilterSite] = useState('')
@@ -40,8 +41,24 @@ export default function Expenses() {
   const handleSubmit = async (e) => {
     e.preventDefault(); setSaving(true)
     try {
-      await api.post('/expenses', form)
-      toast.success('Expense added'); setModal(false); setForm({ expense_date: new Date().toISOString().split('T')[0], payment_mode: 'cash' }); load()
+      const { data: expense } = await api.post('/expenses', form)
+      if (addToLedger) {
+        await api.post('/ledger', {
+          site_id: form.site_id || null,
+          entry_date: form.expense_date,
+          type: 'debit',
+          amount: form.amount,
+          category: form.category_name || 'Expense',
+          description: form.description || form.category_name || 'Daily Expense',
+          payment_mode: form.payment_mode,
+          reference_id: expense?.id,
+        }).catch(() => {})
+      }
+      toast.success(addToLedger ? 'Added to expenses & ledger' : 'Expense added')
+      setModal(false)
+      setForm({ expense_date: new Date().toISOString().split('T')[0], payment_mode: 'cash' })
+      setAddToLedger(false)
+      load()
     } catch { toast.error('Failed') }
     setSaving(false)
   }
@@ -91,7 +108,7 @@ export default function Expenses() {
                 <td className="text-gold-400 font-semibold">₹{parseFloat(e.amount).toLocaleString('en-IN')}</td>
                 <td style={{ color: 'var(--muted)' }}>{e.payment_mode}</td>
                 <td style={{ color: 'var(--muted)', maxWidth: '200px' }} className="truncate">{e.description || '—'}</td>
-                <td>{e.receipt_photo ? <a href={e.receipt_photo} target="_blank" className="text-blue-400 text-xs hover:underline">View</a> : '—'}</td>
+                <td>{e.receipt_photo ? <a href={e.receipt_photo} target="_blank" rel="noreferrer"><img src={e.receipt_photo} alt="Receipt" className="w-10 h-10 object-cover rounded border border-white/10 hover:opacity-80 transition-opacity" /></a> : '—'}</td>
                 <td><button onClick={() => setDeleting(e.id)} className="text-red-400 hover:text-red-300"><Trash2 size={14} /></button></td>
               </tr>
             ))}
@@ -123,8 +140,12 @@ export default function Expenses() {
           <div><label className="label">Receipt Photo / Document</label>
             <DocUpload value={form.receipt_photo} onChange={v => f('receipt_photo', v)} folder="dgsystem/receipts" label="Upload receipt" />
           </div>
+          <label className="flex items-center gap-2 cursor-pointer select-none">
+            <input type="checkbox" checked={addToLedger} onChange={e => setAddToLedger(e.target.checked)} className="w-4 h-4 accent-yellow-500" />
+            <span className="text-sm" style={{ color: 'var(--muted)' }}>Also add to Final Ledger</span>
+          </label>
           <div className="flex gap-3 justify-end">
-            <button type="button" onClick={() => setModal(false)} className="btn-ghost">Cancel</button>
+            <button type="button" onClick={() => { setModal(false); setAddToLedger(false) }} className="btn-ghost">Cancel</button>
             <button type="submit" disabled={saving} className="btn-gold">{saving ? 'Saving...' : 'Add Expense'}</button>
           </div>
         </form>

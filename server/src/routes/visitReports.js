@@ -48,7 +48,7 @@ router.get('/', async (req, res) => {
 router.post('/', supervisorOrAdmin, async (req, res) => {
   try {
     const { tasks, ...reportData } = req.body;
-    const report = await VisitReport.create({ ...reportData, supervisor_id: req.user.id, created_by: req.user.id });
+    const report = await VisitReport.create({ ...reportData, created_by: req.user.id, supervisor_id: reportData.supervisor_id || req.user.id });
     if (tasks && tasks.length > 0) {
       for (const t of tasks) {
         await VisitTask.create({ ...t, report_id: report.id });
