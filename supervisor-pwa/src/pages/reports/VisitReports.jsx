@@ -116,11 +116,17 @@ export default function VisitReports() {
         <div className="space-y-3">
           {displayReports.map(r => {
             const pending = (r.tasks||[]).filter(t=>t.status!=='done')
+            const fromAdmin = r.created_by && r.supervisor_id && r.created_by !== r.supervisor_id
             return (
-              <button key={r.id} onClick={()=>setViewModal(r.id)} className="card w-full text-left active:scale-95 transition-transform space-y-2">
+              <button key={r.id} onClick={()=>setViewModal(r.id)}
+                className="card w-full text-left active:scale-95 transition-transform space-y-2"
+                style={fromAdmin ? { borderLeft: '3px solid #C9A84C' } : {}}>
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex-1 min-w-0">
-                    <p className="text-white font-semibold text-sm truncate">{r.title}</p>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="text-white font-semibold text-sm truncate">{r.title}</p>
+                      {fromAdmin && <span className="text-xs bg-yellow-500/20 text-yellow-400 border border-yellow-500/30 px-1.5 py-0.5 rounded-full font-semibold shrink-0">From Admin</span>}
+                    </div>
                     <p className="text-gray-500 text-xs mt-0.5">{r.site?.name} · {r.report_date}</p>
                   </div>
                   <div className="flex items-center gap-2">
