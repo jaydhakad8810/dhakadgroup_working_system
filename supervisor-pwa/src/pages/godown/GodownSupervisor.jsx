@@ -134,7 +134,9 @@ export default function GodownSupervisor() {
       toast.success(`✅ Request sent: ${reqForm.quantity} ${reqForm.unit || ''} of ${reqForm.material_name}`)
       setReqModal(false)
       setReqForm({ urgency: 'normal', quantity: '' })
-      load()
+      // Explicitly refresh requests from DB
+      const updated = await api.get('/godown/requests/all')
+      setRequests(Array.isArray(updated.data) ? updated.data : (updated.data?.data || []))
     } catch { toast.error('Request failed') }
     setRequesting(false)
   }
