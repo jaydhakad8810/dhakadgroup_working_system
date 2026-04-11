@@ -264,6 +264,11 @@ export default function MarkAttendance() {
     presentLabours.length > 0 &&
     presentLabours.every((l) => checkoutPhotos[l._id || l.id])
 
+  // ── All check-in photos done? (gate for "Record Check-In & Continue")
+  const allCheckinDone =
+    presentLabours.length === 0 ||
+    presentLabours.every((l) => checkinPhotos[l._id || l.id])
+
   // ── Toggle single labour attendance
   const toggleAttendance = (id, status) => {
     setAttendance((prev) => ({ ...prev, [id]: status }))
@@ -357,6 +362,11 @@ export default function MarkAttendance() {
 
   // ── Record check-in: persist per-labour check-in photos → step 4
   const recordCheckIn = async () => {
+    const missingPhotos = presentLabours.filter((l) => !checkinPhotos[l._id || l.id])
+    if (missingPhotos.length > 0) {
+      toast.error(`Check-in photo required for: ${missingPhotos.map((l) => l.name || l.labour_name).join(', ')}`)
+      return
+    }
     setSavingCheckIn(true)
     try {
       const presentRecords = attendanceRecords.filter(
@@ -727,8 +737,8 @@ export default function MarkAttendance() {
               </div>
             </div>
 
-            <p className="text-xs text-gray-500 mb-3">
-              Check-in photo is optional per labour. Tap camera or upload to add.
+            <p className="text-xs text-red-400 mb-3 font-medium">
+              Check-in photo is required for all present labour.
             </p>
           </div>
 
@@ -741,8 +751,13 @@ export default function MarkAttendance() {
               {presentLabours.map((l) => {
                 const id = l._id || l.id
                 const status = attendance[id]
+                const hasPhoto = !!checkinPhotos[id]
                 return (
-                  <div key={id} className="card-sm flex items-center gap-3">
+                  <div
+                    key={id}
+                    className="card-sm flex items-center gap-3"
+                    style={{ borderLeft: `3px solid ${hasPhoto ? '#22c55e' : '#ef4444'}` }}
+                  >
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-white truncate">
                         {l.name || l.labour_name}
@@ -756,6 +771,9 @@ export default function MarkAttendance() {
                       >
                         {status === 'present' ? 'Present' : 'Half Day'}
                       </span>
+                      {!hasPhoto && (
+                        <p className="text-xs text-red-400 mt-0.5">Photo required</p>
+                      )}
                     </div>
                     <LabourPhotoBtn
                       labourId={id}
@@ -772,11 +790,16 @@ export default function MarkAttendance() {
           <button
             className="btn-primary w-full flex items-center justify-center gap-2 min-h-[44px]"
             onClick={recordCheckIn}
-            disabled={savingCheckIn}
+            disabled={savingCheckIn || !allCheckinDone}
           >
             {savingCheckIn ? 'Saving...' : 'Record Check-In & Continue'}
             <ChevronRight size={18} />
           </button>
+          {!allCheckinDone && presentLabours.length > 0 && (
+            <p className="text-xs text-red-400 text-center mt-1">
+              Add check-in photo for all {presentLabours.length} present labour(s) to continue
+            </p>
+          )}
         </div>
       )}
 

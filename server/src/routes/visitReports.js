@@ -30,7 +30,12 @@ router.get('/', async (req, res) => {
     if (site_id) where.site_id = site_id;
     if (status) where.status = status;
     if (supervisor_id) where.supervisor_id = supervisor_id;
-    if (req.user.role === 'supervisor') where.supervisor_id = req.user.id;
+    if (req.user.role === 'supervisor') {
+      where[Op.or] = [
+        { supervisor_id: req.user.id },
+        { created_by: req.user.id }
+      ];
+    }
     const reports = await VisitReport.findAll({
       where,
       include: [

@@ -21,160 +21,21 @@ function fetchImageBuffer(url) {
   });
 }
 
-router.use(auth);
-
-router.get('/', async (req, res) => {
-  try {
-    const { site_id, labour_id, date, from, to, search, supervisor_id } = req.query;
-    const where = {};
-    if (site_id && site_id !== 'undefined') where.site_id = site_id;
-    if (labour_id) where.labour_id = labour_id;
-    if (date) where.date = date;
-    if (from && to) where.date = { [Op.between]: [from, to] };
-    if (supervisor_id) where.marked_by = supervisor_id;
-    const include = [
-      { model: Labour, as: 'labour', attributes: ['id', 'name', 'photo', 'daily_wage', 'labour_type'],
-        ...(search ? { where: { name: { [Op.iLike]: `%${search}%` } } } : {}) },
-      { model: Site, as: 'site', attributes: ['id', 'name'] },
-      { model: User, as: 'supervisor', foreignKey: 'marked_by', attributes: ['id', 'name'] }
-    ];
-    const attendance = await Attendance.findAll({
-      where, include,
-      order: [['date', 'DESC'], ['createdAt', 'DESC']]
-    });
-    res.json(attendance);
-  } catch (e) { res.status(500).json({ message: e.message }); }
-});
-
-// Bulk mark attendance
-router.post('/bulk', supervisorOrAdmin, async (req, res) => {
-  try {
-    const { site_id, date, records } = req.body;
-    if (!site_id) return res.status(400).json({ message: 'site_id is required' });
-    if (!date) return res.status(400).json({ message: 'date is required' });
-    if (!Array.isArray(records) || records.length === 0) return res.status(400).json({ message: 'records array is required' });
-    const results = [];
-    for (const r of records) {
-      const [att, created] = await Attendance.findOrCreate({
-        where: { labour_id: r.labour_id, site_id, date },
-        defaults: { ...r, site_id, date, marked_by: req.user.id }
-      });
-      if (!created) await att.update({ ...r, marked_by: req.user.id, is_correction: true });
-      results.push(att);
-    }
-    if (req.io) req.io.to(`site_${site_id}`).emit('attendance_updated', { site_id, date });
-    res.json(results);
-  } catch (e) { res.status(500).json({ message: e.message }); }
-});
-
-// Single attendance
-router.post('/', supervisorOrAdmin, async (req, res) => {
-  try {
-    const { labour_id, site_id, date } = req.body;
-    const [att, created] = await Attendance.findOrCreate({
-      where: { labour_id, site_id, date },
-      defaults: { ...req.body, marked_by: req.user.id }
-    });
-    if (!created) await att.update({ ...req.body, marked_by: req.user.id, is_correction: true });
-    res.json(att);
-  } catch (e) { res.status(500).json({ message: e.message }); }
-});
-
-// Transfer labour during check-in
-router.post('/transfer', supervisorOrAdmin, async (req, res) => {
-  try {
-    const { labour_id, from_site_id, to_site_id, reason, duration_days, transfer_date } = req.body;
-    if (!labour_id || !to_site_id) return res.status(400).json({ message: 'labour_id and to_site_id required' });
-    const labour = await Labour.findByPk(labour_id);
-    if (!labour) return res.status(404).json({ message: 'Labour not found' });
-
-    // Create transfer record
-    const transfer = await LabourTransfer.create({
-      labour_id,
-      from_site_id: from_site_id || labour.assigned_site_id,
-      to_site_id,
-      reason,
-      duration_days: duration_days || 1,
-      transferred_by: req.user.id,
-      transfer_date: transfer_date || new Date().toISOString().split('T')[0]
-    });
-
-    // Update labour's assigned site
-    await labour.update({ assigned_site_id: to_site_id });
-
-    // Get destination site supervisor info
-    const toSite = await Site.findByPk(to_site_id, { include: [{ model: require('../models').User, as: 'supervisor', attributes: ['id', 'name'] }] });
-
-    // Notify destination supervisor
-    if (toSite?.supervisor_id) {
-      await Notification.create({
-        title: 'Labour Transferred to Your Site',
-        message: `${labour.name} has been transferred to ${toSite.name} for ${duration_days || 1} day(s). Reason: ${reason || 'Not specified'}`,
-        type: 'info',
-        target_role: 'supervisor',
-        target_user_id: toSite.supervisor_id,
-        sent_by: req.user.id
-      });
-      if (req.io) req.io.to(`user_${toSite.supervisor_id}`).emit('notification', { message: `${labour.name} transferred to your site` });
-    }
-
-    res.status(201).json({ transfer, labour });
-  } catch (e) { res.status(500).json({ message: e.message }); }
-});
-
-// Check-in
-router.post('/checkin', supervisorOrAdmin, async (req, res) => {
-  try {
-    const { labour_id, site_id, check_in_lat, check_in_lng, check_in_photo } = req.body;
-    const date = new Date().toISOString().split('T')[0];
-    const [att] = await Attendance.findOrCreate({
-      where: { labour_id, site_id, date },
-      defaults: { labour_id, site_id, date, status: 'present', check_in_time: new Date(), check_in_lat, check_in_lng, check_in_photo, marked_by: req.user.id }
-    });
-    res.json(att);
-  } catch (e) { res.status(500).json({ message: e.message }); }
-});
-
-// Update check-in photo per labour
-router.patch('/:id/checkin', supervisorOrAdmin, async (req, res) => {
-  try {
-    const att = await Attendance.findByPk(req.params.id);
-    if (!att) return res.status(404).json({ message: 'Not found' });
-    const update = { check_in_time: att.check_in_time || new Date() };
-    if (req.body.check_in_photo !== undefined) update.check_in_photo = req.body.check_in_photo;
-    await att.update(update);
-    res.json(att);
-  } catch (e) { res.status(500).json({ message: e.message }); }
-});
-
-// Check-out
-router.patch('/:id/checkout', supervisorOrAdmin, async (req, res) => {
-  try {
-    const att = await Attendance.findByPk(req.params.id);
-    if (!att) return res.status(404).json({ message: 'Not found' });
-    const checkOutTime = new Date();
-    const checkInTime = att.check_in_time || att.createdAt;
-    const hoursWorked = (checkOutTime - new Date(checkInTime)) / (1000 * 60 * 60);
-    let dayMultiplier = 1.0;
-    if (hoursWorked >= 14) dayMultiplier = 2.0;
-    else if (hoursWorked >= 10) dayMultiplier = 1.5;
-    else dayMultiplier = 1.0;
-    const update = {
-      check_out_time: checkOutTime,
-      hours_worked: Math.round(hoursWorked * 100) / 100,
-      day_multiplier: dayMultiplier,
-    };
-    if (req.body.check_out_photo !== undefined) update.check_out_photo = req.body.check_out_photo;
-    if (req.body.task_note !== undefined) update.task_note = req.body.task_note;
-    if (req.body.materials !== undefined) update.materials = req.body.materials;
-    await att.update(update);
-    res.json(att);
-  } catch (e) { res.status(500).json({ message: e.message }); }
-});
-
-// PDF Report
+// PDF Report — BEFORE router.use(auth) so query token works
 router.get('/report/pdf', async (req, res) => {
   try {
+    const jwt = require('jsonwebtoken');
+    let user = null;
+    const authHeader = req.headers['authorization'];
+    if (authHeader?.startsWith('Bearer ')) {
+      try { user = jwt.verify(authHeader.split(' ')[1], process.env.JWT_SECRET); } catch(e) {}
+    }
+    if (!user && req.query.token) {
+      try { user = jwt.verify(req.query.token, process.env.JWT_SECRET); } catch(e) {}
+    }
+    if (!user) return res.status(401).json({ message: 'No token provided' });
+    req.user = user;
+
     const { site_id, date } = req.query;
     if (!site_id || !date) return res.status(400).json({ message: 'site_id and date are required' });
 
@@ -305,6 +166,153 @@ router.get('/report/pdf', async (req, res) => {
 
     doc.end();
   } catch (e) { if (!res.headersSent) res.status(500).json({ message: e.message }); }
+});
+
+router.use(auth);
+
+router.get('/', async (req, res) => {
+  try {
+    const { site_id, labour_id, date, from, to, search, supervisor_id } = req.query;
+    const where = {};
+    if (site_id && site_id !== 'undefined') where.site_id = site_id;
+    if (labour_id) where.labour_id = labour_id;
+    if (date) where.date = date;
+    if (from && to) where.date = { [Op.between]: [from, to] };
+    if (supervisor_id) where.marked_by = supervisor_id;
+    const include = [
+      { model: Labour, as: 'labour', attributes: ['id', 'name', 'photo', 'daily_wage', 'labour_type'],
+        ...(search ? { where: { name: { [Op.iLike]: `%${search}%` } } } : {}) },
+      { model: Site, as: 'site', attributes: ['id', 'name'] },
+      { model: User, as: 'supervisor', foreignKey: 'marked_by', attributes: ['id', 'name'] }
+    ];
+    const attendance = await Attendance.findAll({
+      where, include,
+      order: [['date', 'DESC'], ['createdAt', 'DESC']]
+    });
+    res.json(attendance);
+  } catch (e) { res.status(500).json({ message: e.message }); }
+});
+
+// Bulk mark attendance
+router.post('/bulk', supervisorOrAdmin, async (req, res) => {
+  try {
+    const { site_id, date, records } = req.body;
+    if (!site_id) return res.status(400).json({ message: 'site_id is required' });
+    if (!date) return res.status(400).json({ message: 'date is required' });
+    if (!Array.isArray(records) || records.length === 0) return res.status(400).json({ message: 'records array is required' });
+    const results = [];
+    for (const r of records) {
+      const [att, created] = await Attendance.findOrCreate({
+        where: { labour_id: r.labour_id, site_id, date },
+        defaults: { ...r, site_id, date, marked_by: req.user.id }
+      });
+      if (!created) await att.update({ ...r, marked_by: req.user.id, is_correction: true });
+      results.push(att);
+    }
+    if (req.io) req.io.to(`site_${site_id}`).emit('attendance_updated', { site_id, date });
+    res.json(results);
+  } catch (e) { res.status(500).json({ message: e.message }); }
+});
+
+// Single attendance
+router.post('/', supervisorOrAdmin, async (req, res) => {
+  try {
+    const { labour_id, site_id, date } = req.body;
+    const [att, created] = await Attendance.findOrCreate({
+      where: { labour_id, site_id, date },
+      defaults: { ...req.body, marked_by: req.user.id }
+    });
+    if (!created) await att.update({ ...req.body, marked_by: req.user.id, is_correction: true });
+    res.json(att);
+  } catch (e) { res.status(500).json({ message: e.message }); }
+});
+
+// Transfer labour during check-in
+router.post('/transfer', supervisorOrAdmin, async (req, res) => {
+  try {
+    const { labour_id, from_site_id, to_site_id, reason, duration_days, transfer_date } = req.body;
+    if (!labour_id || !to_site_id) return res.status(400).json({ message: 'labour_id and to_site_id required' });
+    const labour = await Labour.findByPk(labour_id);
+    if (!labour) return res.status(404).json({ message: 'Labour not found' });
+
+    const transfer = await LabourTransfer.create({
+      labour_id,
+      from_site_id: from_site_id || labour.assigned_site_id,
+      to_site_id,
+      reason,
+      duration_days: duration_days || 1,
+      transferred_by: req.user.id,
+      transfer_date: transfer_date || new Date().toISOString().split('T')[0]
+    });
+
+    await labour.update({ assigned_site_id: to_site_id });
+
+    const toSite = await Site.findByPk(to_site_id, { include: [{ model: require('../models').User, as: 'supervisor', attributes: ['id', 'name'] }] });
+
+    if (toSite?.supervisor_id) {
+      await Notification.create({
+        title: 'Labour Transferred to Your Site',
+        message: `${labour.name} has been transferred to ${toSite.name} for ${duration_days || 1} day(s). Reason: ${reason || 'Not specified'}`,
+        type: 'info',
+        target_role: 'supervisor',
+        target_user_id: toSite.supervisor_id,
+        sent_by: req.user.id
+      });
+      if (req.io) req.io.to(`user_${toSite.supervisor_id}`).emit('notification', { message: `${labour.name} transferred to your site` });
+    }
+
+    res.status(201).json({ transfer, labour });
+  } catch (e) { res.status(500).json({ message: e.message }); }
+});
+
+// Check-in
+router.post('/checkin', supervisorOrAdmin, async (req, res) => {
+  try {
+    const { labour_id, site_id, check_in_lat, check_in_lng, check_in_photo } = req.body;
+    const date = new Date().toISOString().split('T')[0];
+    const [att] = await Attendance.findOrCreate({
+      where: { labour_id, site_id, date },
+      defaults: { labour_id, site_id, date, status: 'present', check_in_time: new Date(), check_in_lat, check_in_lng, check_in_photo, marked_by: req.user.id }
+    });
+    res.json(att);
+  } catch (e) { res.status(500).json({ message: e.message }); }
+});
+
+// Update check-in photo per labour
+router.patch('/:id/checkin', supervisorOrAdmin, async (req, res) => {
+  try {
+    const att = await Attendance.findByPk(req.params.id);
+    if (!att) return res.status(404).json({ message: 'Not found' });
+    const update = { check_in_time: att.check_in_time || new Date() };
+    if (req.body.check_in_photo !== undefined) update.check_in_photo = req.body.check_in_photo;
+    await att.update(update);
+    res.json(att);
+  } catch (e) { res.status(500).json({ message: e.message }); }
+});
+
+// Check-out
+router.patch('/:id/checkout', supervisorOrAdmin, async (req, res) => {
+  try {
+    const att = await Attendance.findByPk(req.params.id);
+    if (!att) return res.status(404).json({ message: 'Not found' });
+    const checkOutTime = new Date();
+    const checkInTime = att.check_in_time || att.createdAt;
+    const hoursWorked = (checkOutTime - new Date(checkInTime)) / (1000 * 60 * 60);
+    let dayMultiplier = 1.0;
+    if (hoursWorked >= 14) dayMultiplier = 2.0;
+    else if (hoursWorked >= 10) dayMultiplier = 1.5;
+    else dayMultiplier = 1.0;
+    const update = {
+      check_out_time: checkOutTime,
+      hours_worked: Math.round(hoursWorked * 100) / 100,
+      day_multiplier: dayMultiplier,
+    };
+    if (req.body.check_out_photo !== undefined) update.check_out_photo = req.body.check_out_photo;
+    if (req.body.task_note !== undefined) update.task_note = req.body.task_note;
+    if (req.body.materials !== undefined) update.materials = req.body.materials;
+    await att.update(update);
+    res.json(att);
+  } catch (e) { res.status(500).json({ message: e.message }); }
 });
 
 // Summary
