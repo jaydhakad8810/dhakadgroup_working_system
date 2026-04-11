@@ -119,10 +119,11 @@ export default function Notifications() {
     // Load drivers + sites
     setLoadingDrivers(true)
     try {
-      const [dRes, sRes] = await Promise.all([api.get('/drivers'), api.get('/sites')])
+      const [dRes, sRes] = await Promise.all([api.get('/drivers?is_active=true'), api.get('/sites')])
       const dList = Array.isArray(dRes.data) ? dRes.data : (dRes.data?.data || [])
+      console.log('drivers:', dList)
       setSites(Array.isArray(sRes.data) ? sRes.data : (sRes.data?.data || []))
-      setDrivers(dList.filter(d => d.is_active !== false))
+      setDrivers(dList)
     } catch { toast.error('Failed to load drivers/sites') }
     setLoadingDrivers(false)
 
@@ -379,7 +380,7 @@ export default function Notifications() {
                 {loadingDrivers
                   ? <p className="text-xs text-gray-400 animate-pulse py-2">Loading drivers…</p>
                   : drivers.length === 0
-                    ? <p className="text-xs text-red-400 py-2">No active drivers found</p>
+                    ? <p className="text-xs text-red-400 py-2">No drivers found. Add a driver in Drivers section first.</p>
                     : <DriverSelect value={tripForm.driver_id} onChange={v => tf('driver_id', v)} drivers={drivers} />
                 }
               </div>

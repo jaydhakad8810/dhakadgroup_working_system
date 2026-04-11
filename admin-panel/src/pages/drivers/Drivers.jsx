@@ -83,22 +83,19 @@ export default function Drivers() {
                   : <div className="w-12 h-12 rounded-xl bg-gold-500/20 flex items-center justify-center text-gold-400 font-bold text-lg">{d.name[0]}</div>}
                 <div className="flex-1 min-w-0">
                   <h3 className="text-white font-semibold truncate">{d.name}</h3>
+                  {d.employee_id && <p className="text-gold-400 font-mono text-xs">{d.employee_id}</p>}
                   <p className="text-gray-400 text-sm">{d.phone}</p>
                 </div>
                 <div className="flex flex-col items-end gap-1">
-                  <span className={d.is_active ? 'badge-green' : 'badge-red'}>{d.is_active ? 'Active' : 'Off'}</span>
-                  {d.is_busy && <span className="text-xs bg-red-500/20 text-red-400 px-2 py-0.5 rounded-full font-semibold">● Busy</span>}
+                  <span className={d.is_active ? 'badge-green' : 'badge-red'}>{d.is_active ? 'Active' : 'Inactive'}</span>
+                  {d.is_busy && <span className="text-xs bg-orange-500/20 text-orange-400 px-2 py-0.5 rounded-full font-semibold">On Trip</span>}
                 </div>
               </div>
-              <div className="text-sm text-gray-400 space-y-1 mb-3">
-                {d.license_number && <p>🪪 {d.license_number} (exp: {d.license_expiry})</p>}
-                {d.daily_wage && <p>💰 ₹{parseFloat(d.daily_wage).toLocaleString('en-IN')}/day</p>}
-                {d.aadhar_number && <p>🆔 {d.aadhar_number}</p>}
-                <p>🚗 {d.vehicles?.length || 0} vehicle(s)</p>
+              <div className="text-xs text-gray-400 space-y-1 mb-3">
+                {d.license_number && <p>🪪 {d.license_number}{d.license_expiry ? ` · exp ${d.license_expiry}` : ''}</p>}
+                {d.vehicles?.length > 0 && <p>🚗 {d.vehicles[0].registration_number || d.vehicles[0].type || 'Vehicle assigned'}</p>}
               </div>
               <div className="flex gap-2">
-                <button onClick={() => navigate(`/drivers/${d.id}`)} className="btn-ghost flex-1 justify-center text-sm py-1.5 text-blue-400"><Eye size={14} />Details</button>
-                <button onClick={() => openEditDriver(d)} className="btn-outline flex-1 justify-center text-sm py-1.5"><Edit size={14} />Edit</button>
                 <button onClick={e => { e.stopPropagation(); openEditDriver(d) }} className="btn-outline flex-1 justify-center text-sm py-1.5"><Edit size={14} />Edit</button>
                 <button onClick={e => { e.stopPropagation(); navigate(`/drivers/${d.id}`) }} className="btn-ghost px-2 py-1.5 text-gold-400"><ChevronRight size={16} /></button>
               </div>
