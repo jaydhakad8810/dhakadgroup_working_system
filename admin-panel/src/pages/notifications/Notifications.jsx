@@ -85,6 +85,7 @@ export default function Notifications() {
   const [stockMeta, setStockMeta] = useState(null)
   const [stockResult, setStockResult] = useState(null)
   const [checkingStock, setCheckingStock] = useState(false)
+  const [checkingAll, setCheckingAll] = useState(false)
 
   // Step 3A: Trip modal state
   const [tripModal, setTripModal] = useState(false)
@@ -146,6 +147,17 @@ export default function Notifications() {
     setStockNotif(null)
     setStockMeta(null)
     setStockResult(null)
+    setCheckingAll(false)
+  }
+
+  // Step 2b: Re-check including secondary godowns
+  const checkAllGodowns = async () => {
+    setCheckingAll(true)
+    try {
+      const res = await api.get(`/godown/stock/check?material_name=${encodeURIComponent(stockMeta.material_name)}&quantity=${stockMeta.quantity}&check_all=true`)
+      setStockResult(res.data)
+    } catch { toast.error('Failed to check all godowns') }
+    setCheckingAll(false)
   }
 
   // Step 3A: Open trip modal (stock available)
@@ -364,9 +376,19 @@ export default function Notifications() {
               stockResult.available ? (
                 <div className="space-y-3">
                   <div className="flex items-center gap-2 p-3 rounded-xl bg-green-500/10 border border-green-500/20">
-                    <span className="text-green-400 font-bold text-sm">✅ Stock Available in Godown</span>
-                    <span className="text-xs text-gray-400">({stockResult.quantity} units)</span>
+                    <span className="text-green-400 font-bold text-sm">✅ Stock Available</span>
+                    <span className="text-xs text-gray-400">({parseFloat(stockResult.quantity).toFixed(2)} units total)</span>
                   </div>
+                  {stockResult.stocks?.filter(s => parseFloat(s.quantity) > 0).length > 0 && (
+                    <div className="space-y-1 px-1">
+                      {stockResult.stocks.filter(s => parseFloat(s.quantity) > 0).map(s => (
+                        <div key={s.godown_id} className="flex justify-between items-center text-xs text-gray-400 py-0.5">
+                          <span>{s.is_primary ? '⭐' : '📦'} {s.godown_name}</span>
+                          <span className="text-green-400 font-semibold">{parseFloat(s.quantity).toFixed(2)} {stockMeta?.unit}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                   <button onClick={openTripFromStock} className="btn-gold w-full justify-center">
                     <Truck size={15} /> Create Trip &amp; Assign Driver
                   </button>
@@ -376,10 +398,33 @@ export default function Notifications() {
                   <div className="flex items-center gap-2 p-3 rounded-xl bg-red-500/10 border border-red-500/20">
                     <AlertTriangle size={14} className="text-red-400 shrink-0" />
                     <div>
-                      <span className="text-red-400 font-bold text-sm">Insufficient Stock</span>
-                      <p className="text-xs text-gray-400">Only {stockResult.quantity} available, need {stockMeta.quantity} {stockMeta.unit}</p>
+                      <span className="text-red-400 font-bold text-sm">
+                        {stockResult.checked_primary_only ? 'Insufficient in Primary Godowns' : 'Insufficient in All Godowns'}
+                      </span>
+                      <p className="text-xs text-gray-400">Only {parseFloat(stockResult.quantity).toFixed(2)} available, need {stockMeta.quantity} {stockMeta.unit}</p>
                     </div>
                   </div>
+                  {stockResult.checked_primary_only && (
+                    <button
+                      onClick={checkAllGodowns}
+                      disabled={checkingAll}
+                      className="flex items-center gap-2 w-full justify-center px-4 py-2.5 rounded-xl bg-blue-500/15 text-blue-400 border border-blue-500/20 hover:bg-blue-500/25 font-semibold text-sm transition-all disabled:opacity-50"
+                    >
+                      <Package size={15} />
+                      {checkingAll ? 'Checking all godowns…' : '🔍 Check All Godowns (incl. secondary)'}
+                    </button>
+                  )}
+                  {!stockResult.checked_primary_only && stockResult.stocks?.filter(s => parseFloat(s.quantity) > 0).length > 0 && (
+                    <div className="space-y-1 p-3 rounded-xl border border-dark-600" style={{ background: 'var(--bg3)' }}>
+                      <p className="text-xs font-semibold text-gray-400 mb-1">Stock found in godowns:</p>
+                      {stockResult.stocks.filter(s => parseFloat(s.quantity) > 0).map(s => (
+                        <div key={s.godown_id} className="flex justify-between items-center text-xs py-0.5">
+                          <span className="text-gray-400">{s.is_primary ? '⭐' : '📦'} {s.godown_name}</span>
+                          <span className="text-gray-300 font-semibold">{parseFloat(s.quantity).toFixed(2)} {stockMeta.unit}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                   <button onClick={openReqFromStock} className="flex items-center gap-2 w-full justify-center px-4 py-2.5 rounded-xl bg-orange-500/15 text-orange-400 border border-orange-500/20 hover:bg-orange-500/25 font-semibold text-sm transition-all">
                     <ShoppingCart size={15} /> Create Purchase Requisition
                   </button>
