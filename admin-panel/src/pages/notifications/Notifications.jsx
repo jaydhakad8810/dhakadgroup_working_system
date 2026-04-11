@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import toast from 'react-hot-toast'
 import api from '../../utils/api'
 import { PageHeader, LoadingPage, Modal } from '../../components/ui'
-import { Plus, Bell, Trash2, CheckCheck, Eye, Truck, AlertTriangle, ShoppingCart } from 'lucide-react'
+import { Plus, Bell, Trash2, CheckCheck, Eye, Truck, AlertTriangle, ShoppingCart, Package } from 'lucide-react'
 
 // ── Defined OUTSIDE render ──────────────────────────────────────────────────
 function DriverSelect({ value, onChange, drivers }) {
@@ -27,7 +27,6 @@ function SiteSelect({ value, onChange, sites }) {
   )
 }
 
-// Parse notification message — try JSON first, fall back to plain string
 function parseMeta(n) {
   try { return JSON.parse(n.message) } catch { return null }
 }
@@ -38,8 +37,8 @@ function urgencyBadge(u) {
   return 'bg-gray-500/20 text-gray-400 border border-gray-500/30'
 }
 
-// Material Request Card — shown inside the notification list
-function MaterialRequestCard({ notif, onCreateTrip }) {
+// Step 1: Material request card — shows "Check Godown Stock" button
+function MaterialRequestCard({ notif, onCheckStock }) {
   const meta = parseMeta(notif)
   if (!meta) return <p className="text-gray-400 text-sm mt-0.5">{notif.message}</p>
   return (
@@ -58,11 +57,11 @@ function MaterialRequestCard({ notif, onCreateTrip }) {
       )}
       <div className="pt-1">
         <button
-          onClick={() => onCreateTrip(notif, meta)}
+          onClick={() => onCheckStock(notif, meta)}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-gold-500/20 text-gold-400 border border-gold-500/30 hover:bg-gold-500/30 transition-all"
         >
-          <Truck size={13} />
-          Create Trip &amp; Assign Driver
+          <Package size={13} />
+          Check Godown Stock
         </button>
       </div>
     </div>
@@ -80,20 +79,26 @@ export default function Notifications() {
   const [filter, setFilter] = useState('all')
   const f = (k, v) => setForm(p => ({ ...p, [k]: v }))
 
-  // Trip modal state
+  // Step 2: Stock check modal state
+  const [stockModal, setStockModal] = useState(false)
+  const [stockNotif, setStockNotif] = useState(null)
+  const [stockMeta, setStockMeta] = useState(null)
+  const [stockResult, setStockResult] = useState(null)
+  const [checkingStock, setCheckingStock] = useState(false)
+
+  // Step 3A: Trip modal state
   const [tripModal, setTripModal] = useState(false)
-  const [tripNotif, setTripNotif] = useState(null)
-  const [tripMeta, setTripMeta] = useState(null)
   const [drivers, setDrivers] = useState([])
   const [sites, setSites] = useState([])
   const [tripForm, setTripForm] = useState({ driver_id: '', site_id: '', notes: '' })
   const [savingTrip, setSavingTrip] = useState(false)
   const [loadingDrivers, setLoadingDrivers] = useState(false)
-  const [stockCheck, setStockCheck] = useState(null) // { available, quantity, stocks }
-  const [checkingStock, setCheckingStock] = useState(false)
-  const [showReqForm, setShowReqForm] = useState(false)
-  const [savingReq, setSavingReq] = useState(false)
   const tf = (k, v) => setTripForm(p => ({ ...p, [k]: v }))
+
+  // Step 3B: Requisition modal state
+  const [reqModal, setReqModal] = useState(false)
+  const [reqForm, setReqForm] = useState({ urgency: 'normal', supplier_notes: '' })
+  const [savingReq, setSavingReq] = useState(false)
 
   const load = async () => {
     setLoading(true)
@@ -108,34 +113,65 @@ export default function Notifications() {
   }
   useEffect(() => { load() }, [])
 
-  const openTripModal = async (notif, meta) => {
-    setTripNotif(notif)
-    setTripMeta(meta || null)
-    setTripForm({ driver_id: '', site_id: meta?.site_id || '', notes: '' })
-    setStockCheck(null)
-    setShowReqForm(false)
-    setTripModal(true)
-
-    // Load drivers + sites
+  // Fetch drivers when trip modal opens (useEffect pattern)
+  useEffect(() => {
+    if (!tripModal) return
     setLoadingDrivers(true)
-    try {
-      const [dRes, sRes] = await Promise.all([api.get('/drivers?is_active=true'), api.get('/sites')])
-      const dList = Array.isArray(dRes.data) ? dRes.data : (dRes.data?.data || [])
-      console.log('drivers:', dList)
-      setSites(Array.isArray(sRes.data) ? sRes.data : (sRes.data?.data || []))
-      setDrivers(dList)
-    } catch { toast.error('Failed to load drivers/sites') }
-    setLoadingDrivers(false)
+    api.get('/drivers').then(r => {
+      const active = (Array.isArray(r.data) ? r.data : (r.data?.data || [])).filter(d => d.is_active !== false)
+      setDrivers(active)
+      console.log('Drivers loaded:', active.length)
+    }).catch(e => {
+      console.error('Driver fetch error:', e)
+      toast.error('Failed to load drivers')
+    }).finally(() => setLoadingDrivers(false))
+  }, [tripModal])
 
-    // Check stock availability
-    if (meta?.material_name && meta?.quantity) {
-      setCheckingStock(true)
-      try {
-        const res = await api.get(`/godown/stock/check?material_name=${encodeURIComponent(meta.material_name)}&quantity=${meta.quantity}`)
-        setStockCheck(res.data)
-      } catch {}
-      setCheckingStock(false)
-    }
+  // Step 2: Open stock check modal
+  const openCheckModal = async (notif, meta) => {
+    setStockNotif(notif)
+    setStockMeta(meta)
+    setStockResult(null)
+    setStockModal(true)
+    setCheckingStock(true)
+    try {
+      const res = await api.get(`/godown/stock/check?material_name=${encodeURIComponent(meta.material_name)}&quantity=${meta.quantity}`)
+      setStockResult(res.data)
+    } catch { toast.error('Failed to check stock') }
+    setCheckingStock(false)
+  }
+
+  const closeStockModal = () => {
+    setStockModal(false)
+    setStockNotif(null)
+    setStockMeta(null)
+    setStockResult(null)
+  }
+
+  // Step 3A: Open trip modal (stock available)
+  const openTripFromStock = async () => {
+    setTripForm({ driver_id: '', site_id: stockMeta?.site_id || '', notes: '' })
+    try {
+      const sRes = await api.get('/sites')
+      setSites(Array.isArray(sRes.data) ? sRes.data : (sRes.data?.data || []))
+    } catch {}
+    setStockModal(false)
+    setTripModal(true)
+  }
+
+  // Step 3B: Open requisition modal (stock not available)
+  const openReqFromStock = () => {
+    setReqForm({
+      material_name: stockMeta?.material_name || '',
+      quantity: stockMeta?.quantity || '',
+      unit: stockMeta?.unit || '',
+      site_id: stockMeta?.site_id || '',
+      site_name: stockMeta?.site_name || '',
+      urgency: stockMeta?.urgency || 'normal',
+      supplier_notes: '',
+    })
+    setStockModal(false)
+    setReqModal(true)
   }
 
   const handleCreateTrip = async (e) => {
@@ -150,23 +186,23 @@ export default function Notifications() {
         from_location: 'Godown',
         trip_date: new Date().toISOString().split('T')[0],
         trip_type: 'delivery',
-        material_name: tripMeta?.material_name || '',
-        quantity: tripMeta?.quantity || '',
-        notes: tripForm.notes || tripNotif?.message,
+        material_name: stockMeta?.material_name || '',
+        quantity: stockMeta?.quantity || '',
+        notes: tripForm.notes,
         status: 'pending',
       })
       // Deduct stock if available
-      if (stockCheck?.available && tripMeta?.material_name && tripMeta?.quantity) {
+      if (stockResult?.available && stockMeta?.material_name && stockMeta?.quantity) {
         await api.post('/godown/stock-out', {
-          category_name: tripMeta.material_name,
-          quantity: tripMeta.quantity,
+          category_name: stockMeta.material_name,
+          quantity: stockMeta.quantity,
           destination_type: 'site',
           site_id: tripForm.site_id || undefined,
-          notes: `Dispatched for material request – Trip assigned`,
-          godown_id: stockCheck?.stocks?.[0]?.godown_id || undefined,
+          notes: 'Dispatched for material request – Trip assigned',
+          godown_id: stockResult?.stocks?.[0]?.godown_id || undefined,
         }).catch(() => {})
       }
-      await api.patch('/notifications/' + tripNotif.id + '/read').catch(() => {})
+      if (stockNotif) await api.patch('/notifications/' + stockNotif.id + '/read').catch(() => {})
       toast.success('Trip created & driver assigned!')
       setTripModal(false)
       load()
@@ -177,19 +213,20 @@ export default function Notifications() {
   }
 
   const handleCreateRequisition = async () => {
-    if (!tripMeta) return
     setSavingReq(true)
     try {
       await api.post('/godown/requisitions', {
-        material_name: tripMeta.material_name,
-        quantity: tripMeta.quantity,
-        unit: tripMeta.unit,
-        site_id: tripMeta.site_id,
-        site_name: tripMeta.site_name,
-        urgency: tripMeta.urgency || 'normal',
+        material_name: reqForm.material_name,
+        quantity: reqForm.quantity,
+        unit: reqForm.unit,
+        site_id: reqForm.site_id,
+        site_name: reqForm.site_name,
+        urgency: reqForm.urgency,
       })
-      toast.success('Purchase requisition created!')
-      setShowReqForm(false)
+      toast.success('Purchase Requisition created successfully')
+      if (stockNotif) await api.patch('/notifications/' + stockNotif.id + '/read').catch(() => {})
+      setReqModal(false)
+      load()
     } catch (err) { toast.error(err.response?.data?.message || 'Failed') }
     setSavingReq(false)
   }
@@ -259,7 +296,7 @@ export default function Notifications() {
                 </div>
               </div>
               {isMaterialRequest(n)
-                ? <MaterialRequestCard notif={n} onCreateTrip={openTripModal} />
+                ? <MaterialRequestCard notif={n} onCheckStock={openCheckModal} />
                 : <p className="text-gray-400 text-sm mt-0.5">{n.message}</p>
               }
               <div className="flex items-center gap-3 mt-2 flex-wrap">
@@ -310,94 +347,124 @@ export default function Notifications() {
         </form>
       </Modal>
 
-      {/* ── Create Trip Modal ── */}
-      <Modal open={tripModal} onClose={() => setTripModal(false)} title="Create Trip & Assign Driver" size="md">
-        {tripNotif && (
+      {/* ── Step 2: Stock Check Modal ── */}
+      <Modal open={stockModal} onClose={closeStockModal} title="Godown Stock Check" size="md">
+        {stockMeta && (
           <div className="space-y-4">
-            {/* Material request info */}
-            {tripMeta ? (
-              <div className="p-3 rounded-xl bg-yellow-500/10 border border-yellow-500/20 space-y-1">
-                <p className="text-xs text-yellow-400 font-semibold">Material Request Details</p>
-                <p className="text-sm text-white">📦 {tripMeta.quantity} {tripMeta.unit} of <strong>{tripMeta.material_name}</strong></p>
-                {tripMeta.site_name && <p className="text-xs text-gray-300">📍 Site: {tripMeta.site_name}</p>}
-                {tripMeta.supervisor_name && <p className="text-xs text-gray-300">👷 Requested by: {tripMeta.supervisor_name}</p>}
-              </div>
-            ) : (
-              <div className="p-3 rounded-xl bg-yellow-500/10 border border-yellow-500/20">
-                <p className="text-sm text-white">{tripNotif.message}</p>
-              </div>
-            )}
+            <div className="p-3 rounded-xl bg-yellow-500/10 border border-yellow-500/20 space-y-1">
+              <p className="text-xs text-yellow-400 font-semibold">Material Request</p>
+              <p className="text-sm text-white">📦 {stockMeta.quantity} {stockMeta.unit} of <strong>{stockMeta.material_name}</strong></p>
+              {stockMeta.site_name && <p className="text-xs text-gray-300">📍 Site: {stockMeta.site_name}</p>}
+              {stockMeta.supervisor_name && <p className="text-xs text-gray-300">👷 By: {stockMeta.supervisor_name}</p>}
+            </div>
 
-            {/* Stock availability check */}
-            {tripMeta?.material_name && (
-              <div>
-                {checkingStock ? (
-                  <p className="text-xs text-gray-400 animate-pulse">Checking godown stock…</p>
-                ) : stockCheck ? (
-                  stockCheck.available ? (
-                    <div className="flex items-center gap-2 p-2 rounded-lg bg-green-500/10 border border-green-500/20">
-                      <span className="text-green-400 text-sm font-semibold">✅ Available in Godown</span>
-                      <span className="text-xs text-gray-400">({stockCheck.quantity} units in stock)</span>
+            {checkingStock ? (
+              <p className="text-xs text-gray-400 animate-pulse text-center py-6">Checking godown stock…</p>
+            ) : stockResult ? (
+              stockResult.available ? (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 p-3 rounded-xl bg-green-500/10 border border-green-500/20">
+                    <span className="text-green-400 font-bold text-sm">✅ Stock Available in Godown</span>
+                    <span className="text-xs text-gray-400">({stockResult.quantity} units)</span>
+                  </div>
+                  <button onClick={openTripFromStock} className="btn-gold w-full justify-center">
+                    <Truck size={15} /> Create Trip &amp; Assign Driver
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 p-3 rounded-xl bg-red-500/10 border border-red-500/20">
+                    <AlertTriangle size={14} className="text-red-400 shrink-0" />
+                    <div>
+                      <span className="text-red-400 font-bold text-sm">Insufficient Stock</span>
+                      <p className="text-xs text-gray-400">Only {stockResult.quantity} available, need {stockMeta.quantity} {stockMeta.unit}</p>
                     </div>
-                  ) : (
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2 p-2 rounded-lg bg-red-500/10 border border-red-500/20">
-                        <AlertTriangle size={14} className="text-red-400" />
-                        <span className="text-red-400 text-sm font-semibold">⚠️ Insufficient Stock</span>
-                        <span className="text-xs text-gray-400">(only {stockCheck.quantity} available)</span>
-                      </div>
-                      {!showReqForm ? (
-                        <button onClick={() => setShowReqForm(true)} className="flex items-center gap-2 text-xs px-3 py-2 rounded-lg bg-orange-500/15 text-orange-400 border border-orange-500/20 hover:bg-orange-500/25 transition-all">
-                          <ShoppingCart size={13} /> Create Purchase Requisition
-                        </button>
-                      ) : (
-                        <div className="p-3 rounded-xl bg-orange-500/10 border border-orange-500/20 space-y-2">
-                          <p className="text-xs font-semibold text-orange-400">Purchase Requisition</p>
-                          <p className="text-xs text-gray-300">
-                            Material: <strong className="text-white">{tripMeta.material_name}</strong><br />
-                            Shortfall: <strong className="text-white">{Math.max(0, tripMeta.quantity - stockCheck.quantity)} {tripMeta.unit}</strong><br />
-                            Site: <strong className="text-white">{tripMeta.site_name || '—'}</strong><br />
-                            Urgency: <strong className="text-white">{tripMeta.urgency || 'normal'}</strong>
-                          </p>
-                          <button onClick={handleCreateRequisition} disabled={savingReq} className="btn-gold text-xs py-1.5 w-full">
-                            {savingReq ? 'Saving…' : '📋 Submit Requisition (Pending Purchase)'}
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  )
-                ) : null}
-              </div>
-            )}
-
-            <form onSubmit={handleCreateTrip} className="space-y-4">
-              <div>
-                <label className="label">Destination Site</label>
-                <SiteSelect value={tripForm.site_id} onChange={v => tf('site_id', v)} sites={sites} />
-              </div>
-              <div>
-                <label className="label">Select Driver *</label>
-                {loadingDrivers
-                  ? <p className="text-xs text-gray-400 animate-pulse py-2">Loading drivers…</p>
-                  : drivers.length === 0
-                    ? <p className="text-xs text-red-400 py-2">No drivers found. Add a driver in Drivers section first.</p>
-                    : <DriverSelect value={tripForm.driver_id} onChange={v => tf('driver_id', v)} drivers={drivers} />
-                }
-              </div>
-              <div>
-                <label className="label">Notes / Pickup Instructions</label>
-                <textarea className="input" rows={2} placeholder="e.g. Pick up from Gate 2, handle with care…" value={tripForm.notes} onChange={e => tf('notes', e.target.value)} />
-              </div>
-              <div className="flex gap-3 justify-end pt-2">
-                <button type="button" onClick={() => setTripModal(false)} className="btn-ghost">Cancel</button>
-                <button type="submit" disabled={savingTrip || loadingDrivers} className="btn-gold">
-                  <Truck size={15} />
-                  {savingTrip ? 'Creating...' : 'Create Trip'}
-                </button>
-              </div>
-            </form>
+                  </div>
+                  <button onClick={openReqFromStock} className="flex items-center gap-2 w-full justify-center px-4 py-2.5 rounded-xl bg-orange-500/15 text-orange-400 border border-orange-500/20 hover:bg-orange-500/25 font-semibold text-sm transition-all">
+                    <ShoppingCart size={15} /> Create Purchase Requisition
+                  </button>
+                </div>
+              )
+            ) : null}
           </div>
         )}
+      </Modal>
+
+      {/* ── Step 3A: Create Trip Modal ── */}
+      <Modal open={tripModal} onClose={() => { setTripModal(false); setDrivers([]) }} title="Create Trip & Assign Driver" size="md">
+        <div className="space-y-4">
+          {stockMeta && (
+            <div className="p-3 rounded-xl bg-yellow-500/10 border border-yellow-500/20 space-y-1">
+              <p className="text-xs text-yellow-400 font-semibold">Material Request Details</p>
+              <p className="text-sm text-white">📦 {stockMeta.quantity} {stockMeta.unit} of <strong>{stockMeta.material_name}</strong></p>
+              {stockMeta.site_name && <p className="text-xs text-gray-300">📍 {stockMeta.site_name}</p>}
+            </div>
+          )}
+          <form onSubmit={handleCreateTrip} className="space-y-4">
+            <div>
+              <label className="label">Destination Site</label>
+              <SiteSelect value={tripForm.site_id} onChange={v => tf('site_id', v)} sites={sites} />
+            </div>
+            <div>
+              <label className="label">Select Driver *</label>
+              {loadingDrivers
+                ? <p className="text-xs text-gray-400 animate-pulse py-2">Loading drivers…</p>
+                : drivers.length === 0
+                  ? <p className="text-xs text-red-400 py-2">No drivers found. Please add a driver in the Drivers section first.</p>
+                  : <DriverSelect value={tripForm.driver_id} onChange={v => tf('driver_id', v)} drivers={drivers} />
+              }
+            </div>
+            <div>
+              <label className="label">Notes / Pickup Instructions</label>
+              <textarea className="input" rows={2} placeholder="e.g. Pick up from Gate 2, handle with care…" value={tripForm.notes} onChange={e => tf('notes', e.target.value)} />
+            </div>
+            <div className="flex gap-3 justify-end pt-2">
+              <button type="button" onClick={() => setTripModal(false)} className="btn-ghost">Cancel</button>
+              <button type="submit" disabled={savingTrip || loadingDrivers} className="btn-gold">
+                <Truck size={15} />
+                {savingTrip ? 'Creating...' : 'Create Trip'}
+              </button>
+            </div>
+          </form>
+        </div>
+      </Modal>
+
+      {/* ── Step 3B: Purchase Requisition Modal ── */}
+      <Modal open={reqModal} onClose={() => setReqModal(false)} title="Create Purchase Requisition" size="md">
+        <div className="space-y-4">
+          <div className="p-3 rounded-xl bg-orange-500/10 border border-orange-500/20 space-y-1">
+            <p className="text-xs text-orange-400 font-semibold">Requisition Details</p>
+            <p className="text-sm text-white">📦 {reqForm.quantity} {reqForm.unit} of <strong>{reqForm.material_name}</strong></p>
+            {reqForm.site_name && <p className="text-xs text-gray-300">📍 {reqForm.site_name}</p>}
+            {stockResult && <p className="text-xs text-red-400">Shortfall: {Math.max(0, parseFloat(reqForm.quantity || 0) - parseFloat(stockResult.quantity || 0)).toFixed(2)} {reqForm.unit}</p>}
+          </div>
+          <div>
+            <label className="label">Urgency</label>
+            <div className="flex gap-2">
+              {['normal', 'urgent', 'critical'].map(u => (
+                <button key={u} type="button" onClick={() => setReqForm(p => ({ ...p, urgency: u }))}
+                  className={`flex-1 py-2 rounded-xl text-sm font-medium capitalize transition-all ${
+                    reqForm.urgency === u
+                      ? u === 'critical' ? 'bg-red-500 text-white' : u === 'urgent' ? 'bg-orange-500 text-white' : 'bg-gold-500 text-black'
+                      : 'bg-surface-300 text-gray-400'
+                  }`}>
+                  {u}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <label className="label">Supplier Notes <span className="text-gray-500 text-xs">(optional)</span></label>
+            <textarea className="input" rows={2} placeholder="Preferred supplier, brand, specifications…" value={reqForm.supplier_notes} onChange={e => setReqForm(p => ({ ...p, supplier_notes: e.target.value }))} />
+          </div>
+          <div className="flex gap-3 justify-end">
+            <button type="button" onClick={() => setReqModal(false)} className="btn-ghost">Cancel</button>
+            <button onClick={handleCreateRequisition} disabled={savingReq} className="btn-gold">
+              <ShoppingCart size={15} />
+              {savingReq ? 'Submitting...' : '📋 Submit Requisition'}
+            </button>
+          </div>
+        </div>
       </Modal>
     </div>
   )

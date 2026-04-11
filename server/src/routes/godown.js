@@ -73,6 +73,22 @@ router.post('/category', adminOnly, async (req, res) => {
   catch (e) { res.status(500).json({ message: e.message }); }
 });
 
+// Stock availability check — must be BEFORE /stock/:id to avoid shadowing
+router.get('/stock/check', async (req, res) => {
+  try {
+    const { material_name, quantity } = req.query;
+    if (!material_name) return res.json({ available: false, quantity: 0 });
+    const cats = await MaterialCategory.findAll({ where: { name: { [Op.iLike]: '%'+material_name+'%' } } });
+    if (!cats.length) return res.json({ available: false, quantity: 0 });
+    const stocks = await GodownStock.findAll({
+      where: { category_id: { [Op.in]: cats.map(c => c.id) } },
+      include: [{ model: Godown, as: 'godown', attributes: ['id', 'name'] }]
+    });
+    const totalQty = stocks.reduce((s, st) => s + parseFloat(st.quantity || 0), 0);
+    res.json({ available: totalQty >= parseFloat(quantity || 0), quantity: totalQty, stocks: stocks.map(s => ({ godown_name: s.godown?.name, godown_id: s.godown_id, quantity: s.quantity })) });
+  } catch (e) { res.status(500).json({ message: e.message }); }
+});
+
 router.get('/stock/:id', async (req, res) => {
   try {
     const stocks = await GodownStock.findAll({
@@ -270,6 +286,22 @@ router.post('/transfer/site', supervisorOrAdmin, async (req, res) => {
 });
 
 // Material requests (supervisor requests material from godown)
+// GET /requests — filtered by supervisor; alias for /requests/all
+router.get('/requests', async (req, res) => {
+  try {
+    const { MaterialRequest } = require('../models');
+    if (!MaterialRequest) return res.json([]);
+    const where = {};
+    if (req.user.role === 'supervisor') where.requested_by = req.user.id;
+    const requests = await MaterialRequest.findAll({
+      where,
+      include: [{ model: Site, as: 'site', attributes: ['id', 'name'] }],
+      order: [['createdAt', 'DESC']]
+    });
+    res.json(requests);
+  } catch (e) { res.status(500).json({ message: e.message }); }
+});
+
 router.get('/requests/all', async (req, res) => {
   try {
     const { status } = req.query;
@@ -369,8 +401,6 @@ router.get('/alerts/low-stock', async (_req, res) => {
   } catch (e) { res.status(500).json({ message: e.message }); }
 });
 
-module.exports = router;
-
 // Update request status (driver dispatches, supervisor receives)
 router.patch('/requests/:id/status', supervisorOrAdmin, async (req, res) => {
   try {
@@ -380,21 +410,6 @@ router.patch('/requests/:id/status', supervisorOrAdmin, async (req, res) => {
     if (!request) return res.status(404).json({ message: 'Not found' });
     await request.update({ status: req.body.status, ...(req.body.status === 'approved' ? { approved_by: req.user.id } : {}), ...(req.body.status === 'dispatched' ? { dispatched_by: req.user.id } : {}) });
     res.json(request);
-  } catch (e) { res.status(500).json({ message: e.message }); }
-});
-
-// Check stock availability
-router.get('/stock/check', async (req, res) => {
-  try {
-    const { material_name, quantity } = req.query;
-    const cats = await MaterialCategory.findAll({ where: { name: { [Op.iLike]: '%'+material_name+'%' } } });
-    if (!cats.length) return res.json({ available: false, quantity: 0 });
-    const stocks = await GodownStock.findAll({
-      where: { category_id: { [Op.in]: cats.map(c => c.id) } },
-      include: [{ model: Godown, as: 'godown', attributes: ['id', 'name'] }]
-    });
-    const totalQty = stocks.reduce((s, st) => s + parseFloat(st.quantity || 0), 0);
-    res.json({ available: totalQty >= parseFloat(quantity || 0), quantity: totalQty, stocks: stocks.map(s => ({ godown_name: s.godown?.name, quantity: s.quantity })) });
   } catch (e) { res.status(500).json({ message: e.message }); }
 });
 
@@ -427,3 +442,5 @@ router.patch('/requests/:id/confirm-delivery', supervisorOrAdmin, async (req, re
     res.json(request);
   } catch (e) { res.status(500).json({ message: e.message }); }
 });
+
+module.exports = router;
