@@ -308,32 +308,17 @@ footer{background:var(--dark-footer);border-top:1px solid rgba(255,255,255,.05);
 <section id="hero">
   <div class="hero-content fi">
     <div class="hero-left">
-      <div class="badge"><span class="badge-dot"></span><span id="hero-badge-text">Trusted Construction Partner Since 2002</span></div>
-      <h1 class="hero-title" id="hero-title">Building <span class="g">Tomorrow's</span><br>Infrastructure Today</h1>
-      <p class="hero-sub"><span id="hero-sub-text">Dhakad Group delivers world-class painting and construction solutions across Maharashtra. 500+ projects completed since 2002.</span></p>
+      <div class="badge"><span class="badge-dot"></span><span id="hero-badge">Trusted Construction Partner Since 2002</span></div>
+      <h1 class="hero-title" id="hero-heading">Building <span class="g">Tomorrow's</span><br>Infrastructure Today</h1>
+      <p class="hero-sub" id="hero-subheading">Dhakad Group delivers world-class painting and construction solutions across Maharashtra. 500+ projects completed since 2002.</p>
       <div class="btns">
         <a href="#projects" class="btn-p">View Our Projects</a>
         <a href="#contact" class="btn-o">Contact Us</a>
       </div>
     </div>
-    <div class="hero-right stats-section">
-      <div class="hero-stats">
-        <div class="hstat">
-          <div class="hstat-num" data-count="500" data-suffix="+">500+</div>
-          <div class="hstat-label">Projects</div>
-        </div>
-        <div class="hstat">
-          <div class="hstat-num" data-count="22" data-suffix="+">22+</div>
-          <div class="hstat-label">Years</div>
-        </div>
-        <div class="hstat">
-          <div class="hstat-num" data-count="50" data-suffix="+">50+</div>
-          <div class="hstat-label">Painters</div>
-        </div>
-        <div class="hstat">
-          <div class="hstat-num" data-count="100" data-suffix="%">100%</div>
-          <div class="hstat-label">Quality</div>
-        </div>
+    <div class="hero-right">
+      <div style="display:flex;justify-content:center;align-items:center;padding:40px 0;">
+        <img src="dhakad-logo.png" alt="Dhakad Group" style="height:120px;width:auto;object-fit:contain;opacity:0.9;" />
       </div>
     </div>
   </div>
@@ -742,9 +727,12 @@ async function fetchContent(){
     const s=(sec,key)=>c[sec]&&c[sec][key]?c[sec][key]:null;
     const set=(id,v)=>{const el=document.getElementById(id);if(el&&v)el.innerHTML=v};
     const setText=(id,v)=>{const el=document.getElementById(id);if(el&&v)el.textContent=v};
-    if(s('hero','badge'))setText('hero-badge-text',s('hero','badge'));
-    if(s('hero','title'))set('hero-title',s('hero','title'));
-    if(s('hero','subtitle'))setText('hero-sub-text',s('hero','subtitle'));
+    const badgeVal=s('hero','badge_text')||s('hero','badge');
+    if(badgeVal)setText('hero-badge',badgeVal);
+    const headingVal=s('hero','heading')||s('hero','title');
+    if(headingVal)set('hero-heading',headingVal);
+    const subVal=s('hero','subheading')||s('hero','subtitle');
+    if(subVal)setText('hero-subheading',subVal);
     const setCount=(id,v)=>{const el=document.getElementById(id);if(el&&v){el.dataset.count=v;el.textContent=v+(el.dataset.suffix||'');}};
     if(s('stats','projects'))setCount('stat-projects',s('stats','projects'));
     if(s('stats','years'))setCount('stat-years',s('stats','years'));

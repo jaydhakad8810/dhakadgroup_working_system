@@ -17,6 +17,7 @@ const Godown = sequelize.define('Godown', {
   location_url: { type: DataTypes.TEXT, allowNull: true },
   site_id: { type: DataTypes.UUID, allowNull: true },
   incharge_id: { type: DataTypes.UUID, allowNull: true },
+  is_primary: { type: DataTypes.BOOLEAN, defaultValue: false },
 }, { tableName: 'godowns' });
 
 const GodownStock = sequelize.define('GodownStock', {

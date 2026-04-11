@@ -57,7 +57,7 @@ export default function Godown() {
   const [showDeleteGodown, setShowDeleteGodown] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
 
-  const emptyGodownForm = { name: '', address: '', city: '', location_url: '', site_id: '', incharge_id: '' };
+  const emptyGodownForm = { name: '', address: '', city: '', location_url: '', site_id: '', incharge_id: '', is_primary: false };
   const emptyCatForm = { name: '', category_type: '' };
   const emptyStockIn = { godown_id: '', category_id: '', quantity: '', unit: 'kg', bill_amount: '', received_from: '', notes: '', photo: '' };
   const emptyStockOut = { godown_id: '', category_id: '', quantity: '', unit: 'kg', destination_type: 'site', site_id: '', to_godown_id: '', driver_id: '', notes: '', photo: '' };
@@ -258,6 +258,9 @@ export default function Godown() {
                           <div className="flex items-center gap-2 flex-wrap">
                             <span className="text-xs font-mono font-bold" style={{ color: GOLD }}>{g.godown_code}</span>
                             <h3 className="font-bold text-gray-900">{g.name}</h3>
+                            {g.is_primary
+                              ? <span className="text-xs px-2 py-0.5 rounded-full font-bold" style={{ background: 'rgba(201,168,76,0.15)', color: '#9a7224', border: '1px solid rgba(201,168,76,0.4)' }}>PRIMARY</span>
+                              : <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-gray-100 text-gray-500 border border-gray-200">SECONDARY</span>}
                             {linkedSite && <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 font-medium">🏗️ {linkedSite.name}</span>}
                           </div>
                           <div className="flex items-center gap-3 mt-1 flex-wrap">
@@ -372,6 +375,13 @@ export default function Godown() {
                   <option value="">Select supervisor...</option>
                   {supervisors.map(s => <option key={s.id} value={s.id}>{s.name} — {s.supervisor_id}</option>)}
                 </select>
+              </div>
+              <div className="flex items-center gap-3 p-3 rounded-xl border border-gray-200">
+                <input type="checkbox" id="is_primary_toggle" checked={!!godownForm.is_primary} onChange={e => setGodownForm(f => ({ ...f, is_primary: e.target.checked }))} className="w-4 h-4 accent-yellow-500" />
+                <div>
+                  <label htmlFor="is_primary_toggle" className="font-semibold text-gray-800 text-sm cursor-pointer">Primary Godown</label>
+                  <p className="text-xs text-gray-400 mt-0.5">Primary godowns are checked first for stock availability in material requests</p>
+                </div>
               </div>
               {error && <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-xl text-sm">⚠️ {error}</div>}
               <div className="flex gap-3 pt-2">
