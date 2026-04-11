@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { useTheme } from '../../context/ThemeContext'
+import api from '../../utils/api'
 import {
   LayoutDashboard, Building2, Users, ClipboardCheck, DollarSign,
   Package, Wrench, Truck, Bell, Sparkles, ChevronLeft, ChevronRight,
@@ -47,9 +48,17 @@ export default function Layout() {
   const [collapsed, setCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
   const [moreOpen, setMoreOpen] = useState(false)
+  const [unreadCount, setUnreadCount] = useState(0)
   const { user, logout } = useAuth()
   const { isDark, toggle } = useTheme()
   const navigate = useNavigate()
+
+  useEffect(() => {
+    const fetchUnread = () => api.get('/notifications/unread-count').then(r => setUnreadCount(r.data?.count || 0)).catch(() => {})
+    fetchUnread()
+    const t = setInterval(fetchUnread, 30000)
+    return () => clearInterval(t)
+  }, [])
 
   const viewMode = localStorage.getItem('dg_admin_view_mode') || 'desktop'
   const isMobileView = viewMode === 'mobile'
@@ -94,7 +103,12 @@ export default function Layout() {
               ${isActive ? 'bg-gold-500/20 text-gold-400 border border-gold-500/30' : 'text-gray-400 hover:text-white hover:bg-white/5'}`
             }
           >
-            <Icon size={17} className="flex-shrink-0" />
+            <div className="relative flex-shrink-0">
+              <Icon size={17} />
+              {to === '/notifications' && unreadCount > 0 && (
+                <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full text-white text-xs flex items-center justify-center font-bold leading-none">{unreadCount > 9 ? '9+' : unreadCount}</span>
+              )}
+            </div>
             {(!collapsed || mobile) && <span>{label}</span>}
           </NavLink>
         ))}
@@ -216,7 +230,12 @@ export default function Layout() {
                         ${isActive ? 'bg-gold-500/20 text-gold-400' : 'text-gray-400 hover:text-white hover:bg-white/5'}`
                       }
                     >
-                      <Icon size={20} />
+                      <div className="relative">
+                        <Icon size={20} />
+                        {to === '/notifications' && unreadCount > 0 && (
+                          <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full text-white text-xs flex items-center justify-center font-bold leading-none">{unreadCount > 9 ? '9+' : unreadCount}</span>
+                        )}
+                      </div>
                       <span className="leading-tight">{label}</span>
                     </NavLink>
                   ))}
