@@ -106,7 +106,7 @@ export default function Machines() {
   const load = async () => {
     setLoading(true)
     try {
-      const [m, s, r] = await Promise.all([api.get('/machines'), api.get('/sites'), api.get('/machines/requests/all')])
+      const [m, s, r] = await Promise.all([api.get('/machines?all=true'), api.get('/sites'), api.get('/machines/requests/all')])
       setMachines(m.data); setSites(s.data); setRequests(r.data)
     } catch {}
     setLoading(false)

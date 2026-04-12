@@ -330,11 +330,7 @@ router.get('/requests/all', async (req, res) => {
     if (req.user.role === 'supervisor') where.requested_by = req.user.id;
     const requests = await MaterialRequest.findAll({
       where,
-      include: [
-        { model: Site, as: 'site', attributes: ['id', 'name'] },
-        { model: MaterialCategory, as: 'category', attributes: ['id', 'name', 'unit'] },
-        { model: Godown, as: 'godown', attributes: ['id', 'name'] },
-      ],
+      include: [],
       order: [['createdAt', 'DESC']]
     });
     res.json(requests);
