@@ -15,7 +15,7 @@ function PhotoPicker({ value, onChange, label }) {
     setUploading(true)
     try {
       const form = new FormData()
-      form.append('file', file)  // multer expects 'file' field
+      form.append('file', file)
       const res = await api.post('/upload/single', form, { headers: { 'Content-Type': 'multipart/form-data' } })
       onChange(res.data?.url || res.data?.data?.url || '')
     } catch { toast.error('Photo upload failed') }
@@ -49,12 +49,64 @@ function PhotoPicker({ value, onChange, label }) {
   )
 }
 
+// Delivery confirmation form — defined OUTSIDE parent
+function DeliveryConfirmForm({ delivery, onClose, onDone }) {
+  const [photo, setPhoto] = useState('')
+  const [notes, setNotes] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  const handleConfirm = async (e) => {
+    e.preventDefault()
+    setSaving(true)
+    try {
+      await api.patch(`/godown/requests/${delivery.id}/confirm-delivery`, { delivery_photo: photo || undefined, notes: notes || undefined })
+      if (delivery.site_id) {
+        await api.post('/godown/stock-in-site', {
+          site_id: delivery.site_id,
+          category_name: delivery.material_name,
+          quantity: delivery.quantity,
+          notes: notes || undefined,
+          photo: photo || undefined,
+        }).catch(() => {})
+      }
+      toast.success('Delivery confirmed!')
+      onDone()
+    } catch { toast.error('Failed to confirm delivery') }
+    setSaving(false)
+  }
+
+  return (
+    <form onSubmit={handleConfirm} className="space-y-4">
+      <div className="p-3 bg-surface-400 rounded-xl space-y-1">
+        <p className="text-white font-semibold">{delivery.material_name}</p>
+        <p className="text-gray-400 text-sm">{delivery.quantity} {delivery.unit || ''} · {delivery.site?.name || ''}</p>
+        {delivery.notes && <p className="text-gray-500 text-xs">{delivery.notes}</p>}
+      </div>
+      <div>
+        <label className="label">Delivery Photo <span className="text-gray-500 text-xs">(optional)</span></label>
+        <PhotoPicker value={photo} onChange={setPhoto} label="Delivery" />
+      </div>
+      <div>
+        <label className="label">Notes</label>
+        <textarea className="input" rows={2} value={notes} onChange={e => setNotes(e.target.value)} placeholder="Condition of delivery, remarks…" />
+      </div>
+      <div className="flex gap-3">
+        <button type="button" onClick={onClose} className="btn-secondary flex-1">Cancel</button>
+        <button type="submit" disabled={saving} className="btn-primary flex-1">
+          {saving ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle size={16} />}
+          {saving ? 'Confirming…' : 'Confirm Receipt'}
+        </button>
+      </div>
+    </form>
+  )
+}
+
 export default function GodownSupervisor() {
   const [godowns, setGodowns]       = useState([])
   const [allGodowns, setAllGodowns] = useState([])
   const [requests, setRequests]     = useState([])
-  const [sites, setSites]           = useState([])      // supervisor's sites (general use)
-  const [allSites, setAllSites]     = useState([])      // ALL sites (for request modal dropdown)
+  const [sites, setSites]           = useState([])
+  const [allSites, setAllSites]     = useState([])
   const [categories, setCategories] = useState([])
   const [loading, setLoading]       = useState(true)
   const [tab, setTab]               = useState('stock')
@@ -72,9 +124,12 @@ export default function GodownSupervisor() {
   const [stockInSaving, setStockInSaving] = useState(false)
 
   // Stock Out / Transfer modal
-  const [outModal, setOutModal]     = useState(null)   // { stockId, name, qty, category_id }
+  const [outModal, setOutModal]     = useState(null)
   const [outForm, setOutForm]       = useState({ type: 'site', to_site_id: '', to_godown_id: '', quantity: '', notes: '' })
   const [outSaving, setOutSaving]   = useState(false)
+
+  // Delivery confirmation modal
+  const [delivModal, setDelivModal] = useState(null)
 
   const load = async () => {
     setLoading(true)
@@ -98,7 +153,6 @@ export default function GodownSupervisor() {
     setLoading(false)
   }
 
-  // Fetch all sites (no supervisor filter) when request modal opens
   const openReqModal = async () => {
     setReqModal(true)
     try {
@@ -107,7 +161,6 @@ export default function GodownSupervisor() {
       setAllSites(list)
       if (list.length === 1) setReqForm(p => ({ ...p, site_id: list[0].id }))
     } catch {
-      // Fallback to already-loaded sites
       setAllSites(sites)
     }
   }
@@ -122,6 +175,26 @@ export default function GodownSupervisor() {
 
   const selectedGodown = godowns.find(g => g.id === selected)
   const otherGodowns   = allGodowns.filter(g => g.id !== selected)
+  const deliveries     = requests.filter(r => r.status === 'dispatched')
+
+  // Group history entries by date for the history tab
+  const groupedHistory = history.reduce((acc, h) => {
+    const date = new Date(h.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+    if (!acc[date]) acc[date] = []
+    acc[date].push(h)
+    return acc
+  }, {})
+
+  const shareDay = (date, items) => {
+    const lines = [`*Stock Report — ${date}*`, '']
+    items.forEach(h => {
+      lines.push(
+        `${h.type === 'in' ? '⬇️ IN' : '⬆️ OUT'} ${h.quantity} × ${h.category?.name || 'Material'}` +
+        (h.notes ? ' | ' + h.notes : '')
+      )
+    })
+    window.open(`https://wa.me/?text=${encodeURIComponent(lines.join('\n'))}`, '_blank')
+  }
 
   // ── Request Material
   const [lastRequest, setLastRequest] = useState(null)
@@ -134,7 +207,6 @@ export default function GodownSupervisor() {
       toast.success(`✅ Request sent: ${reqForm.quantity} ${reqForm.unit || ''} of ${reqForm.material_name}`)
       setReqModal(false)
       setReqForm({ urgency: 'normal', quantity: '' })
-      // Explicitly refresh requests from DB
       const updated = await api.get('/godown/requests/all')
       setRequests(Array.isArray(updated.data) ? updated.data : (updated.data?.data || []))
     } catch { toast.error('Request failed') }
@@ -161,7 +233,6 @@ export default function GodownSupervisor() {
         ].filter(Boolean).join(' | '),
         photo: stockInForm.delivery_photo || stockInForm.receipt_photo || undefined,
       })
-      // Notify admin
       await api.post('/godown/requests', {
         material_name: stockInForm.category_name || categories.find(c => c.id === stockInForm.category_id)?.name || 'Material',
         quantity: stockInForm.quantity,
@@ -202,7 +273,6 @@ export default function GodownSupervisor() {
         })
         toast.success('Stock returned to godown!')
       } else {
-        // Dispatch
         await api.post('/godown/stock-out', {
           godown_id: selected,
           category_id: outModal?.category_id,
@@ -231,11 +301,15 @@ export default function GodownSupervisor() {
   return (
     <div className="page-content space-y-4">
       {/* Tabs */}
-      <div className="flex gap-1 bg-surface-400 rounded-xl p-1">
-        {['stock', 'request', 'history'].map(t => (
+      <div className="flex gap-1 bg-surface-400 rounded-xl p-1 overflow-x-auto">
+        {['stock', 'request', 'deliveries', 'history'].map(t => (
           <button key={t} onClick={() => setTab(t)}
-            className={`flex-1 py-2 rounded-lg text-sm font-medium capitalize transition-all ${tab === t ? 'bg-primary-500 text-white' : 'text-gray-400'}`}>
-            {t === 'request' ? `Requests (${requests.filter(r => r.status === 'pending').length})` : t === 'stock' ? 'My Stock' : 'History'}
+            className={`flex-1 py-2 rounded-lg text-xs font-medium capitalize transition-all whitespace-nowrap ${tab === t ? 'bg-primary-500 text-white' : 'text-gray-400'}`}>
+            {t === 'request'
+              ? `Requests (${requests.filter(r => r.status === 'pending').length})`
+              : t === 'deliveries'
+              ? `Deliveries${deliveries.length ? ` (${deliveries.length})` : ''}`
+              : t === 'stock' ? 'My Stock' : 'History'}
           </button>
         ))}
       </div>
@@ -268,13 +342,40 @@ export default function GodownSupervisor() {
               </div>
               {r.notes && <p className="text-gray-500 text-xs">{r.notes}</p>}
               {r.status === 'dispatched' && (
-                <button onClick={() => markReceived(r.id)} className="btn-primary w-full py-2 text-sm">
-                  <CheckCircle size={16} /> Mark as Received
+                <button onClick={() => setDelivModal(r)} className="btn-primary w-full py-2 text-sm">
+                  <CheckCircle size={16} /> Confirm Delivery
                 </button>
               )}
             </div>
           ))}
           {!requests.length && <EmptyState icon={Package} title="No requests" message="Request materials from admin godown" />}
+        </div>
+      )}
+
+      {/* ── DELIVERIES TAB ── */}
+      {tab === 'deliveries' && (
+        <div className="space-y-3">
+          {deliveries.length === 0 && (
+            <EmptyState icon={Package} title="No pending deliveries" message="Dispatched materials will appear here for confirmation" />
+          )}
+          {deliveries.map(d => (
+            <div key={d.id} className="card space-y-3">
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <p className="text-white font-semibold">{d.material_name}</p>
+                  <p className="text-gray-400 text-xs">{d.quantity} {d.unit || ''} · {d.site?.name}</p>
+                  <p className="text-gray-500 text-xs">{new Date(d.createdAt).toLocaleDateString('en-IN')}</p>
+                </div>
+                <span className="badge-orange text-xs">Dispatched</span>
+              </div>
+              {d.notes && <p className="text-gray-500 text-xs">{d.notes}</p>}
+              <button
+                onClick={() => setDelivModal(d)}
+                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-green-500/15 text-green-400 border border-green-500/20 text-sm font-semibold">
+                <CheckCircle size={16} /> Confirm Receipt
+              </button>
+            </div>
+          ))}
         </div>
       )}
 
@@ -336,31 +437,44 @@ export default function GodownSupervisor() {
         </div>
       )}
 
-      {/* ── HISTORY TAB ── */}
+      {/* ── HISTORY TAB ── grouped by date with WhatsApp share */}
       {tab === 'history' && (
-        <div className="space-y-2">
-          {history.map(h => (
-            <div key={h.id} className="card-sm flex items-center gap-3">
-              <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${h.type === 'in' ? 'bg-green-500/20' : h.type === 'dispatch' ? 'bg-orange-500/20' : 'bg-red-500/20'}`}>
-                <span className={`text-base font-bold ${h.type === 'in' ? 'text-green-400' : h.type === 'dispatch' ? 'text-orange-400' : 'text-red-400'}`}>
-                  {h.type === 'in' ? '↓' : h.type === 'dispatch' ? '🚚' : '↑'}
-                </span>
+        <div className="space-y-4">
+          {Object.keys(groupedHistory).length === 0 && (
+            <p className="text-center text-gray-500 py-10">No history yet</p>
+          )}
+          {Object.entries(groupedHistory).map(([date, items]) => (
+            <div key={date} className="space-y-2">
+              <div className="flex items-center justify-between">
+                <p className="text-gray-400 text-xs font-semibold uppercase tracking-wide">{date}</p>
+                <button
+                  onClick={() => shareDay(date, items)}
+                  className="flex items-center gap-1 text-xs text-green-400 bg-green-500/10 border border-green-500/20 px-2 py-1 rounded-lg">
+                  📤 Share
+                </button>
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-white text-sm font-medium truncate">{h.category?.name || 'Material'}</p>
-                <p className="text-gray-500 text-xs">{new Date(h.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
-                {h.notes && <p className="text-gray-600 text-xs truncate">{h.notes}</p>}
-              </div>
-              <div className="text-right shrink-0">
-                <p className={`font-bold text-sm ${h.type === 'in' ? 'text-green-400' : 'text-red-400'}`}>
-                  {h.type === 'in' ? '+' : '-'}{h.quantity}
-                </p>
-                <p className="text-gray-500 text-xs capitalize">{h.type}</p>
-                {h.photo && <a href={h.photo} target="_blank" rel="noreferrer" className="text-xs text-blue-400">📷</a>}
-              </div>
+              {items.map(h => (
+                <div key={h.id} className="card-sm flex items-center gap-3">
+                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${h.type === 'in' ? 'bg-green-500/20' : h.type === 'dispatch' ? 'bg-orange-500/20' : 'bg-red-500/20'}`}>
+                    <span className={`text-base font-bold ${h.type === 'in' ? 'text-green-400' : h.type === 'dispatch' ? 'text-orange-400' : 'text-red-400'}`}>
+                      {h.type === 'in' ? '↓' : h.type === 'dispatch' ? '🚚' : '↑'}
+                    </span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-white text-sm font-medium truncate">{h.category?.name || 'Material'}</p>
+                    {h.notes && <p className="text-gray-600 text-xs truncate">{h.notes}</p>}
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className={`font-bold text-sm ${h.type === 'in' ? 'text-green-400' : 'text-red-400'}`}>
+                      {h.type === 'in' ? '+' : '-'}{h.quantity}
+                    </p>
+                    <p className="text-gray-500 text-xs capitalize">{h.type}</p>
+                    {h.photo && <a href={h.photo} target="_blank" rel="noreferrer" className="text-xs text-blue-400">📷</a>}
+                  </div>
+                </div>
+              ))}
             </div>
           ))}
-          {!history.length && <p className="text-center text-gray-500 py-10">No history yet</p>}
         </div>
       )}
 
@@ -467,7 +581,6 @@ export default function GodownSupervisor() {
           <div className="p-3 bg-surface-400 rounded-xl text-sm">
             <p className="text-gray-400">Available: <span className="text-primary-400 font-bold">{outModal?.qty}</span></p>
           </div>
-          {/* Destination type */}
           <div>
             <label className="label">Destination *</label>
             <div className="flex gap-2">
@@ -518,6 +631,17 @@ export default function GodownSupervisor() {
             </button>
           </div>
         </form>
+      </Modal>
+
+      {/* ── DELIVERY CONFIRM MODAL ── */}
+      <Modal open={!!delivModal} onClose={() => setDelivModal(null)} title="Confirm Delivery">
+        {delivModal && (
+          <DeliveryConfirmForm
+            delivery={delivModal}
+            onClose={() => setDelivModal(null)}
+            onDone={() => { setDelivModal(null); load() }}
+          />
+        )}
       </Modal>
     </div>
   )

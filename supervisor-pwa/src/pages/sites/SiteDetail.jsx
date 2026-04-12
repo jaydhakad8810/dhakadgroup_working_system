@@ -9,10 +9,27 @@ export default function SiteDetail() {
   const navigate = useNavigate()
   const [site, setSite] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [stats, setStats] = useState({ labour: 0, present: 0, pendingTasks: 0 })
   const today = new Date().toISOString().split('T')[0]
 
   useEffect(() => {
     api.get(`/sites/${id}`).then(r => setSite(r.data)).catch(() => {}).finally(() => setLoading(false))
+  }, [id])
+
+  useEffect(() => {
+    if (!id) return
+    Promise.all([
+      api.get(`/labour?site_id=${id}`).catch(() => ({ data: [] })),
+      api.get(`/attendance?site_id=${id}&date=${today}`).catch(() => ({ data: [] })),
+      api.get(`/visit-reports?site_id=${id}`).catch(() => ({ data: [] })),
+    ]).then(([labour, att, reports]) => {
+      const labourList  = Array.isArray(labour.data) ? labour.data : []
+      const attList     = Array.isArray(att.data) ? att.data : (att.data?.data || [])
+      const reportList  = Array.isArray(reports.data) ? reports.data : (reports.data?.data || [])
+      const presentCount  = attList.filter(a => a.status === 'present' || a.status === 'half_day').length
+      const pendingTasks  = reportList.flatMap(r => r.tasks || []).filter(t => t.status !== 'done').length
+      setStats({ labour: labourList.length, present: presentCount, pendingTasks })
+    })
   }, [id])
 
   if (loading) return <LoadingPage />
@@ -23,6 +40,12 @@ export default function SiteDetail() {
     { label: 'Labour', icon: Users, color: 'bg-green-500/20 text-green-400', to: `/labour?site_id=${id}` },
     { label: 'Expenses', icon: TrendingUp, color: 'bg-blue-500/20 text-blue-400', to: `/expenses?site_id=${id}` },
     { label: 'Reports', icon: FileText, color: 'bg-purple-500/20 text-purple-400', to: `/reports?site_id=${id}` },
+  ]
+
+  const statCards = [
+    { label: 'Workers', value: stats.labour, color: 'text-primary-400', to: `/labour?site_id=${id}` },
+    { label: 'Present Today', value: stats.present, color: 'text-green-400', to: `/attendance?site_id=${id}&date=${today}` },
+    { label: 'Pending Tasks', value: stats.pendingTasks, color: 'text-orange-400', to: `/reports?site_id=${id}` },
   ]
 
   return (
@@ -36,6 +59,17 @@ export default function SiteDetail() {
           </div>
           <StatusBadge status={site.status} />
         </div>
+      </div>
+
+      {/* Stat Cards */}
+      <div className="grid grid-cols-3 gap-2">
+        {statCards.map(({ label, value, color, to }) => (
+          <button key={to} onClick={() => navigate(to)}
+            className="card-sm text-left active:scale-95 transition-transform">
+            <p className={`text-2xl font-bold ${color}`}>{value}</p>
+            <p className="text-gray-400 text-xs mt-0.5 leading-tight">{label}</p>
+          </button>
+        ))}
       </div>
 
       {/* Quick Actions */}

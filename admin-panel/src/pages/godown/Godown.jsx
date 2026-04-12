@@ -127,7 +127,12 @@ export default function Godown() {
 
   const handleAddGodown = async (e) => {
     e.preventDefault(); setSaving(true); setError('');
-    try { await api.post('/godown', godownForm); setShowAddGodown(false); setGodownForm(emptyGodownForm); fetchAll(); }
+    try {
+      const payload = { ...godownForm };
+      if (!payload.incharge_id) delete payload.incharge_id;
+      if (!payload.site_id) delete payload.site_id;
+      await api.post('/godown', payload); setShowAddGodown(false); setGodownForm(emptyGodownForm); fetchAll();
+    }
     catch (err) { setError(err.response?.data?.message || 'Failed!'); } finally { setSaving(false); }
   };
 

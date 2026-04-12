@@ -51,6 +51,9 @@ router.get('/', async (req, res) => {
 router.post('/', adminOnly, async (req, res) => {
   try {
     const body = { ...req.body };
+    // Sanitize UUID fields — empty string causes Postgres invalid UUID error
+    if (!body.incharge_id) delete body.incharge_id;
+    if (!body.site_id) delete body.site_id;
     // Auto-generate godown_code if not provided
     if (!body.godown_code) {
       const count = await Godown.count();
@@ -455,6 +458,24 @@ router.patch('/requests/:id/confirm-delivery', supervisorOrAdmin, async (req, re
     await request.update({ status: 'received', ...req.body, received_at: new Date() });
     await Notification.create({ title: 'Delivery Confirmed', message: request.material_name+' received by supervisor', type: 'success', target_role: 'admin', sent_by: req.user.id }).catch(()=>{});
     res.json(request);
+  } catch (e) { res.status(500).json({ message: e.message }); }
+});
+
+// Supervisor confirms material received at site (after delivery)
+router.post('/stock-in-site', supervisorOrAdmin, async (req, res) => {
+  try {
+    const { site_id, category_id, category_name, quantity, notes, photo } = req.body;
+    if (!site_id || !quantity) return res.status(400).json({ message: 'site_id and quantity required' });
+    const matName = category_name ||
+      (category_id ? (await MaterialCategory.findByPk(category_id).catch(() => null))?.name : null) ||
+      'Material';
+    const site = await Site.findByPk(site_id, { attributes: ['id', 'name'] }).catch(() => null);
+    await Notification.create({
+      title: 'Material Received at Site',
+      message: `${quantity} units of ${matName} confirmed received at ${site?.name || site_id}. ${notes || ''}`,
+      type: 'success', target_role: 'admin', sent_by: req.user.id
+    });
+    res.json({ message: 'Site receipt logged', site_id, quantity, material: matName });
   } catch (e) { res.status(500).json({ message: e.message }); }
 });
 

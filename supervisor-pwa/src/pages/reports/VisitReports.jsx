@@ -1,10 +1,117 @@
 import { useEffect, useState, useRef } from 'react'
-import { Plus, FileText, ChevronRight, Camera, Upload, CheckCircle, Clock, AlertCircle, Loader2 } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
+import { Plus, FileText, ChevronRight, Camera, Upload, CheckCircle, Loader2, X } from 'lucide-react'
 import api from '../../utils/api'
 import { LoadingPage, EmptyState, StatusBadge, Modal } from '../../components/ui'
 import { useAuth } from '../../context/AuthContext'
 import toast from 'react-hot-toast'
+
+// New report form — defined OUTSIDE parent to satisfy React rules
+function NewReportForm({ sites, onClose, onSuccess }) {
+  const today = new Date().toISOString().split('T')[0]
+  const [form, setForm] = useState({ site_id: '', report_date: today, title: '', notes: '' })
+  const [photos, setPhotos] = useState([])
+  const [uploading, setUploading] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const cameraRef = useRef(null)
+  const fileRef = useRef(null)
+
+  const uploadFiles = async (files) => {
+    const remaining = 5 - photos.length
+    if (remaining <= 0) return
+    const toUpload = Array.from(files).slice(0, remaining)
+    setUploading(true)
+    try {
+      const urls = await Promise.all(toUpload.map(async file => {
+        const fd = new FormData(); fd.append('file', file); fd.append('folder', 'dgsystem/reports')
+        const { data } = await api.post('/upload/single', fd)
+        return data.url
+      }))
+      setPhotos(prev => [...prev, ...urls].slice(0, 5))
+    } catch { toast.error('Photo upload failed') }
+    setUploading(false)
+  }
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    if (!form.site_id) return toast.error('Select a site')
+    setSaving(true)
+    try {
+      await api.post('/visit-reports', {
+        ...form,
+        title: form.title || `Visit Report — ${form.report_date}`,
+        photos: photos.length ? photos : undefined,
+      })
+      toast.success('Report submitted!')
+      onSuccess()
+    } catch (err) { toast.error(err.response?.data?.message || 'Failed to submit report') }
+    setSaving(false)
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4" style={{ paddingBottom: 80 }}>
+      <div>
+        <label className="label">Site *</label>
+        <select className="select" required value={form.site_id} onChange={e => setForm(p => ({ ...p, site_id: e.target.value }))}>
+          <option value="">Select site</option>
+          {sites.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+        </select>
+      </div>
+      <div>
+        <label className="label">Date *</label>
+        <input type="date" className="input" required value={form.report_date} onChange={e => setForm(p => ({ ...p, report_date: e.target.value }))} />
+      </div>
+      <div>
+        <label className="label">Title <span className="text-gray-500 text-xs">(optional — auto-generated if blank)</span></label>
+        <input className="input" placeholder="e.g. Foundation Inspection" value={form.title} onChange={e => setForm(p => ({ ...p, title: e.target.value }))} />
+      </div>
+      <div>
+        <label className="label">Work Done / Notes</label>
+        <textarea className="input" rows={4} placeholder="Describe work done today, observations, issues…" value={form.notes} onChange={e => setForm(p => ({ ...p, notes: e.target.value }))} />
+      </div>
+      <div>
+        <label className="label">Photos <span className="text-gray-500 text-xs">({photos.length}/5)</span></label>
+        {photos.length > 0 && (
+          <div className="flex flex-wrap gap-2 mb-2">
+            {photos.map((url, i) => (
+              <div key={i} className="relative">
+                <img src={url} alt={`photo-${i}`} className="w-16 h-16 object-cover rounded-xl border border-white/10" />
+                <button type="button" onClick={() => setPhotos(prev => prev.filter((_, j) => j !== i))}
+                  className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center">
+                  <X size={10} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+        {photos.length < 5 && (
+          uploading ? (
+            <p className="text-xs text-gray-400 flex items-center gap-1"><Loader2 size={12} className="animate-spin" /> Uploading…</p>
+          ) : (
+            <div className="flex gap-2">
+              <button type="button" onClick={() => cameraRef.current?.click()}
+                className="flex items-center gap-1.5 px-3 py-2 bg-surface-400 rounded-xl text-gray-400 hover:text-primary-400 text-sm min-h-[44px]">
+                <Camera size={15} /> Camera
+              </button>
+              <button type="button" onClick={() => fileRef.current?.click()}
+                className="flex items-center gap-1.5 px-3 py-2 bg-surface-400 rounded-xl text-gray-400 hover:text-primary-400 text-sm min-h-[44px]">
+                <Upload size={15} /> Upload
+              </button>
+            </div>
+          )
+        )}
+        <input ref={cameraRef} type="file" accept="image/*" capture="environment" multiple className="hidden" onChange={e => uploadFiles(e.target.files)} />
+        <input ref={fileRef} type="file" accept="image/*" multiple className="hidden" onChange={e => uploadFiles(e.target.files)} />
+      </div>
+      <div className="flex gap-3">
+        <button type="button" onClick={onClose} className="btn-secondary flex-1">Cancel</button>
+        <button type="submit" disabled={saving} className="btn-primary flex-1">
+          {saving ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle size={16} />}
+          {saving ? 'Submitting…' : 'Submit Report'}
+        </button>
+      </div>
+    </form>
+  )
+}
 
 export default function VisitReports() {
   const [reports, setReports] = useState([])
@@ -15,6 +122,7 @@ export default function VisitReports() {
   const [viewModal, setViewModal] = useState(null)
   const [tab, setTab] = useState('my')
   const [taskModal, setTaskModal] = useState(null)
+  const [newReportOpen, setNewReportOpen] = useState(false)
   const [proofPhoto, setProofPhoto] = useState(null)
   const [proofPreview, setProofPreview] = useState(null)
   const [completionNote, setCompletionNote] = useState('')
@@ -23,7 +131,6 @@ export default function VisitReports() {
   const fileRef = useRef()
   const cameraRef = useRef()
   const { user } = useAuth()
-  const navigate = useNavigate()
 
   useEffect(() => { api.get('/sites').then(r => setSites(r.data)).catch(() => {}) }, [])
 
@@ -82,7 +189,7 @@ export default function VisitReports() {
 
   return (
     <div className="page-content space-y-4">
-      <button onClick={() => navigate('/reports/add')} className="btn-primary w-full"><Plus size={18}/>New Visit Report</button>
+      <button onClick={() => setNewReportOpen(true)} className="btn-primary w-full"><Plus size={18}/>New Visit Report</button>
 
       {pendingTasks.length > 0 && (
         <div className="p-3 bg-orange-500/10 border border-orange-500/20 rounded-xl">
@@ -140,6 +247,15 @@ export default function VisitReports() {
           {displayReports.length===0 && <EmptyState icon={FileText} title="No Reports" description="No reports found"/>}
         </div>
       )}
+
+      {/* ── NEW REPORT MODAL ── */}
+      <Modal open={newReportOpen} onClose={() => setNewReportOpen(false)} title="New Visit Report">
+        <NewReportForm
+          sites={sites}
+          onClose={() => setNewReportOpen(false)}
+          onSuccess={() => { setNewReportOpen(false); load() }}
+        />
+      </Modal>
 
       <Modal open={!!viewModal} onClose={()=>setViewModal(null)} title="Visit Report" size="lg">
         {selectedReport && (
