@@ -64,10 +64,10 @@ export default function DriverDetail() {
         <div className="flex items-center gap-4">
           {driver.photo
             ? <img src={driver.photo} className="w-20 h-20 rounded-2xl object-cover border border-dark-600" alt={driver.name} />
-            : <div className="w-20 h-20 rounded-2xl bg-gold-500/20 flex items-center justify-center text-gold-400 text-3xl font-bold border border-gold-500/20">{driver.name?.[0]}</div>
+            : <div className="w-20 h-20 rounded-2xl bg-gold-500/20 flex items-center justify-center text-gold-400 text-3xl font-bold border border-gold-500/20">{(driver.name || driver.user?.name || '?')[0].toUpperCase()}</div>
           }
           <div className="flex-1 min-w-0">
-            <h2 className="text-2xl font-bold text-white">{driver.name}</h2>
+            <h2 className="text-2xl font-bold text-white">{driver.name || driver.user?.name || 'Unknown Driver'}</h2>
             <div className="flex gap-2 mt-1 flex-wrap text-sm text-gray-400">
               {driver.phone && <span className="flex items-center gap-1"><Phone size={13} />{driver.phone}</span>}
               {driver.license_number && <span className="flex items-center gap-1"><CreditCard size={13} />{driver.license_number}</span>}
@@ -110,7 +110,7 @@ export default function DriverDetail() {
         <div className="card space-y-3">
           <h3 className="font-semibold text-white">Driver Details</h3>
           <div className="grid grid-cols-2 gap-3 text-sm">
-            <div><p className="text-gray-500">Name</p><p className="text-white">{driver.name}</p></div>
+            <div><p className="text-gray-500">Name</p><p className="text-white">{driver.name || driver.user?.name || '—'}</p></div>
             <div><p className="text-gray-500">Phone</p><p className="text-white">{driver.phone || '—'}</p></div>
             <div><p className="text-gray-500">License</p><p className="text-white">{driver.license_number || '—'}</p></div>
             <div><p className="text-gray-500">Daily Wage</p><p className="text-white">{driver.daily_wage ? `Rs.${driver.daily_wage}` : '—'}</p></div>

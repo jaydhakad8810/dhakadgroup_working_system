@@ -1,6 +1,6 @@
 const router = require('express').Router();
 const bcrypt = require('bcryptjs');
-const { User } = require('../models');
+const { User, Driver } = require('../models');
 const { auth, adminOnly } = require('../middleware/auth');
 const { Op } = require('sequelize');
 
@@ -33,6 +33,12 @@ router.post('/', adminOnly, async (req, res) => {
     // Auto-generate employee_id if not provided
     const finalEmployeeId = employee_id || await generateEmployeeId(name, role || 'supervisor');
     const user = await User.create({ name, email, employee_id: finalEmployeeId, password: hash, plain_password: plainPwd, role: role || 'supervisor', phone, ...rest });
+    if (user.role === 'driver') {
+      await Driver.findOrCreate({
+        where: { user_id: user.id },
+        defaults: { name: user.name, phone: user.phone || '', is_active: true, user_id: user.id }
+      });
+    }
     const { password: _, ...userData } = user.toJSON();
     res.status(201).json(userData);
   } catch (e) {
@@ -59,6 +65,12 @@ router.put('/:id', adminOnly, async (req, res) => {
     const { password, ...data } = req.body;
     if (password) { data.password = await bcrypt.hash(password, 10); data.plain_password = password; }
     await user.update(data);
+    if (data.role === 'driver') {
+      await Driver.findOrCreate({
+        where: { user_id: user.id },
+        defaults: { name: user.name, phone: user.phone || '', is_active: true, user_id: user.id }
+      });
+    }
     const { password: _, ...userData } = user.toJSON();
     res.json(userData);
   } catch (e) { res.status(500).json({ message: e.message }); }

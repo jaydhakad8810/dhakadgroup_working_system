@@ -76,16 +76,31 @@ router.post('/category', adminOnly, async (req, res) => {
 // Stock availability check — must be BEFORE /stock/:id to avoid shadowing
 router.get('/stock/check', async (req, res) => {
   try {
-    const { material_name, quantity } = req.query;
-    if (!material_name) return res.json({ available: false, quantity: 0 });
+    const { material_name, quantity, check_all } = req.query;
+    const checkAll = check_all === 'true';
+    if (!material_name) return res.json({ available: false, quantity: 0, checked_primary_only: !checkAll });
     const cats = await MaterialCategory.findAll({ where: { name: { [Op.iLike]: '%'+material_name+'%' } } });
-    if (!cats.length) return res.json({ available: false, quantity: 0 });
+    if (!cats.length) return res.json({ available: false, quantity: 0, checked_primary_only: !checkAll });
+    // Filter godowns: by default check PRIMARY only; check_all=true includes all
+    const godownWhere = checkAll ? {} : { is_primary: true };
+    const scopedGodowns = await Godown.findAll({ where: godownWhere, attributes: ['id', 'name', 'is_primary'] });
+    const godownIds = scopedGodowns.map(g => g.id);
+    if (!checkAll && godownIds.length === 0) {
+      return res.json({ available: false, quantity: 0, stocks: [], checked_primary_only: true });
+    }
+    const stockWhere = { category_id: { [Op.in]: cats.map(c => c.id) } };
+    if (godownIds.length) stockWhere.godown_id = { [Op.in]: godownIds };
     const stocks = await GodownStock.findAll({
-      where: { category_id: { [Op.in]: cats.map(c => c.id) } },
-      include: [{ model: Godown, as: 'godown', attributes: ['id', 'name'] }]
+      where: stockWhere,
+      include: [{ model: Godown, as: 'godown', attributes: ['id', 'name', 'is_primary'] }]
     });
     const totalQty = stocks.reduce((s, st) => s + parseFloat(st.quantity || 0), 0);
-    res.json({ available: totalQty >= parseFloat(quantity || 0), quantity: totalQty, stocks: stocks.map(s => ({ godown_name: s.godown?.name, godown_id: s.godown_id, quantity: s.quantity })) });
+    res.json({
+      available: totalQty >= parseFloat(quantity || 0),
+      quantity: totalQty,
+      stocks: stocks.map(s => ({ godown_name: s.godown?.name, godown_id: s.godown_id, quantity: s.quantity, is_primary: s.godown?.is_primary })),
+      checked_primary_only: !checkAll
+    });
   } catch (e) { res.status(500).json({ message: e.message }); }
 });
 

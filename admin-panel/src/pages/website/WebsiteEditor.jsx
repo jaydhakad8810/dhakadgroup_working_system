@@ -6,7 +6,9 @@ import { MultiPhotoUpload, PhotoUpload } from '../../components/ui/PhotoUpload'
 import { Plus, Trash2, Edit, Globe, Save } from 'lucide-react'
 
 const DEFAULT_HERO = {
-  badge_text: 'Premium Asian Paints Applicator Since 2002',
+  heading: "Building <span style='color:#C9A84C'>Tomorrow's</span> Infrastructure Today",
+  subheading: 'Dhakad Group brings world-class painting solutions to Nashik. 500+ projects. Trusted since 2002.',
+  badge_text: 'Trusted Construction Partner Since 2002',
   title_line1: 'Transforming Spaces With',
   title_highlight: 'Color & Craft',
   subtitle: 'Dhakad Group brings world-class painting solutions to Nashik. 500+ projects. Trusted since 2002.',
@@ -197,7 +199,14 @@ export default function WebsiteEditor() {
       {tab === 'hero' && (
         <div className="card space-y-4 max-w-2xl">
           <h3 className="font-semibold" style={{ color: 'var(--text)' }}>Hero Section</h3>
-          <div><label className="label">Badge Text</label><input className="input" value={hero.badge_text || ''} onChange={e => setHero(p => ({ ...p, badge_text: e.target.value }))} /></div>
+          <div className="p-3 rounded-xl border border-gold-500/20" style={{ background: 'var(--bg3)' }}>
+            <p className="text-xs font-semibold mb-3" style={{ color: 'var(--muted)' }}>Landing Page Hero Text (dhakadgroup.in)</p>
+            <div className="space-y-3">
+              <div><label className="label">Main Heading <span className="text-gray-500 font-normal text-xs">(supports &lt;span&gt; HTML for colored text)</span></label><input className="input" value={hero.heading || ''} onChange={e => setHero(p => ({ ...p, heading: e.target.value }))} placeholder="Building <span style='color:#C9A84C'>Tomorrow's</span> Infrastructure Today" /></div>
+              <div><label className="label">Sub Heading</label><input className="input" value={hero.subheading || ''} onChange={e => setHero(p => ({ ...p, subheading: e.target.value }))} /></div>
+              <div><label className="label">Badge Text</label><input className="input" value={hero.badge_text || ''} onChange={e => setHero(p => ({ ...p, badge_text: e.target.value }))} /></div>
+            </div>
+          </div>
           <div><label className="label">Title Line 1</label><input className="input" value={hero.title_line1 || ''} onChange={e => setHero(p => ({ ...p, title_line1: e.target.value }))} /></div>
           <div><label className="label">Title Highlighted Word (gold gradient)</label><input className="input" value={hero.title_highlight || ''} onChange={e => setHero(p => ({ ...p, title_highlight: e.target.value }))} /></div>
           <div><label className="label">Subtitle</label><textarea className="input" rows={3} value={hero.subtitle || ''} onChange={e => setHero(p => ({ ...p, subtitle: e.target.value }))} /></div>

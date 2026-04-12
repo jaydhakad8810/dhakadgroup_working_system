@@ -80,10 +80,10 @@ export default function Drivers() {
             <div key={d.id} className="card cursor-pointer hover:border-gold-500/40 transition-all" onClick={() => navigate(`/drivers/${d.id}`)}>
               <div className="flex items-center gap-3 mb-3">
                 {d.photo ? <img src={d.photo} className="w-12 h-12 rounded-xl object-cover border border-dark-600" />
-                  : <div className="w-12 h-12 rounded-xl bg-gold-500/20 flex items-center justify-center text-gold-400 font-bold text-lg">{d.name[0]}</div>}
+                  : <div className="w-12 h-12 rounded-xl bg-gold-500/20 flex items-center justify-center text-gold-400 font-bold text-lg">{(d.name || '?')[0].toUpperCase()}</div>}
                 <div className="flex-1 min-w-0">
-                  <h3 className="text-white font-semibold truncate">{d.name}</h3>
-                  {d.employee_id && <p className="text-gold-400 font-mono text-xs">{d.employee_id}</p>}
+                  <h3 className="text-white font-semibold truncate">{d.name || d.user?.name || 'Unknown'}</h3>
+                  {d.user?.employee_id && <p className="text-gold-400 font-mono text-xs">{d.user.employee_id}</p>}
                   <p className="text-gray-400 text-sm">{d.phone}</p>
                 </div>
                 <div className="flex flex-col items-end gap-1">
