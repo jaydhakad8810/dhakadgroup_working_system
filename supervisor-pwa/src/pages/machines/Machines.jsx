@@ -1,8 +1,90 @@
 import { useEffect, useState, useRef } from 'react'
-import { Wrench, Plus, Camera, Upload, Loader2 } from 'lucide-react'
+import { Wrench, Camera, Upload, Loader2 } from 'lucide-react'
 import api from '../../utils/api'
 import toast from 'react-hot-toast'
 import { LoadingPage, EmptyState, Modal } from '../../components/ui'
+
+// Machine request modal — defined OUTSIDE parent
+function MachineRequestModal({ machine, sites, open, onClose, onSuccess }) {
+  const today = new Date().toISOString().split('T')[0]
+  const [form, setForm] = useState({ site_id: '', from_date: today, to_date: today, notes: '', urgency: 'normal' })
+  const [saving, setSaving] = useState(false)
+
+  const handleSubmit = async () => {
+    if (!form.notes.trim()) return toast.error('Enter purpose / reason')
+    if (!form.site_id) return toast.error('Select a site')
+    setSaving(true)
+    try {
+      await api.post('/machines/requests', {
+        machine_id: machine?.id || '',
+        site_id: form.site_id,
+        request_date: form.from_date,
+        from_date: form.from_date,
+        to_date: form.to_date,
+        notes: form.notes,
+        urgency: form.urgency,
+      })
+      toast.success('Request sent to admin!')
+      onClose()
+      onSuccess()
+    } catch (err) { toast.error(err.response?.data?.message || 'Request failed') }
+    setSaving(false)
+  }
+
+  return (
+    <Modal open={open} onClose={onClose} title={machine ? `Request: ${machine.name}` : 'Request Machine / Tool'}>
+      <div className="space-y-3">
+        {machine && (
+          <div className="p-3 bg-surface-400 rounded-xl flex items-center gap-3">
+            {machine.photos?.[0] && <img src={machine.photos[0]} className="w-12 h-12 object-cover rounded-xl" alt={machine.name} />}
+            <div>
+              <p className="text-white font-semibold text-sm">{machine.name}</p>
+              <p className="text-gray-400 text-xs">{machine.category?.name}</p>
+            </div>
+          </div>
+        )}
+        <div>
+          <label className="label">Site *</label>
+          <select className="select" value={form.site_id} onChange={e => setForm(p => ({ ...p, site_id: e.target.value }))}>
+            <option value="">Select site</option>
+            {sites.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+          </select>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="label">From Date</label>
+            <input type="date" className="input" value={form.from_date} onChange={e => setForm(p => ({ ...p, from_date: e.target.value }))} />
+          </div>
+          <div>
+            <label className="label">To Date</label>
+            <input type="date" className="input" value={form.to_date} min={form.from_date} onChange={e => setForm(p => ({ ...p, to_date: e.target.value }))} />
+          </div>
+        </div>
+        <div>
+          <label className="label">Purpose *</label>
+          <textarea className="input" rows={3} placeholder="Why do you need this machine?" value={form.notes} onChange={e => setForm(p => ({ ...p, notes: e.target.value }))} />
+        </div>
+        <div>
+          <label className="label">Priority</label>
+          <div className="flex gap-2">
+            {['normal', 'urgent'].map(u => (
+              <button key={u} type="button" onClick={() => setForm(p => ({ ...p, urgency: u }))}
+                className={`flex-1 py-2 rounded-xl text-sm font-medium capitalize transition-all ${
+                  form.urgency === u
+                    ? u === 'urgent' ? 'bg-orange-500 text-white' : 'bg-primary-500 text-white'
+                    : 'bg-surface-200 text-gray-400'
+                }`}>{u}</button>
+            ))}
+          </div>
+        </div>
+        <button onClick={handleSubmit} disabled={saving} className="btn-primary w-full">
+          {saving ? <Loader2 size={16} className="animate-spin" /> : <Wrench size={16} />}
+          {saving ? 'Sending…' : 'Send Request to Admin'}
+        </button>
+      </div>
+    </Modal>
+  )
+}
 
 export default function Machines() {
   const [machines, setMachines] = useState([])
@@ -10,9 +92,9 @@ export default function Machines() {
   const [requests, setRequests] = useState([])
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState('machines')
-  const [requestModal, setRequestModal] = useState(false)
+  const [selectedMachine, setSelectedMachine] = useState(null)
+  const [machineReqOpen, setMachineReqOpen] = useState(false)
   const [maintenanceModal, setMaintenanceModal] = useState(null)
-  const [requestForm, setRequestForm] = useState({ machine_id: '', site_id: '', notes: '', request_date: new Date().toISOString().split('T')[0] })
   const [maintForm, setMaintForm] = useState({ purpose: '', completion_date: new Date().toISOString().split('T')[0], amount: '' })
   const [maintPhoto, setMaintPhoto] = useState(null)
   const [maintPreview, setMaintPreview] = useState(null)
@@ -36,19 +118,6 @@ export default function Machines() {
     const url = URL.createObjectURL(file)
     if (type === 'main') { setMaintPhoto(file); setMaintPreview(url) }
     else { setReceiptPhoto(file); setReceiptPreview(url) }
-  }
-
-  const handleRequest = async () => {
-    if (!requestForm.notes) return toast.error('Please enter purpose')
-    setSaving(true)
-    try {
-      await api.post('/machines/requests', requestForm)
-      toast.success('Machine request sent to admin!')
-      setRequestModal(false)
-      setRequestForm({ machine_id: '', site_id: '', notes: '', request_date: new Date().toISOString().split('T')[0] })
-      load()
-    } catch (err) { toast.error(err.response?.data?.message || 'Failed') }
-    setSaving(false)
   }
 
   const handleMaintenance = async () => {
@@ -82,13 +151,13 @@ export default function Machines() {
           </button>
         ))}
       </div>
-      <button onClick={() => setRequestModal(true)} className="btn-primary w-full"><Plus size={16}/>Request Machine / Tool</button>
 
       {tab==='machines' && (
         <div className="space-y-3">
           {machines.length===0 && <EmptyState icon={Wrench} title="No Machines" description="No machines assigned to your sites"/>}
           {machines.map(m => (
-            <div key={m.id} className="card space-y-3">
+            <div key={m.id} className="card space-y-3 cursor-pointer active:scale-95 transition-transform"
+              onClick={() => { setSelectedMachine(m); setMachineReqOpen(true) }}>
               {m.photos?.[0] && <img src={m.photos[0]} className="w-full h-36 object-cover rounded-xl" alt={m.name}/>}
               <div className="flex items-start justify-between gap-2">
                 <div>
@@ -101,10 +170,17 @@ export default function Machines() {
                 </span>
               </div>
               {m.site && <p className="text-sm text-gray-400">📍 {m.site.name}</p>}
-              <button onClick={()=>{setMaintenanceModal(m);setMaintForm({purpose:'',completion_date:new Date().toISOString().split('T')[0],amount:''});setMaintPhoto(null);setMaintPreview(null);setReceiptPhoto(null);setReceiptPreview(null)}}
+              <button
+                onClick={e => {
+                  e.stopPropagation()
+                  setMaintenanceModal(m)
+                  setMaintForm({ purpose: '', completion_date: new Date().toISOString().split('T')[0], amount: '' })
+                  setMaintPhoto(null); setMaintPreview(null); setReceiptPhoto(null); setReceiptPreview(null)
+                }}
                 className="w-full flex items-center justify-center gap-2 py-2 rounded-xl text-sm font-semibold text-orange-400 bg-orange-500/10 border border-orange-500/20 hover:bg-orange-500/20 transition-all">
                 <Wrench size={14}/>Log Maintenance
               </button>
+              <p className="text-center text-xs text-gray-500">Tap card to request this machine</p>
             </div>
           ))}
         </div>
@@ -130,32 +206,14 @@ export default function Machines() {
         </div>
       )}
 
-      <Modal open={requestModal} onClose={()=>setRequestModal(false)} title="Request Machine / Tool">
-        <div className="space-y-3">
-          <div><label className="label">Machine (Optional)</label>
-            <select className="select" value={requestForm.machine_id} onChange={e=>setRequestForm(p=>({...p,machine_id:e.target.value}))}>
-              <option value="">Any Available</option>
-              {machines.filter(m=>m.status==='available').map(m=><option key={m.id} value={m.id}>{m.name}</option>)}
-            </select>
-          </div>
-          <div><label className="label">Site *</label>
-            <select className="select" value={requestForm.site_id} onChange={e=>setRequestForm(p=>({...p,site_id:e.target.value}))}>
-              <option value="">Select site</option>
-              {sites.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}
-            </select>
-          </div>
-          <div><label className="label">Date Needed</label>
-            <input type="date" className="input" value={requestForm.request_date} onChange={e=>setRequestForm(p=>({...p,request_date:e.target.value}))}/>
-          </div>
-          <div><label className="label">Purpose *</label>
-            <textarea className="input" rows={3} placeholder="Why do you need this?" value={requestForm.notes} onChange={e=>setRequestForm(p=>({...p,notes:e.target.value}))}/>
-          </div>
-          <button onClick={handleRequest} disabled={saving} className="btn-primary w-full">
-            {saving?<Loader2 size={16} className="animate-spin"/>:<Plus size={16}/>}
-            {saving?'Sending...':'Send Request to Admin'}
-          </button>
-        </div>
-      </Modal>
+      {/* Machine Request Modal */}
+      <MachineRequestModal
+        machine={selectedMachine}
+        sites={sites}
+        open={machineReqOpen}
+        onClose={() => { setMachineReqOpen(false); setSelectedMachine(null) }}
+        onSuccess={load}
+      />
 
       <Modal open={!!maintenanceModal} onClose={()=>setMaintenanceModal(null)} title={'Maintenance — '+(maintenanceModal?.name||'')}>
         <div className="space-y-4">
