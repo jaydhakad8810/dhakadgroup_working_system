@@ -30,6 +30,9 @@ import Notifications from './pages/notifications/Notifications'
 import AIAssistant from './pages/ai/AIAssistant'
 import WebsiteEditor from './pages/website/WebsiteEditor'
 import RecycleBin from './pages/recyclebin/RecycleBin'
+import WorkOrders from './pages/workorders/WorkOrders'
+import WorkOrderCreate from './pages/workorders/WorkOrderCreate'
+import WorkOrderDetail from './pages/workorders/WorkOrderDetail'
 
 function ProtectedRoute({ children }) {
   const { user } = useAuth()
@@ -80,6 +83,9 @@ export default function App() {
             <Route path="website" element={<WebsiteEditor />} />
             <Route path="ai" element={<AIAssistant />} />
             <Route path="recycle-bin" element={<RecycleBin />} />
+            <Route path="workorders" element={<WorkOrders />} />
+            <Route path="workorders/create" element={<WorkOrderCreate />} />
+            <Route path="workorders/:id" element={<WorkOrderDetail />} />
           </Route>
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>

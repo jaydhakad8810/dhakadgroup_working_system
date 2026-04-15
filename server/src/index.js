@@ -45,6 +45,7 @@ app.use('/api/ai', require('./routes/ai'));
 app.use('/api/transfers', require('./routes/transfers'));
 app.use('/api/website', require('./routes/website'));
 app.use('/api/recycle-bin', require('./routes/recycleBin'));
+app.use('/api/workorders', require('./routes/workOrderRoutes'));
 
 app.get('/health', (_req, res) => res.json({ status: 'OK', time: new Date() }));
 
