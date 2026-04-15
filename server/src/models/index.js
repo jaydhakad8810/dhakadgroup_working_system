@@ -12,6 +12,7 @@ const { MaterialCategory, Godown, GodownStock, StockHistory } = require('./Godow
 const { MachineCategory, Machine, MachineRequest } = require('./MachineModels');
 const { Driver, Vehicle, Trip } = require('./DriverModels');
 const { MaterialRequest, WebsiteContent, WebsiteProject } = require('./WebsiteModels');
+const { WorkOrder, WorkOrderStep, WorkOrderFlat, WorkOrderMaterial, WorkOrderHint } = require('./WorkOrderModels');
 
 // Site associations
 Site.belongsTo(Organisation, { foreignKey: 'organisation_id', as: 'organisation' });
@@ -82,6 +83,11 @@ Driver.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
 Trip.belongsTo(Vehicle, { foreignKey: 'vehicle_id', as: 'vehicle' });
 Trip.belongsTo(Driver, { foreignKey: 'driver_id', as: 'driver' });
 
+// Work Order cross-model associations
+WorkOrder.belongsTo(Site, { foreignKey: 'site_id', as: 'site' });
+WorkOrder.belongsTo(User, { foreignKey: 'created_by', as: 'creator' });
+Site.hasMany(WorkOrder,   { foreignKey: 'site_id', as: 'workOrders' });
+
 module.exports = {
   User, Organisation, Site, Labour, Attendance,
   SalaryRecord, AdvancePayment, LabourTransfer, SiteLedger, ClientPayment,
@@ -91,4 +97,5 @@ module.exports = {
   MachineCategory, Machine, MachineRequest,
   Driver, Vehicle, Trip,
   MaterialRequest, WebsiteContent, WebsiteProject,
+  WorkOrder, WorkOrderStep, WorkOrderFlat, WorkOrderMaterial, WorkOrderHint,
 };
