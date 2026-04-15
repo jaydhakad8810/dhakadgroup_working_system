@@ -1,3 +1,4 @@
+const { LabourGroup, LabourGroupMember } = require('./LabourGroupModels');
 const User = require('./User');
 const Organisation = require('./Organisation');
 const Site = require('./Site');
@@ -88,6 +89,12 @@ WorkOrder.belongsTo(Site, { foreignKey: 'site_id', as: 'site' });
 WorkOrder.belongsTo(User, { foreignKey: 'created_by', as: 'creator' });
 Site.hasMany(WorkOrder,   { foreignKey: 'site_id', as: 'workOrders' });
 
+// Labour Group cross-model associations
+LabourGroup.belongsTo(Site, { foreignKey: 'site_id', as: 'site' });
+LabourGroup.belongsTo(User, { foreignKey: 'created_by', as: 'creator' });
+Site.hasMany(LabourGroup, { foreignKey: 'site_id', as: 'labourGroups' });
+LabourGroupMember.belongsTo(Labour, { foreignKey: 'labour_id', as: 'labour' });
+
 module.exports = {
   User, Organisation, Site, Labour, Attendance,
   SalaryRecord, AdvancePayment, LabourTransfer, SiteLedger, ClientPayment,
@@ -98,4 +105,5 @@ module.exports = {
   Driver, Vehicle, Trip,
   MaterialRequest, WebsiteContent, WebsiteProject,
   WorkOrder, WorkOrderStep, WorkOrderFlat, WorkOrderMaterial, WorkOrderHint,
+  LabourGroup, LabourGroupMember,
 };

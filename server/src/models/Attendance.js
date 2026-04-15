@@ -18,6 +18,10 @@ const Attendance = sequelize.define('Attendance', {
   absent_reason: { type: DataTypes.STRING(200), allowNull: true },
   task_note: { type: DataTypes.TEXT, allowNull: true },
   materials: { type: DataTypes.JSONB, allowNull: true },
+  task_completed: { type: DataTypes.BOOLEAN, defaultValue: false, allowNull: true },
+  carry_forward: { type: DataTypes.BOOLEAN, defaultValue: false, allowNull: true },
+  work_order_step_id: { type: DataTypes.UUID, allowNull: true },
+  flat_nos: { type: DataTypes.JSONB, allowNull: true },
   marked_by: { type: DataTypes.UUID, allowNull: true },
   is_correction: { type: DataTypes.BOOLEAN, defaultValue: false },
 }, { tableName: 'attendance' });
