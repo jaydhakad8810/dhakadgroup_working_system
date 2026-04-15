@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import {
   Camera, Upload, Check, X, ChevronRight, Users, MapPin,
   Calendar, Plus, Trash2, CheckCircle, Clock,
-  ArrowRight, ArrowLeft, RefreshCw, FileText
+  ArrowRight, ArrowLeft, RefreshCw, FileText,
+  Layers, Package, Tag, Copy, AlertCircle, ClipboardCheck
 } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import api from '../../utils/api'
@@ -13,10 +14,14 @@ import toast from 'react-hot-toast'
 function StepBar({ current }) {
   const steps = [
     { n: 1, label: 'Site' },
-    { n: 2, label: 'Attendance' },
+    { n: 2, label: 'Attend' },
     { n: 3, label: 'Check-In' },
-    { n: 4, label: 'Tasks' },
-    { n: 5, label: 'Report' },
+    { n: 4, label: 'Groups' },
+    { n: 5, label: 'Tasks' },
+    { n: 6, label: 'Material' },
+    { n: 7, label: 'Checkout' },
+    { n: 8, label: 'Complete' },
+    { n: 9, label: 'Report' },
   ]
   return (
     <div className="flex items-center justify-between px-4 py-3 bg-surface-300 border-b border-white/10">
@@ -24,7 +29,7 @@ function StepBar({ current }) {
         <div key={s.n} className="flex items-center flex-1">
           <div className="flex flex-col items-center">
             <div
-              className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold transition-all ${
+              className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-all ${
                 current === s.n
                   ? 'bg-primary-500 text-white'
                   : current > s.n
@@ -165,6 +170,519 @@ function MultiplierBadge({ hoursWorked, checkInTime }) {
   )
 }
 
+// ─── GroupsStep ──────────────────────────────────────────────────────────────
+function GroupsStep({ presentLabours, editingGroups, setEditingGroups, attendanceDate, selectedSite, onNext }) {
+  const [newGroupName, setNewGroupName] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  const addGroup = () => {
+    if (!newGroupName.trim()) return
+    const tempGroup = {
+      id: 'temp_' + Date.now(),
+      name: newGroupName.trim(),
+      colour: ['#F97316', '#3B82F6', '#10B981', '#8B5CF6', '#EC4899'][editingGroups.length % 5],
+      members: [],
+      isNew: true,
+    }
+    setEditingGroups(prev => [...prev, tempGroup])
+    setNewGroupName('')
+  }
+
+  const toggleMemberInGroup = (groupId, labour) => {
+    setEditingGroups(prev => prev.map(g => {
+      if (g.id !== groupId) return g
+      const exists = g.members.find(m => m.labour_id === (labour._id || labour.id))
+      if (exists) {
+        return { ...g, members: g.members.filter(m => m.labour_id !== (labour._id || labour.id)) }
+      }
+      return { ...g, members: [...g.members, { labour_id: labour._id || labour.id, labour, is_present: true, date: attendanceDate }] }
+    }))
+  }
+
+  const removeGroup = (groupId) => {
+    setEditingGroups(prev => prev.filter(g => g.id !== groupId))
+  }
+
+  const saveGroups = async () => {
+    setSaving(true)
+    try {
+      const saved = []
+      for (const g of editingGroups) {
+        let groupId = g.id
+        if (g.isNew || String(g.id).startsWith('temp_')) {
+          const res = await api.post('/labour-groups', { site_id: selectedSite, name: g.name, colour: g.colour })
+          groupId = res.data?.id || res.data?.data?.id
+        }
+        await api.post(`/labour-groups/${groupId}/members`, {
+          members: g.members.map(m => ({
+            labour_id: m.labour_id,
+            date: attendanceDate,
+            is_present: m.is_present !== false,
+          })),
+        })
+        saved.push({ ...g, id: groupId })
+      }
+      toast.success('Groups saved')
+      onNext(saved)
+    } catch {
+      toast.error('Failed to save groups')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="card">
+        <h2 className="text-base font-bold text-white mb-1 flex items-center gap-2">
+          <Layers size={16} className="text-primary-400" />
+          Labour Groups
+        </h2>
+        <p className="text-xs text-gray-400 mb-3">Create groups and assign labour. One worker can be in multiple groups.</p>
+        <div className="flex gap-2">
+          <input
+            className="input text-white flex-1"
+            placeholder="Group name (e.g. Group A - Internal)"
+            value={newGroupName}
+            onChange={e => setNewGroupName(e.target.value)}
+          />
+          <button className="btn-primary px-3 min-h-[44px]" onClick={addGroup}>
+            <Plus size={16} />
+          </button>
+        </div>
+      </div>
+
+      {editingGroups.length === 0 && (
+        <div className="card text-center text-gray-500 text-sm py-4">
+          No groups yet. Add a group above or continue without groups.
+        </div>
+      )}
+
+      {editingGroups.map((group) => (
+        <div key={group.id} className="card" style={{ borderLeft: `3px solid ${group.colour || '#F97316'}` }}>
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-white font-semibold text-sm">{group.name}</span>
+            <button onClick={() => removeGroup(group.id)} className="text-red-400 p-1">
+              <X size={14} />
+            </button>
+          </div>
+          <p className="text-xs text-gray-500 mb-2">Tap to add/remove labour from this group:</p>
+          <div className="flex flex-wrap gap-2">
+            {presentLabours.map(l => {
+              const lid = l._id || l.id
+              const inGroup = group.members.find(m => m.labour_id === lid)
+              return (
+                <button
+                  key={lid}
+                  onClick={() => toggleMemberInGroup(group.id, l)}
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all min-h-[36px] ${
+                    inGroup ? 'text-white border-2' : 'bg-surface-400 text-gray-400 border border-white/10'
+                  }`}
+                  style={inGroup ? { borderColor: group.colour, background: group.colour + '33' } : {}}
+                >
+                  {l.name || l.labour_name}
+                </button>
+              )
+            })}
+          </div>
+          {group.members.length > 0 && (
+            <p className="text-xs text-gray-500 mt-2">{group.members.length} member(s) assigned</p>
+          )}
+        </div>
+      ))}
+
+      <button
+        className="btn-primary w-full min-h-[44px] flex items-center justify-center gap-2"
+        onClick={saveGroups}
+        disabled={saving}
+      >
+        {saving ? 'Saving...' : 'Save Groups & Continue'}
+        <ChevronRight size={18} />
+      </button>
+      <button className="btn-secondary w-full min-h-[44px]" onClick={() => onNext(editingGroups)}>
+        Skip Groups
+      </button>
+    </div>
+  )
+}
+
+// ─── TaskAssignStep ───────────────────────────────────────────────────────────
+function TaskAssignStep({ groups, groupTasks, setGroupTasks, presentLabours, workOrders, carryForwardHints, loadingWorkOrders, onNext }) {
+  const [individualTasks, setIndividualTasks] = useState({})
+  const ungroupedLabour = presentLabours.filter(l => {
+    const lid = l._id || l.id
+    return !groups.some(g => g.members?.some(m => m.labour_id === lid))
+  })
+
+  const setGroupTask = (groupId, field, value) => {
+    setGroupTasks(prev => ({ ...prev, [groupId]: { ...(prev[groupId] || {}), [field]: value } }))
+  }
+
+  const allSteps = workOrders.flatMap(wo =>
+    (wo.steps || []).map(s => ({ ...s, work_order_id: wo.id, work_order_title: wo.title }))
+  )
+
+  const getFlatsForWO = (woId) => {
+    const wo = workOrders.find(w => w.id === woId)
+    return wo?.flats || []
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="card">
+        <h2 className="text-base font-bold text-white mb-1 flex items-center gap-2">
+          <ClipboardCheck size={16} className="text-primary-400" />
+          Assign Tasks
+        </h2>
+        {carryForwardHints.length > 0 && (
+          <div className="bg-orange-500/10 border border-orange-500/30 rounded-xl p-2 mb-3">
+            <p className="text-xs text-orange-400 font-medium flex items-center gap-1">
+              <AlertCircle size={12} /> Yesterday's pending tasks:
+            </p>
+            {carryForwardHints.map((h, i) => (
+              <p key={i} className="text-xs text-gray-400 ml-4">• {h.task_note || h.step_name}</p>
+            ))}
+          </div>
+        )}
+        <p className="text-xs text-gray-400">Assign work order tasks to each group for today.</p>
+      </div>
+
+      {loadingWorkOrders && (
+        <div className="card text-center text-gray-500 text-sm py-4">Loading work orders...</div>
+      )}
+
+      {workOrders.length === 0 && !loadingWorkOrders && (
+        <div className="card text-center text-gray-500 text-sm py-4">
+          No active work orders for this site. You can skip task assignment.
+        </div>
+      )}
+
+      {groups.map(group => (
+        <div key={group.id} className="card" style={{ borderLeft: `3px solid ${group.colour || '#F97316'}` }}>
+          <p className="text-sm font-semibold text-white mb-2">{group.name}</p>
+          <p className="text-xs text-gray-500 mb-2">{group.members?.length || 0} member(s)</p>
+
+          <label className="label">Work Order Step</label>
+          <select
+            className="select text-white mb-2"
+            value={groupTasks[group.id]?.step_id || ''}
+            onChange={e => {
+              const s = allSteps.find(st => st.id === e.target.value)
+              setGroupTask(group.id, 'step_id', e.target.value)
+              setGroupTask(group.id, 'work_order_id', s?.work_order_id || '')
+              setGroupTask(group.id, 'step_name', s?.step_name || '')
+            }}
+          >
+            <option value="">-- Select Task --</option>
+            {allSteps.map(s => (
+              <option key={s.id} value={s.id}>[{s.work_order_title}] {s.step_name}</option>
+            ))}
+          </select>
+
+          {groupTasks[group.id]?.work_order_id && (
+            <>
+              <label className="label">Flats being worked today (select multiple)</label>
+              <div className="flex flex-wrap gap-1 max-h-32 overflow-y-auto">
+                {getFlatsForWO(groupTasks[group.id].work_order_id).map(flat => {
+                  const selected = (groupTasks[group.id]?.flat_nos || []).includes(flat.flat_no)
+                  return (
+                    <button
+                      key={flat.id}
+                      onClick={() => {
+                        const current = groupTasks[group.id]?.flat_nos || []
+                        const updated = selected
+                          ? current.filter(f => f !== flat.flat_no)
+                          : [...current, flat.flat_no]
+                        setGroupTask(group.id, 'flat_nos', updated)
+                      }}
+                      className={`px-2 py-1 rounded text-xs font-medium min-h-[32px] transition-all ${
+                        selected
+                          ? 'bg-primary-500/30 text-primary-400 border border-primary-500/50'
+                          : 'bg-surface-400 text-gray-500 border border-white/5'
+                      }`}
+                    >
+                      {flat.flat_no}
+                    </button>
+                  )
+                })}
+              </div>
+            </>
+          )}
+        </div>
+      ))}
+
+      {ungroupedLabour.length > 0 && (
+        <div className="card">
+          <p className="text-sm font-semibold text-white mb-2">Individual Labour (not in any group)</p>
+          {ungroupedLabour.map(l => {
+            const lid = l._id || l.id
+            return (
+              <div key={lid} className="mb-3">
+                <p className="text-xs text-gray-400 mb-1">{l.name || l.labour_name}</p>
+                <select
+                  className="select text-white"
+                  value={individualTasks[lid]?.step_id || ''}
+                  onChange={e => {
+                    const s = allSteps.find(st => st.id === e.target.value)
+                    setIndividualTasks(prev => ({ ...prev, [lid]: { step_id: e.target.value, step_name: s?.step_name || '' } }))
+                  }}
+                >
+                  <option value="">-- Select Task --</option>
+                  {allSteps.map(s => (
+                    <option key={s.id} value={s.id}>[{s.work_order_title}] {s.step_name}</option>
+                  ))}
+                </select>
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      <button
+        className="btn-primary w-full min-h-[44px] flex items-center justify-center gap-2"
+        onClick={() => onNext(individualTasks)}
+      >
+        Save Tasks & Continue
+        <ChevronRight size={18} />
+      </button>
+      <button className="btn-secondary w-full min-h-[44px]" onClick={() => onNext({})}>
+        Skip Task Assignment
+      </button>
+    </div>
+  )
+}
+
+// ─── MaterialAssignStep ───────────────────────────────────────────────────────
+function MaterialAssignStep({ groups, groupMaterials, setGroupMaterials, siteWorkOrderMaterials, presentLabours, onNext }) {
+  const ungroupedLabour = presentLabours.filter(l => {
+    const lid = l._id || l.id
+    return !groups.some(g => g.members?.some(m => m.labour_id === lid))
+  })
+
+  const addMaterialToGroup = (groupId) => {
+    setGroupMaterials(prev => ({
+      ...prev,
+      [groupId]: [...(prev[groupId] || []), { work_order_material_id: '', name: '', quantity: '', unit: 'KG' }],
+    }))
+  }
+
+  const updateGroupMaterial = (groupId, index, field, value) => {
+    setGroupMaterials(prev => {
+      const updated = [...(prev[groupId] || [])]
+      updated[index] = { ...updated[index], [field]: value }
+      if (field === 'work_order_material_id' && value) {
+        const wom = siteWorkOrderMaterials.find(m => m.id === value)
+        if (wom) { updated[index].name = wom.product_name; updated[index].unit = wom.unit }
+      }
+      return { ...prev, [groupId]: updated }
+    })
+  }
+
+  const removeMaterialFromGroup = (groupId, index) => {
+    setGroupMaterials(prev => ({
+      ...prev,
+      [groupId]: (prev[groupId] || []).filter((_, i) => i !== index),
+    }))
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="card">
+        <h2 className="text-base font-bold text-white mb-1 flex items-center gap-2">
+          <Package size={16} className="text-primary-400" />
+          Assign Materials
+        </h2>
+        <p className="text-xs text-gray-400">Assign materials to each group for today's work.</p>
+      </div>
+
+      {groups.map(group => (
+        <div key={group.id} className="card" style={{ borderLeft: `3px solid ${group.colour || '#F97316'}` }}>
+          <p className="text-sm font-semibold text-white mb-2">{group.name}</p>
+
+          {(groupMaterials[group.id] || []).map((mat, idx) => (
+            <div key={idx} className="bg-surface-400 rounded-xl p-2 mb-2 space-y-2">
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-gray-400">Material {idx + 1}</p>
+                <button onClick={() => removeMaterialFromGroup(group.id, idx)} className="text-red-400 p-1">
+                  <X size={12} />
+                </button>
+              </div>
+
+              {siteWorkOrderMaterials.length > 0 && (
+                <>
+                  <label className="label">From Work Order (optional)</label>
+                  <select
+                    className="select text-white"
+                    value={mat.work_order_material_id || ''}
+                    onChange={e => updateGroupMaterial(group.id, idx, 'work_order_material_id', e.target.value)}
+                  >
+                    <option value="">-- Select WO Material --</option>
+                    {siteWorkOrderMaterials.map(m => (
+                      <option key={m.id} value={m.id}>
+                        {m.product_name} ({m.unit}) — Remaining: {(m.total_quantity - m.used_quantity).toFixed(1)}
+                      </option>
+                    ))}
+                  </select>
+                </>
+              )}
+
+              <label className="label">Material Name</label>
+              <input
+                className="input text-white"
+                placeholder="e.g. AP Sparc Primer"
+                value={mat.name}
+                onChange={e => updateGroupMaterial(group.id, idx, 'name', e.target.value)}
+              />
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="label">Quantity</label>
+                  <input
+                    className="input text-white"
+                    type="number"
+                    placeholder="0"
+                    value={mat.quantity}
+                    onChange={e => updateGroupMaterial(group.id, idx, 'quantity', e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="label">Unit</label>
+                  <select
+                    className="select text-white"
+                    value={mat.unit}
+                    onChange={e => updateGroupMaterial(group.id, idx, 'unit', e.target.value)}
+                  >
+                    {['LTR', 'KG', 'Nos', 'Unit'].map(u => <option key={u}>{u}</option>)}
+                  </select>
+                </div>
+              </div>
+            </div>
+          ))}
+
+          <button
+            className="btn-secondary w-full text-sm min-h-[40px] flex items-center justify-center gap-1"
+            onClick={() => addMaterialToGroup(group.id)}
+          >
+            <Plus size={14} /> Add Material to {group.name}
+          </button>
+        </div>
+      ))}
+
+      {ungroupedLabour.length > 0 && (
+        <div className="card">
+          <p className="text-sm text-gray-400">Ungrouped labour will use materials from general attendance entry.</p>
+        </div>
+      )}
+
+      <button
+        className="btn-primary w-full min-h-[44px] flex items-center justify-center gap-2"
+        onClick={() => onNext()}
+      >
+        Save Materials & Continue
+        <ChevronRight size={18} />
+      </button>
+      <button className="btn-secondary w-full min-h-[44px]" onClick={() => onNext()}>
+        Skip Material Assignment
+      </button>
+    </div>
+  )
+}
+
+// ─── TaskCompleteStep ─────────────────────────────────────────────────────────
+function TaskCompleteStep({ groups, groupTasks, attendanceRecords, attendanceDate, onNext }) {
+  const [completions, setCompletions] = useState({})
+  const [saving, setSaving] = useState(false)
+
+  const setCompletion = (groupId, field, value) => {
+    setCompletions(prev => ({ ...prev, [groupId]: { ...(prev[groupId] || {}), [field]: value } }))
+  }
+
+  const saveCompletions = async () => {
+    setSaving(true)
+    try {
+      for (const group of groups) {
+        const task = groupTasks[group.id]
+        const comp = completions[group.id]
+        if (!task?.step_id) continue
+        const memberIds = (group.members || []).map(m => m.labour_id)
+        const groupRecords = attendanceRecords.filter(r => memberIds.includes(r.labour_id))
+        for (const record of groupRecords) {
+          await api.patch(`/attendance/${record._id || record.id}/task-complete`, {
+            task_completed: comp?.completed === true,
+            flat_nos: task.flat_nos || [],
+            carry_forward: comp?.completed === false,
+            work_order_step_id: task.step_id,
+          })
+        }
+      }
+      toast.success('Task completion saved')
+      onNext()
+    } catch {
+      toast.error('Failed to save task completion')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="card">
+        <h2 className="text-base font-bold text-white mb-1 flex items-center gap-2">
+          <CheckCircle size={16} className="text-primary-400" />
+          Task Completion
+        </h2>
+        <p className="text-xs text-gray-400">Mark which tasks were completed today. Incomplete tasks carry forward to tomorrow.</p>
+      </div>
+
+      {groups.filter(g => groupTasks[g.id]?.step_id).map(group => {
+        const task = groupTasks[group.id]
+        const comp = completions[group.id] || {}
+        return (
+          <div key={group.id} className="card" style={{ borderLeft: `3px solid ${group.colour || '#F97316'}` }}>
+            <p className="text-sm font-semibold text-white mb-1">{group.name}</p>
+            <p className="text-xs text-gray-400 mb-1">Task: {task.step_name}</p>
+            {task.flat_nos?.length > 0 && (
+              <p className="text-xs text-gray-500 mb-3">Flats: {task.flat_nos.join(', ')}</p>
+            )}
+            <div className="flex gap-2">
+              <button
+                onClick={() => setCompletion(group.id, 'completed', true)}
+                className={`flex-1 py-3 rounded-xl text-sm font-semibold min-h-[44px] transition-all ${
+                  comp.completed === true ? 'bg-green-500 text-white' : 'border border-green-500/40 text-green-400'
+                }`}
+              >
+                ✅ Completed
+              </button>
+              <button
+                onClick={() => setCompletion(group.id, 'completed', false)}
+                className={`flex-1 py-3 rounded-xl text-sm font-semibold min-h-[44px] transition-all ${
+                  comp.completed === false ? 'bg-orange-500 text-white' : 'border border-orange-500/40 text-orange-400'
+                }`}
+              >
+                🕐 Carry Forward
+              </button>
+            </div>
+          </div>
+        )
+      })}
+
+      {groups.filter(g => groupTasks[g.id]?.step_id).length === 0 && (
+        <div className="card text-center text-gray-500 text-sm py-4">
+          No tasks were assigned. Continue to report.
+        </div>
+      )}
+
+      <button
+        className="btn-primary w-full min-h-[44px] flex items-center justify-center gap-2"
+        onClick={saveCompletions}
+        disabled={saving}
+      >
+        {saving ? 'Saving...' : 'Save & Continue'}
+        <ChevronRight size={18} />
+      </button>
+    </div>
+  )
+}
+
 // ─── MarkAttendance ──────────────────────────────────────────────────────────
 export default function MarkAttendance() {
   const navigate = useNavigate()
@@ -223,6 +741,19 @@ export default function MarkAttendance() {
   const [transferSite, setTransferSite] = useState('')
   const [transferring, setTransferring] = useState(false)
 
+  // ── Groups state
+  const [groups, setGroups] = useState([])
+  const [loadingGroups, setLoadingGroups] = useState(false)
+  const [editingGroups, setEditingGroups] = useState([])
+  // ── Tasks state
+  const [groupTasks, setGroupTasks] = useState({})
+  const [workOrders, setWorkOrders] = useState([])
+  const [loadingWorkOrders, setLoadingWorkOrders] = useState(false)
+  const [carryForwardHints, setCarryForwardHints] = useState([])
+  // ── Materials state
+  const [groupMaterials, setGroupMaterials] = useState({})
+  const [siteWorkOrderMaterials, setSiteWorkOrderMaterials] = useState([])
+
   // ── Load sites on mount
   useEffect(() => {
     setLoadingSites(true)
@@ -246,6 +777,51 @@ export default function MarkAttendance() {
       })
       .catch(() => toast.error('Failed to load labour'))
       .finally(() => setLoadingLabour(false))
+  }, [step, selectedSite])
+
+  // ── Load groups when entering step 4
+  useEffect(() => {
+    if (step !== 4 || !selectedSite) return
+    setLoadingGroups(true)
+    api.get(`/labour-groups?site_id=${selectedSite}&date=${attendanceDate}`)
+      .then(res => {
+        const loaded = res.data?.data || res.data || []
+        setGroups(loaded)
+        const edited = loaded.map(g => ({
+          ...g,
+          members: (g.members || []).map(m => ({
+            ...m,
+            is_present: attendance[m.labour_id] !== 'absent'
+          }))
+        }))
+        setEditingGroups(edited)
+      })
+      .catch(() => {})
+      .finally(() => setLoadingGroups(false))
+  }, [step, selectedSite, attendanceDate])
+
+  // ── Load work orders when entering step 5
+  useEffect(() => {
+    if (step !== 5 || !selectedSite) return
+    setLoadingWorkOrders(true)
+    Promise.all([
+      api.get(`/workorders?site_id=${selectedSite}&status=active`),
+      api.get(`/attendance/carry-forward?site_id=${selectedSite}&date=${attendanceDate}`)
+    ]).then(([woRes, cfRes]) => {
+      setWorkOrders(woRes.data?.data || woRes.data || [])
+      setCarryForwardHints(cfRes.data?.data || cfRes.data || [])
+    }).catch(() => {}).finally(() => setLoadingWorkOrders(false))
+  }, [step, selectedSite, attendanceDate])
+
+  // ── Load site WO materials when entering step 6
+  useEffect(() => {
+    if (step !== 6 || !selectedSite) return
+    api.get(`/workorders?site_id=${selectedSite}&status=active`)
+      .then(res => {
+        const wos = res.data?.data || res.data || []
+        const allMaterials = wos.flatMap(wo => wo.materials || [])
+        setSiteWorkOrderMaterials(allMaterials)
+      }).catch(() => {})
   }, [step, selectedSite])
 
   // ── Attendance counts
@@ -442,7 +1018,7 @@ export default function MarkAttendance() {
         )
       )
       toast.success('Day completed')
-      setStep(5)
+      setStep(8)
     } catch (err) {
       toast.error(err?.response?.data?.message || 'Failed to complete day')
     } finally {
@@ -511,6 +1087,13 @@ export default function MarkAttendance() {
     setTaskStatus('completed')
     setReportTaskStatus('done')
     setReportSubmitted(false)
+    setGroups([])
+    setEditingGroups([])
+    setGroupTasks({})
+    setWorkOrders([])
+    setCarryForwardHints([])
+    setGroupMaterials({})
+    setSiteWorkOrderMaterials([])
   }
 
   // ── Transfer modal handlers
@@ -803,12 +1386,74 @@ export default function MarkAttendance() {
         </div>
       )}
 
-      {/* ── STEP 4: Task Execution + Per-Labour Checkout Photos ── */}
+      {/* ── STEP 4: Labour Groups ── */}
       {step === 4 && (
+        <div className="page-content" style={{ paddingBottom: 140 }}>
+          <div className="card mb-3">
+            <div className="flex items-center gap-2">
+              <button onClick={() => setStep(3)} className="btn-ghost p-1"><ArrowLeft size={18} /></button>
+              <h2 className="text-base font-bold text-white">Labour Groups</h2>
+            </div>
+          </div>
+          <GroupsStep
+            presentLabours={presentLabours}
+            editingGroups={editingGroups}
+            setEditingGroups={setEditingGroups}
+            attendanceDate={attendanceDate}
+            selectedSite={selectedSite}
+            onNext={(savedGroups) => { setGroups(savedGroups); setStep(5) }}
+          />
+        </div>
+      )}
+
+      {/* ── STEP 5: Task Assignment ── */}
+      {step === 5 && (
+        <div className="page-content" style={{ paddingBottom: 140 }}>
+          <div className="card mb-3">
+            <div className="flex items-center gap-2">
+              <button onClick={() => setStep(4)} className="btn-ghost p-1"><ArrowLeft size={18} /></button>
+              <h2 className="text-base font-bold text-white">Assign Tasks</h2>
+            </div>
+          </div>
+          <TaskAssignStep
+            groups={groups}
+            groupTasks={groupTasks}
+            setGroupTasks={setGroupTasks}
+            presentLabours={presentLabours}
+            workOrders={workOrders}
+            carryForwardHints={carryForwardHints}
+            loadingWorkOrders={loadingWorkOrders}
+            onNext={(individualTasks) => { setStep(6) }}
+          />
+        </div>
+      )}
+
+      {/* ── STEP 6: Material Assignment ── */}
+      {step === 6 && (
+        <div className="page-content" style={{ paddingBottom: 140 }}>
+          <div className="card mb-3">
+            <div className="flex items-center gap-2">
+              <button onClick={() => setStep(5)} className="btn-ghost p-1"><ArrowLeft size={18} /></button>
+              <h2 className="text-base font-bold text-white">Assign Materials</h2>
+            </div>
+          </div>
+          <MaterialAssignStep
+            groups={groups}
+            groupMaterials={groupMaterials}
+            setGroupMaterials={setGroupMaterials}
+            siteWorkOrderMaterials={siteWorkOrderMaterials}
+            presentLabours={presentLabours}
+            onNext={() => setStep(7)}
+          />
+        </div>
+      )}
+
+      {/* ── STEP 7: Task Execution + Per-Labour Checkout Photos ── */}
+      {step === 7 && (
         <div className="page-content" style={{ paddingBottom: 140 }}>
           <div className="card">
             <div className="flex items-center gap-2 mb-4">
-              <button onClick={() => setStep(3)} className="btn-ghost p-1">
+              <button onClick={() => setStep(6)} className="btn-ghost p-1">
                 <ArrowLeft size={18} />
               </button>
               <h2 className="text-base font-bold text-white">Task Execution</h2>
@@ -1031,8 +1676,27 @@ export default function MarkAttendance() {
         </div>
       )}
 
-      {/* ── STEP 5: Day Completion & Report ── */}
-      {step === 5 && (
+      {/* ── STEP 8: Task Completion ── */}
+      {step === 8 && (
+        <div className="page-content" style={{ paddingBottom: 140 }}>
+          <div className="card mb-3">
+            <div className="flex items-center gap-2">
+              <button onClick={() => setStep(7)} className="btn-ghost p-1"><ArrowLeft size={18} /></button>
+              <h2 className="text-base font-bold text-white">Task Completion</h2>
+            </div>
+          </div>
+          <TaskCompleteStep
+            groups={groups}
+            groupTasks={groupTasks}
+            attendanceRecords={attendanceRecords}
+            attendanceDate={attendanceDate}
+            onNext={() => setStep(9)}
+          />
+        </div>
+      )}
+
+      {/* ── STEP 9: Day Completion & Report ── */}
+      {step === 9 && (
         <div className="page-content" style={{ paddingBottom: 140 }}>
           {reportSubmitted ? (
             <div className="flex flex-col items-center justify-center py-12 gap-4">

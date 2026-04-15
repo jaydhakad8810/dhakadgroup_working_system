@@ -5,6 +5,7 @@ const { Op } = require('sequelize');
 const PDFDocument = require('pdfkit');
 const https = require('https');
 const http = require('http');
+const { WorkOrderFlat, WorkOrderMaterial, WorkOrderStep } = require('../models/WorkOrderModels');
 
 // Helper: fetch image URL into a Buffer
 function fetchImageBuffer(url) {
@@ -341,6 +342,93 @@ router.get('/transfers/:labour_id', async (req, res) => {
       order: [['createdAt', 'DESC']]
     });
     res.json(transfers);
+  } catch (e) { res.status(500).json({ message: e.message }); }
+});
+
+// PATCH /:id/task-complete — mark task done/carry-forward and update flat progress
+router.patch('/:id/task-complete', supervisorOrAdmin, async (req, res) => {
+  try {
+    const { task_completed, flat_nos, carry_forward, work_order_step_id } = req.body;
+    const att = await Attendance.findByPk(req.params.id);
+    if (!att) return res.status(404).json({ message: 'Not found' });
+
+    const updateData = {
+      task_completed: task_completed || false,
+      carry_forward: carry_forward || false,
+      flat_nos: flat_nos || null,
+    };
+    if (work_order_step_id !== undefined) updateData.work_order_step_id = work_order_step_id;
+    await att.update(updateData);
+
+    // Update flat step_progress when task completed
+    if (work_order_step_id && Array.isArray(flat_nos) && flat_nos.length > 0 && task_completed === true) {
+      const step = await WorkOrderStep.findByPk(work_order_step_id);
+      if (step) {
+        const flats = await WorkOrderFlat.findAll({
+          where: { work_order_id: step.work_order_id, flat_no: { [Op.in]: flat_nos } },
+        });
+        for (const flat of flats) {
+          const progress = flat.step_progress || {};
+          progress[work_order_step_id] = 'done';
+          await flat.update({ step_progress: progress });
+        }
+      }
+    }
+
+    res.json(att);
+  } catch (e) { res.status(500).json({ message: e.message }); }
+});
+
+// PATCH /:id/material-usage — update attendance materials and increment WO material usage
+router.patch('/:id/material-usage', supervisorOrAdmin, async (req, res) => {
+  try {
+    const { materials } = req.body;
+    if (!Array.isArray(materials)) return res.status(400).json({ message: 'materials array required' });
+
+    const att = await Attendance.findByPk(req.params.id);
+    if (!att) return res.status(404).json({ message: 'Not found' });
+
+    await att.update({ materials });
+
+    // Increment used_quantity for any linked WO materials
+    for (const mat of materials) {
+      if (mat.work_order_material_id && mat.quantity) {
+        const wom = await WorkOrderMaterial.findByPk(mat.work_order_material_id);
+        if (wom) {
+          const newUsed = parseFloat(wom.used_quantity || 0) + parseFloat(mat.quantity);
+          await wom.update({ used_quantity: newUsed });
+        }
+      }
+    }
+
+    res.json(att);
+  } catch (e) { res.status(500).json({ message: e.message }); }
+});
+
+// GET /carry-forward?site_id=X&date=Y — previous day's carry-forward tasks
+router.get('/carry-forward', async (req, res) => {
+  try {
+    const { site_id, date } = req.query;
+    if (!site_id) return res.status(400).json({ message: 'site_id required' });
+
+    const useDate = date || new Date().toISOString().split('T')[0];
+    const [year, month, day] = useDate.split('-').map(Number);
+    const d = new Date(year, month - 1, day);
+    d.setDate(d.getDate() - 1);
+    const prevDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+    const records = await Attendance.findAll({
+      where: { site_id, date: prevDate, carry_forward: true },
+      include: [{ model: Labour, as: 'labour', attributes: ['id', 'name'] }],
+      order: [['createdAt', 'ASC']],
+    });
+
+    res.json(records.map(r => ({
+      labour_id: r.labour_id,
+      labour_name: r.labour?.name || '',
+      task_note: r.task_note,
+      work_order_step_id: r.work_order_step_id,
+    })));
   } catch (e) { res.status(500).json({ message: e.message }); }
 });
 
