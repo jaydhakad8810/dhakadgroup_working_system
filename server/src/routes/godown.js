@@ -6,14 +6,19 @@ const { Op } = require('sequelize');
 router.use(auth);
 
 // Material Categories
-router.get('/categories', async (_req, res) => {
-  try { res.json(await MaterialCategory.findAll({ order: [['name', 'ASC']] })); }
-  catch (e) { res.status(500).json({ message: e.message }); }
+router.get('/categories', async (req, res) => {
+  try {
+    const where = {};
+    if (req.query.main_category) where.main_category = req.query.main_category;
+    res.json(await MaterialCategory.findAll({ where, order: [['main_category', 'ASC'], ['name', 'ASC']] }));
+  } catch (e) { res.status(500).json({ message: e.message }); }
 });
 
 router.post('/categories', adminOnly, async (req, res) => {
-  try { res.status(201).json(await MaterialCategory.create(req.body)); }
-  catch (e) { res.status(500).json({ message: e.message }); }
+  try {
+    const { name, unit, main_category } = req.body;
+    res.status(201).json(await MaterialCategory.create({ name, unit, main_category: main_category || 'Other' }));
+  } catch (e) { res.status(500).json({ message: e.message }); }
 });
 
 router.put('/categories/:id', adminOnly, async (req, res) => {
@@ -66,14 +71,19 @@ router.post('/', adminOnly, async (req, res) => {
 });
 
 // Aliases for frontend compatibility — must be before /:id
-router.get('/category', async (_req, res) => {
-  try { res.json(await MaterialCategory.findAll({ order: [['name', 'ASC']] })); }
-  catch (e) { res.status(500).json({ message: e.message }); }
+router.get('/category', async (req, res) => {
+  try {
+    const where = {};
+    if (req.query.main_category) where.main_category = req.query.main_category;
+    res.json(await MaterialCategory.findAll({ where, order: [['main_category', 'ASC'], ['name', 'ASC']] }));
+  } catch (e) { res.status(500).json({ message: e.message }); }
 });
 
 router.post('/category', adminOnly, async (req, res) => {
-  try { res.status(201).json(await MaterialCategory.create(req.body)); }
-  catch (e) { res.status(500).json({ message: e.message }); }
+  try {
+    const { name, unit, main_category } = req.body;
+    res.status(201).json(await MaterialCategory.create({ name, unit, main_category: main_category || 'Other' }));
+  } catch (e) { res.status(500).json({ message: e.message }); }
 });
 
 // Stock availability check — must be BEFORE /stock/:id to avoid shadowing

@@ -5,6 +5,7 @@ const MaterialCategory = sequelize.define('MaterialCategory', {
   id: { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
   name: { type: DataTypes.STRING(100), allowNull: false },
   unit: { type: DataTypes.STRING(20), allowNull: true },
+  main_category: { type: DataTypes.ENUM('Paint', 'Kit', 'Asset', 'Equipment', 'Other'), defaultValue: 'Other', allowNull: false },
 }, { tableName: 'material_categories' });
 
 const Godown = sequelize.define('Godown', {

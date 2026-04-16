@@ -45,6 +45,7 @@ export default function Godown() {
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState('overall');
+  const [catFilter, setCatFilter] = useState('All');
   const [search, setSearch] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -58,7 +59,7 @@ export default function Godown() {
   const [deleteTarget, setDeleteTarget] = useState(null);
 
   const emptyGodownForm = { name: '', address: '', city: '', location_url: '', site_id: '', incharge_id: '', is_primary: false };
-  const emptyCatForm = { name: '', category_type: '' };
+  const emptyCatForm = { name: '', unit: '', main_category: 'Other' };
   const emptyStockIn = { godown_id: '', category_id: '', quantity: '', unit: 'kg', bill_amount: '', received_from: '', notes: '', photo: '' };
   const emptyStockOut = { godown_id: '', category_id: '', quantity: '', unit: 'kg', destination_type: 'site', site_id: '', to_godown_id: '', driver_id: '', notes: '', photo: '' };
   const emptyTransfer = { from_godown_id: '', to_godown_id: '', category_id: '', quantity: '', unit: 'kg', driver_id: '', notes: '' };
@@ -237,8 +238,8 @@ export default function Godown() {
       {/* Tabs */}
       {!search.trim() && (
         <>
-          <div className="flex gap-2 mb-5">
-            {[{ key: 'overall', label: '🏭 Overall Stock' }, { key: 'godown', label: '📦 By Godown' }, { key: 'history', label: '📋 History' }].map(t => (
+          <div className="flex gap-2 mb-5 flex-wrap">
+            {[{ key: 'overall', label: '🏭 Overall Stock' }, { key: 'godown', label: '📦 By Godown' }, { key: 'history', label: '📋 History' }, { key: 'materials', label: '🗂️ Materials' }].map(t => (
               <button key={t.key} onClick={() => setTab(t.key)}
                 className={`px-4 py-2.5 rounded-xl font-medium text-sm transition-all ${tab === t.key ? 'text-black' : 'bg-white text-gray-500 border border-gray-200'}`}
                 style={tab === t.key ? { background: GOLD_GRAD } : {}}>
@@ -346,6 +347,44 @@ export default function Godown() {
               </div>
             </div>
           )}
+
+          {/* Materials */}
+          {tab === 'materials' && (
+            <div>
+              <div className="flex gap-2 mb-4 flex-wrap">
+                {['All', 'Paint', 'Kit', 'Asset', 'Equipment', 'Other'].map(f => (
+                  <button key={f} onClick={() => setCatFilter(f)}
+                    className={`px-3 py-1.5 rounded-xl text-sm font-medium transition-all ${catFilter === f ? 'text-black' : 'bg-white text-gray-500 border border-gray-200'}`}
+                    style={catFilter === f ? { background: GOLD_GRAD } : {}}>
+                    {f} {f === 'All' ? `(${categories.length})` : `(${categories.filter(c => c.main_category === f).length})`}
+                  </button>
+                ))}
+              </div>
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                {categories.length === 0
+                  ? <div className="text-center py-16 text-gray-400"><Package size={40} className="mx-auto mb-3 opacity-30" /><p>No materials yet</p></div>
+                  : <table className="w-full">
+                    <thead><tr style={{ background: '#0a0a0a' }}>
+                      {['Material Name', 'Unit', 'Category', ''].map(h => (
+                        <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: GOLD }}>{h}</th>
+                      ))}
+                    </tr></thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {categories.filter(c => catFilter === 'All' || c.main_category === catFilter).map(c => (
+                        <tr key={c.id} className="hover:bg-gray-50">
+                          <td className="px-4 py-3 font-medium text-gray-900">{c.name}</td>
+                          <td className="px-4 py-3 text-gray-500 text-sm">{c.unit || '—'}</td>
+                          <td className="px-4 py-3">
+                            <span className="px-2 py-1 rounded-full text-xs font-medium bg-indigo-100 text-indigo-700">{c.main_category || 'Other'}</span>
+                          </td>
+                          <td className="px-4 py-3" />
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>}
+              </div>
+            </div>
+          )}
         </>
       )}
 
@@ -408,12 +447,12 @@ export default function Godown() {
             </div>
             <form onSubmit={handleAddCategory} className="space-y-4">
               <div><label className={labelCls}>Material Name *</label><input required value={catForm.name} onChange={e => setCatForm(f => ({ ...f, name: e.target.value }))} className={inputCls} placeholder="e.g. Asian Paint Apex" /></div>
+              <div><label className={labelCls}>Unit <span className="text-gray-400 text-xs">(optional)</span></label><input value={catForm.unit} onChange={e => setCatForm(f => ({ ...f, unit: e.target.value }))} className={inputCls} placeholder="e.g. kg, bags, liters" /></div>
               <div>
-                <label className={labelCls}>Category Type</label>
-                <select value={catForm.category_type} onChange={e => setCatForm(f => ({ ...f, category_type: e.target.value }))} className={selectCls}>
-                  <option value="">Select type</option>
-                  {['paint', 'putty', 'primer', 'chemical', 'tool', 'hardware', 'other'].map(t => (
-                    <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>
+                <label className={labelCls}>Main Category *</label>
+                <select value={catForm.main_category} onChange={e => setCatForm(f => ({ ...f, main_category: e.target.value }))} className={selectCls}>
+                  {['Paint', 'Kit', 'Asset', 'Equipment', 'Other'].map(t => (
+                    <option key={t} value={t}>{t}</option>
                   ))}
                 </select>
               </div>
