@@ -9,6 +9,7 @@ import {
 import { useAuth } from '../../context/AuthContext'
 import api from '../../utils/api'
 import toast from 'react-hot-toast'
+import useDraftSave from '../../hooks/useDraftSave'
 
 // ─── StepBar ────────────────────────────────────────────────────────────────
 function StepBar({ current }) {
@@ -687,6 +688,8 @@ function TaskCompleteStep({ groups, groupTasks, attendanceRecords, attendanceDat
 export default function MarkAttendance() {
   const navigate = useNavigate()
 
+  const { update: markAttendanceDirty, clearDraft: clearAttendanceDraft } = useDraftSave('sv_attendance_draft', {})
+
   // ── Step
   const [step, setStep] = useState(1)
 
@@ -877,6 +880,7 @@ export default function MarkAttendance() {
       const res = await api.post('/attendance/bulk', { site_id: selectedSite, date: attendanceDate, records })
       setAttendanceRecords(res.data?.data || res.data || [])
       toast.success('Attendance saved')
+      markAttendanceDirty({ inProgress: true, site: selectedSite, date: attendanceDate })
       setStep(3)
     } catch (err) {
       toast.error(err?.response?.data?.message || 'Failed to save attendance')
@@ -1057,6 +1061,7 @@ export default function MarkAttendance() {
         task_status: reportTaskStatus,
       })
       setReportSubmitted(true)
+      clearAttendanceDraft()
       toast.success('Report submitted!')
     } catch (err) {
       toast.error(err?.response?.data?.message || 'Failed to submit report')
@@ -1067,6 +1072,7 @@ export default function MarkAttendance() {
 
   // ── Start new day
   const startNewDay = () => {
+    clearAttendanceDraft()
     setStep(1)
     setSelectedSite('')
     setAttendanceDate(new Date().toISOString().split('T')[0])

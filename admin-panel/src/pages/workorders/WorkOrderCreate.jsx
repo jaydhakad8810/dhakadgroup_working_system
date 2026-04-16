@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import { Home, Building2, Droplets, Plus, X, ChevronUp, ChevronDown, Loader2, Check } from 'lucide-react'
 import api from '../../utils/api'
 import toast from 'react-hot-toast'
+import useDraftSave from '../../hooks/useDraftSave'
+import DraftBanner from '../../components/ui/DraftBanner'
 
 // ── Autocomplete input — defined OUTSIDE parent ──────────────────────────────
 function AutocompleteInput({ value, onChange, placeholder, fieldType, siteId, className }) {
@@ -483,6 +485,17 @@ export default function WorkOrderCreate() {
   const [steps, setSteps] = useState([])
   const [materials, setMaterials] = useState([])
 
+  const { update: saveDraft, clearDraft, hasDraft } = useDraftSave('wo_create_draft', {})
+
+  const handleRestoreDraft = () => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('wo_create_draft') || '{}')
+      if (saved.formData) setFormData(f => ({ ...f, ...saved.formData }))
+      if (saved.steps) setSteps(saved.steps)
+      if (saved.materials) setMaterials(saved.materials)
+    } catch {}
+  }
+
   useEffect(() => {
     api.get('/sites').then(r => setSites(Array.isArray(r.data) ? r.data : [])).catch(() => {})
   }, [])
@@ -529,14 +542,26 @@ export default function WorkOrderCreate() {
 
       const { data: wo } = await api.post('/workorders', body)
 
+      let savedSteps = []
       if (steps.length > 0) {
-        await api.post(`/workorders/${wo.id}/steps`, { steps })
+        const stepsRes = await api.post(`/workorders/${wo.id}/steps`, { steps })
+        savedSteps = stepsRes.data || []
       }
       if (materials.length > 0) {
-        await api.post(`/workorders/${wo.id}/materials`, { materials })
+        const nameToId = {}
+        savedSteps.forEach(s => { nameToId[s.step_name] = s.id })
+        const remappedMaterials = materials.map(m => {
+          if (!m.step_id) return m
+          const isUUID = /^[0-9a-f-]{36}$/.test(m.step_id)
+          if (isUUID) return m
+          return { ...m, step_id: nameToId[m.step_id] || null }
+        })
+        await api.post(`/workorders/${wo.id}/materials`, { materials: remappedMaterials })
       }
 
       toast.success('Work order created!')
+      clearDraft()
+      localStorage.removeItem('wo_create_draft')
       navigate('/workorders/' + wo.id)
     } catch (err) { toast.error(err.response?.data?.message || 'Failed to create work order') }
     setSaving(false)
@@ -553,6 +578,8 @@ export default function WorkOrderCreate() {
           <p className="text-gray-400 text-sm">New paint / construction work order</p>
         </div>
       </div>
+
+      <DraftBanner hasDraft={hasDraft} onRestore={handleRestoreDraft} onDiscard={clearDraft} />
 
       <StepIndicator current={currentStep} steps={STEP_LABELS} />
 
@@ -573,7 +600,7 @@ export default function WorkOrderCreate() {
         ) : <div />}
 
         {currentStep < 4 ? (
-          <button onClick={() => { if (!canNext()) return toast.error('Fill required fields'); setCurrentStep(s => s + 1) }}
+          <button onClick={() => { if (!canNext()) return toast.error('Fill required fields'); saveDraft({ formData, steps, materials }); setCurrentStep(s => s + 1) }}
             className="px-6 py-2.5 rounded-xl bg-yellow-500 text-black font-semibold text-sm hover:bg-yellow-400 transition-all disabled:opacity-50">
             Next →
           </button>
