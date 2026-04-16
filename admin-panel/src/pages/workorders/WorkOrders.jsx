@@ -58,19 +58,19 @@ export default function WorkOrders() {
       {/* Filters */}
       <div className="flex flex-wrap gap-3">
         <select value={filters.site_id} onChange={e => f('site_id', e.target.value)}
-          className="bg-surface-300 border border-white/10 text-white rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-yellow-500/50 min-w-[160px]">
+          className="select min-w-[160px]">
           <option value="">All Sites</option>
           {sites.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
         </select>
         <select value={filters.type} onChange={e => f('type', e.target.value)}
-          className="bg-surface-300 border border-white/10 text-white rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-yellow-500/50">
+          className="select">
           <option value="">All Types</option>
           <option value="internal">Internal</option>
           <option value="external">External</option>
           <option value="oil">Oil Paint</option>
         </select>
         <select value={filters.status} onChange={e => f('status', e.target.value)}
-          className="bg-surface-300 border border-white/10 text-white rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-yellow-500/50">
+          className="select">
           <option value="">All Status</option>
           <option value="draft">Draft</option>
           <option value="active">Active</option>

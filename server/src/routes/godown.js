@@ -38,8 +38,16 @@ router.delete('/categories/:id', adminOnly, async (req, res) => {
 router.get('/', async (req, res) => {
   try {
     const where = {};
-    // Supervisor sees godowns they manage
-    if (req.user.role === 'supervisor') where.incharge_id = req.user.id;
+    // Supervisor sees only godowns they manage (by incharge) OR linked to their sites
+    if (req.user.role === 'supervisor') {
+      const { Site } = require('../models');
+      const supervisorSites = await Site.findAll({ where: { supervisor_id: req.user.id }, attributes: ['id'] });
+      const siteIds = supervisorSites.map(s => s.id);
+      where[Op.or] = [
+        { incharge_id: req.user.id },
+        ...(siteIds.length ? [{ site_id: { [Op.in]: siteIds } }] : []),
+      ];
+    }
     const godowns = await Godown.findAll({
       where,
       include: [{
@@ -472,6 +480,11 @@ router.post('/stock-in-site', supervisorOrAdmin, async (req, res) => {
   try {
     const { site_id, category_id, category_name, quantity, notes, photo } = req.body;
     if (!site_id || !quantity) return res.status(400).json({ message: 'site_id and quantity required' });
+    if (req.user.role === 'supervisor') {
+      const { Site } = require('../models');
+      const site = await Site.findOne({ where: { id: site_id, supervisor_id: req.user.id } });
+      if (!site) return res.status(403).json({ message: 'Not authorized for this site' });
+    }
     const matName = category_name ||
       (category_id ? (await MaterialCategory.findByPk(category_id).catch(() => null))?.name : null) ||
       'Material';

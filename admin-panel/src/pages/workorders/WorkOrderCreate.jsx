@@ -36,7 +36,7 @@ function AutocompleteInput({ value, onChange, placeholder, fieldType, siteId, cl
         onChange={handleChange}
         onFocus={() => value.length >= 2 && suggestions.length && setShow(true)}
         placeholder={placeholder}
-        className={className || 'w-full bg-surface-300 border border-white/10 text-white rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-yellow-500/50'}
+        className={className || 'input'}
       />
       {show && suggestions.length > 0 && (
         <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-surface-200 border border-white/15 rounded-xl shadow-xl overflow-hidden">
@@ -97,7 +97,7 @@ function Step1({ data, onChange, sites }) {
       <div>
         <label className="block text-sm font-medium text-gray-300 mb-1">Site *</label>
         <select value={data.site_id} onChange={e => onChange('site_id', e.target.value)}
-          className="w-full bg-surface-300 border border-white/10 text-white rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-yellow-500/50">
+          className="select">
           <option value="">Select site…</option>
           {sites.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
         </select>
@@ -125,19 +125,19 @@ function Step1({ data, onChange, sites }) {
         <label className="block text-sm font-medium text-gray-300 mb-1">Title *</label>
         <input value={data.title} onChange={e => onChange('title', e.target.value)}
           placeholder="e.g. Tower A Internal Paint 2025"
-          className="w-full bg-surface-300 border border-white/10 text-white rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-yellow-500/50" />
+          className="input" />
       </div>
 
       <div className="grid grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium text-gray-300 mb-1">Start Date *</label>
           <input type="date" value={data.start_date} onChange={e => handleStartDate(e.target.value)}
-            className="w-full bg-surface-300 border border-white/10 text-white rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-yellow-500/50" />
+            className="input" />
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-300 mb-1">End Date *</label>
           <input type="date" value={data.end_date} min={data.start_date} onChange={e => onChange('end_date', e.target.value)}
-            className="w-full bg-surface-300 border border-white/10 text-white rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-yellow-500/50" />
+            className="input" />
         </div>
       </div>
 
@@ -145,7 +145,7 @@ function Step1({ data, onChange, sites }) {
         <label className="block text-sm font-medium text-gray-300 mb-1">Notes <span className="text-gray-500">(optional)</span></label>
         <textarea value={data.notes} onChange={e => onChange('notes', e.target.value)} rows={3}
           placeholder="Additional notes or instructions…"
-          className="w-full bg-surface-300 border border-white/10 text-white rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-yellow-500/50 resize-none" />
+          className="input resize-none" />
       </div>
     </div>
   )
@@ -188,7 +188,7 @@ function Step2({ data, onChange, type }) {
           <div className="flex gap-2 mb-2">
             <input value={wingInput} onChange={e => setWingInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addWing())}
               placeholder="e.g. A, B, C…"
-              className="flex-1 bg-surface-300 border border-white/10 text-white rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-yellow-500/50" />
+              className="input flex-1" />
             <button type="button" onClick={addWing} className="px-4 py-2 rounded-xl bg-yellow-500/20 text-yellow-400 text-sm font-semibold hover:bg-yellow-500/30">Add</button>
           </div>
           {wings.length > 0 && (
@@ -206,17 +206,17 @@ function Step2({ data, onChange, type }) {
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-1">Floor Count *</label>
             <input type="number" min={1} value={data.floor_count || ''} onChange={e => onChange('floor_count', e.target.value)}
-              className="w-full bg-surface-300 border border-white/10 text-white rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-yellow-500/50" />
+              className="input" />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-1">Flats/Floor *</label>
             <input type="number" min={1} value={data.flats_per_floor || ''} onChange={e => onChange('flats_per_floor', e.target.value)}
-              className="w-full bg-surface-300 border border-white/10 text-white rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-yellow-500/50" />
+              className="input" />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-1">First Flat No *</label>
             <input type="number" min={1} value={data.first_flat_no || ''} onChange={e => onChange('first_flat_no', e.target.value)}
-              className="w-full bg-surface-300 border border-white/10 text-white rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-yellow-500/50" />
+              className="input" />
           </div>
         </div>
 
@@ -246,7 +246,7 @@ function Step2({ data, onChange, type }) {
           <div className="flex gap-2">
             <input value={customDir} onChange={e => setCustomDir(e.target.value)} onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addCustomDir())}
               placeholder="Add custom direction…"
-              className="flex-1 bg-surface-300 border border-white/10 text-white rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-yellow-500/50" />
+              className="input flex-1" />
             <button type="button" onClick={addCustomDir} className="px-4 py-2 rounded-xl bg-yellow-500/20 text-yellow-400 text-sm font-semibold hover:bg-yellow-500/30">Add</button>
           </div>
         </div>
@@ -259,7 +259,7 @@ function Step2({ data, onChange, type }) {
                 <textarea rows={2} value={data[`dir_notes_${d}`] || ''}
                   onChange={e => onChange(`dir_notes_${d}`, e.target.value)}
                   placeholder={`Describe work on ${d}…`}
-                  className="w-full bg-surface-300 border border-white/10 text-white rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-yellow-500/50 resize-none" />
+                  className="input resize-none" />
               </div>
             ))}
           </div>
@@ -274,7 +274,7 @@ function Step2({ data, onChange, type }) {
       <label className="block text-sm font-medium text-gray-300 mb-2">Areas / Locations for oil paint work</label>
       <textarea rows={5} value={data.oil_areas || ''} onChange={e => onChange('oil_areas', e.target.value)}
         placeholder="List the areas, doors, windows, grills, etc. to be covered…"
-        className="w-full bg-surface-300 border border-white/10 text-white rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-yellow-500/50 resize-none" />
+        className="input resize-none" />
     </div>
   )
 }
@@ -313,7 +313,7 @@ function Step3({ steps, setSteps, type }) {
             <span className="w-6 h-6 rounded-full bg-yellow-500/20 text-yellow-400 text-xs font-bold flex items-center justify-center flex-shrink-0">{i + 1}</span>
             <input value={step.step_name} onChange={e => update(i, 'step_name', e.target.value)}
               placeholder="Step name…"
-              className="flex-1 bg-surface-200 border border-white/10 text-white rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:border-yellow-500/50" />
+              className="input flex-1 text-sm py-1.5" />
             <div className="flex gap-1">
               <button type="button" onClick={() => moveUp(i)} className="p-1 text-gray-500 hover:text-white"><ChevronUp size={14} /></button>
               <button type="button" onClick={() => moveDown(i)} className="p-1 text-gray-500 hover:text-white"><ChevronDown size={14} /></button>
@@ -324,12 +324,12 @@ function Step3({ steps, setSteps, type }) {
             <div>
               <label className="text-xs text-gray-500">Start</label>
               <input type="date" value={step.start_date || ''} onChange={e => update(i, 'start_date', e.target.value)}
-                className="w-full bg-surface-200 border border-white/10 text-white rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:border-yellow-500/50" />
+                className="input text-sm py-1.5" />
             </div>
             <div>
               <label className="text-xs text-gray-500">End</label>
               <input type="date" value={step.end_date || ''} onChange={e => update(i, 'end_date', e.target.value)}
-                className="w-full bg-surface-200 border border-white/10 text-white rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:border-yellow-500/50" />
+                className="input text-sm py-1.5" />
             </div>
           </div>
         </div>
@@ -432,31 +432,31 @@ function MaterialRow({ mat, idx, siteId, flatCount, update, remove, copyToAll })
     <div className="p-3 bg-surface-300 border border-white/10 rounded-xl space-y-2 mb-2">
       <div className="flex items-center gap-2">
         <select value={mat.product_category} onChange={e => update(idx, 'product_category', e.target.value)}
-          className="flex-1 bg-surface-200 border border-white/10 text-white rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-yellow-500/50">
+          className="select flex-1">
           {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
         </select>
         <button type="button" onClick={() => remove(idx)} className="text-gray-500 hover:text-red-400"><X size={14} /></button>
       </div>
       <div className="grid grid-cols-2 gap-2">
         <AutocompleteInput value={mat.company_name} onChange={v => update(idx, 'company_name', v)} placeholder="Company" fieldType="company_name" siteId={siteId}
-          className="w-full bg-surface-200 border border-white/10 text-white rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:border-yellow-500/50" />
+          className="input text-sm py-1.5" />
         <AutocompleteInput value={mat.product_name} onChange={v => update(idx, 'product_name', v)} placeholder="Product name" fieldType="product_name" siteId={siteId}
-          className="w-full bg-surface-200 border border-white/10 text-white rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:border-yellow-500/50" />
+          className="input text-sm py-1.5" />
       </div>
       {showShade && (
         <AutocompleteInput value={mat.shade || ''} onChange={v => update(idx, 'shade', v)} placeholder="Shade / Colour" fieldType="shade" siteId={siteId}
-          className="w-full bg-surface-200 border border-white/10 text-white rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:border-yellow-500/50" />
+          className="input text-sm py-1.5" />
       )}
       <div className="grid grid-cols-3 gap-2">
         <select value={mat.unit} onChange={e => update(idx, 'unit', e.target.value)}
-          className="bg-surface-200 border border-white/10 text-white rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-yellow-500/50">
+          className="select">
           {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
         </select>
         <input type="number" value={mat.total_quantity} onChange={e => update(idx, 'total_quantity', e.target.value)} placeholder="Total qty"
-          className="bg-surface-200 border border-white/10 text-white rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:border-yellow-500/50" />
+          className="input text-sm py-1.5" />
         <div className="flex gap-1">
           <input type="number" value={mat.per_flat_quantity} onChange={e => update(idx, 'per_flat_quantity', e.target.value)} placeholder="Per flat"
-            className="flex-1 bg-surface-200 border border-white/10 text-white rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-yellow-500/50" />
+            className="input flex-1 text-sm py-1.5" />
           {flatCount > 0 && (
             <button type="button" onClick={() => copyToAll(idx)} title="Calculate total = per flat × flat count"
               className="px-2 py-1 bg-yellow-500/20 text-yellow-400 rounded-lg text-xs hover:bg-yellow-500/30">×{flatCount}</button>
