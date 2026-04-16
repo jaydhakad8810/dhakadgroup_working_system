@@ -3,7 +3,7 @@ import toast from 'react-hot-toast'
 import api from '../../utils/api'
 import { PageHeader, LoadingPage, Modal } from '../../components/ui'
 import { DocUpload } from '../../components/ui/PhotoUpload'
-import { Plus, Download } from 'lucide-react'
+import { Plus, Download, Trash2 } from 'lucide-react'
 
 export default function Ledger() {
   const [statement, setStatement] = useState(null)
@@ -66,9 +66,17 @@ export default function Ledger() {
     e.preventDefault(); setSaving(true)
     try {
       await api.post('/ledger/client-payments', { ...payForm, site_id: filterSite || payForm.site_id })
-      toast.success('Payment recorded'); setPayModal(false); load()
+      toast.success('Payment recorded'); setPayModal(false); setPayForm({ payment_date: new Date().toISOString().split('T')[0], payment_mode: 'bank_transfer' }); load()
     } catch { toast.error('Failed') }
     setSaving(false)
+  }
+
+  const deletePayment = async (id) => {
+    if (!window.confirm('Delete this payment?')) return
+    try {
+      await api.delete(`/ledger/client-payments/${id}`)
+      toast.success('Payment deleted'); load()
+    } catch { toast.error('Failed to delete') }
   }
 
   const exportCSV = () => {
@@ -207,19 +215,26 @@ export default function Ledger() {
           {tab === 'payments' && (
             <div className="table-container">
               <table>
-                <thead><tr><th>Date</th><th>Amount</th><th>Mode</th><th>Reference</th><th>Receipt</th><th>Notes</th></tr></thead>
+                <thead><tr><th>Date</th><th>Site</th><th>Amount</th><th>Mode</th><th>Notes</th><th>Receipt</th><th>Actions</th></tr></thead>
                 <tbody>
                   {statement.payments.map(p => (
                     <tr key={p.id}>
                       <td style={{ color: 'var(--muted)' }}>{p.payment_date}</td>
+                      <td style={{ color: 'var(--muted)' }}>{sites.find(s => s.id === (p.site_id || filterSite))?.name || '—'}</td>
                       <td className="text-green-400 font-semibold">₹{parseFloat(p.amount).toLocaleString('en-IN')}</td>
                       <td style={{ color: 'var(--muted)' }}>{p.payment_mode}</td>
-                      <td style={{ color: 'var(--muted)' }}>{p.reference_number || '—'}</td>
-                      <td>{p.receipt_photo ? <a href={p.receipt_photo} target="_blank" className="text-blue-400 text-xs hover:underline">View</a> : '—'}</td>
-                      <td style={{ color: 'var(--muted)' }}>{p.notes || '—'}</td>
+                      <td style={{ color: 'var(--muted)', maxWidth: '180px' }} className="truncate">{p.notes || '—'}</td>
+                      <td>
+                        {p.receipt_photo
+                          ? <a href={p.receipt_photo} target="_blank" rel="noreferrer"><img src={p.receipt_photo} alt="receipt" className="w-10 h-10 object-cover rounded-lg border border-gray-200" /></a>
+                          : '—'}
+                      </td>
+                      <td>
+                        <button onClick={() => deletePayment(p.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-red-400"><Trash2 size={14} /></button>
+                      </td>
                     </tr>
                   ))}
-                  {!statement.payments.length && <tr><td colSpan={6} className="text-center py-8" style={{ color: 'var(--muted)' }}>No payments</td></tr>}
+                  {!statement.payments.length && <tr><td colSpan={7} className="text-center py-8" style={{ color: 'var(--muted)' }}>No payments</td></tr>}
                 </tbody>
               </table>
             </div>
@@ -253,7 +268,7 @@ export default function Ledger() {
       {/* Client Payment Modal */}
       <Modal open={payModal} onClose={() => setPayModal(false)} title="Record Client Payment" size="md">
         <form onSubmit={handlePayment} className="space-y-4">
-          {!filterSite && <div><label className="label">Site *</label><select className="select" required value={payForm.site_id || ''} onChange={e => pf('site_id', e.target.value)}><option value="">Select</option>{sites.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select></div>}
+          <div><label className="label">Site *</label><select className="select" required value={payForm.site_id || filterSite || ''} onChange={e => pf('site_id', e.target.value)}><option value="">Select</option>{sites.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select></div>
           <div><label className="label">Date *</label><input type="date" className="input" required value={payForm.payment_date} onChange={e => pf('payment_date', e.target.value)} /></div>
           <div><label className="label">Amount (₹) *</label><input type="number" className="input" required value={payForm.amount || ''} onChange={e => pf('amount', e.target.value)} /></div>
           <div><label className="label">Payment Mode</label>

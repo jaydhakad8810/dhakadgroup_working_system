@@ -1543,7 +1543,7 @@ export default function MarkAttendance() {
                 <p className="text-xs text-gray-500 uppercase tracking-wide">Added Materials</p>
                 {materials.map((m, i) => (
                   <div
-                    key={i}
+                    key={`mat-${i}-${m.name}`}
                     className="flex items-center justify-between bg-surface-400 rounded-xl px-3 py-2"
                   >
                     <div>
@@ -1815,7 +1815,7 @@ export default function MarkAttendance() {
                     <div className="space-y-1">
                       {materials.map((m, i) => (
                         <div
-                          key={i}
+                          key={`mat-${i}-${m.name}`}
                           className="flex justify-between text-sm bg-surface-400 rounded-lg px-3 py-1.5"
                         >
                           <span className="text-white">{m.name}</span>

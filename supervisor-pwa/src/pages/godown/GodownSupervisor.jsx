@@ -131,6 +131,9 @@ export default function GodownSupervisor() {
   // Delivery confirmation modal
   const [delivModal, setDelivModal] = useState(null)
 
+  // WO material hints for quick-select in request form
+  const [woMaterials, setWoMaterials] = useState([])
+
   const load = async () => {
     setLoading(true)
     try {
@@ -166,6 +169,18 @@ export default function GodownSupervisor() {
   }
 
   useEffect(() => { load() }, [])
+
+  useEffect(() => {
+    api.get('/workorders?status=active').then(r => {
+      const wos = Array.isArray(r.data) ? r.data : (r.data?.data || [])
+      const names = new Set()
+      wos.forEach(wo => {
+        const mats = wo.materials || wo.WorkOrderMaterials || []
+        mats.forEach(m => { if (m.name) names.add(m.name) })
+      })
+      setWoMaterials([...names])
+    }).catch(() => {})
+  }, [])
 
   useEffect(() => {
     if (selected) {
@@ -483,6 +498,17 @@ export default function GodownSupervisor() {
         <form onSubmit={handleRequest} className="space-y-4">
           <div>
             <label className="label">Material Name *</label>
+            {woMaterials.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {woMaterials.map(m => (
+                  <button key={m} type="button"
+                    onClick={() => setReqForm(p => ({ ...p, material_name: m }))}
+                    className={`px-2 py-1 rounded-lg text-xs font-medium transition-all ${reqForm.material_name === m ? 'bg-primary-500 text-white' : 'bg-surface-400 text-gray-400'}`}>
+                    {m}
+                  </button>
+                ))}
+              </div>
+            )}
             <input className="input" required value={reqForm.material_name || ''} onChange={e => setReqForm(p => ({ ...p, material_name: e.target.value }))} placeholder="e.g. Cement, Steel rods…" />
           </div>
           <div className="grid grid-cols-2 gap-3">
