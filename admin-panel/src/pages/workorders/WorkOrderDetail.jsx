@@ -19,7 +19,7 @@ function InlineEdit({ label, value, onSave, type = 'text' }) {
       {editing ? (
         <div className="flex items-center gap-1">
           <input type={type} value={draft} onChange={e => setDraft(e.target.value)}
-            className="bg-surface-200 border border-yellow-500/40 text-white rounded-lg px-2 py-1 text-sm focus:outline-none" />
+            className="input text-sm py-1.5" />
           <button onClick={commit} className="text-green-400 hover:text-green-300"><Check size={14} /></button>
           <button onClick={() => { setDraft(value); setEditing(false) }} className="text-gray-500 hover:text-red-400"><X size={14} /></button>
         </div>
@@ -72,7 +72,7 @@ function OverviewTab({ wo, progress, onPatch }) {
         <div className="flex items-center justify-between py-2">
           <span className="text-gray-500 text-sm">Status</span>
           <select value={wo.status} onChange={e => onPatch({ status: e.target.value })}
-            className="bg-surface-200 border border-white/10 text-white rounded-lg px-2 py-1 text-sm focus:outline-none focus:border-yellow-500/50">
+            className="select">
             {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>)}
           </select>
         </div>
@@ -143,9 +143,9 @@ function StepsTab({ wo, onRefresh }) {
         <div key={step.id || i} className="bg-surface-300 border border-white/10 rounded-xl p-3 flex items-center gap-3">
           <span className="w-6 h-6 rounded-full bg-yellow-500/20 text-yellow-400 text-xs font-bold flex items-center justify-center flex-shrink-0">{i + 1}</span>
           <input value={step.step_name} onChange={e => update(i, 'step_name', e.target.value)}
-            className="flex-1 bg-surface-200 border border-white/10 text-white rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:border-yellow-500/50" />
+            className="input flex-1 text-sm py-1.5" />
           <select value={step.status} onChange={e => update(i, 'status', e.target.value)}
-            className="bg-surface-200 border border-white/10 text-white rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-yellow-500/50">
+            className="select">
             {STEP_STATUS_OPTIONS.map(s => <option key={s} value={s}>{s.replace('_', ' ')}</option>)}
           </select>
           <div className="flex gap-1">
@@ -301,14 +301,14 @@ function FlatsTab({ wo }) {
       <div className="flex gap-2 flex-wrap">
         {wings.length > 0 && (
           <select value={filterWing} onChange={e => setFilterWing(e.target.value)}
-            className="bg-surface-300 border border-white/10 text-white rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-yellow-500/50">
+            className="select">
             <option value="">All Wings</option>
             {wings.map(w => <option key={w} value={w}>{w}</option>)}
           </select>
         )}
         {floors.length > 0 && (
           <select value={filterFloor} onChange={e => setFilterFloor(e.target.value)}
-            className="bg-surface-300 border border-white/10 text-white rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-yellow-500/50">
+            className="select">
             <option value="">All Floors</option>
             {floors.map(f => <option key={f} value={f}>Floor {f}</option>)}
           </select>
