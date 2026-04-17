@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { Edit2, Check, X, ChevronUp, ChevronDown, Save } from 'lucide-react'
+import { Edit2, Check, X, ChevronUp, ChevronDown, Save, Download } from 'lucide-react'
 import api from '../../utils/api'
 import toast from 'react-hot-toast'
 
@@ -387,6 +387,36 @@ export default function WorkOrderDetail() {
     } catch { toast.error('Update failed') }
   }
 
+  const handleExportPDF = async () => {
+    try {
+      const token = localStorage.getItem('dg_token')
+      const res = await fetch(`/api/workorders/${id}/export/pdf`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (!res.ok) throw new Error('Export failed')
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url; a.download = `workorder-${id}.pdf`; a.click()
+      URL.revokeObjectURL(url)
+    } catch { toast.error('PDF export failed') }
+  }
+
+  const handleExportExcel = async () => {
+    try {
+      const token = localStorage.getItem('dg_token')
+      const res = await fetch(`/api/workorders/${id}/export/excel`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (!res.ok) throw new Error('Export failed')
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url; a.download = `workorder-${id}.xlsx`; a.click()
+      URL.revokeObjectURL(url)
+    } catch { toast.error('Excel export failed') }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -406,11 +436,23 @@ export default function WorkOrderDetail() {
           <h1 className="text-xl font-bold text-white">{wo.title}</h1>
           <p className="text-gray-400 text-sm">{wo.site?.name} · {TYPE_LABEL[wo.type]}</p>
         </div>
-        <span className={`text-xs font-semibold px-3 py-1.5 rounded-full border ${
-          wo.status === 'completed' ? 'bg-green-500/20 text-green-400 border-green-500/30' :
-          wo.status === 'active'    ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30' :
-                                      'bg-gray-500/20 text-gray-400 border-gray-500/30'
-        }`}>{wo.status}</span>
+        <div className="flex flex-col items-end gap-2">
+          <span className={`text-xs font-semibold px-3 py-1.5 rounded-full border ${
+            wo.status === 'completed' ? 'bg-green-500/20 text-green-400 border-green-500/30' :
+            wo.status === 'active'    ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30' :
+                                        'bg-gray-500/20 text-gray-400 border-gray-500/30'
+          }`}>{wo.status}</span>
+          <div className="flex gap-2">
+            <button onClick={handleExportPDF}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 transition-all">
+              <Download size={12} /> PDF
+            </button>
+            <button onClick={handleExportExcel}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-green-500/10 text-green-400 border border-green-500/20 hover:bg-green-500/20 transition-all">
+              <Download size={12} /> Excel
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* Tabs */}
