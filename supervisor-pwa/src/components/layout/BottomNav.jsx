@@ -7,6 +7,11 @@ const items = [
   { to: '/labour',      icon: Users,           label: 'Labour' },
   { to: '/godown',      icon: Package,         label: 'Godown' },
   { to: '/workorders',  icon: ClipboardList,   label: 'Work Orders' },
+  { to: '/',           icon: LayoutDashboard, label: 'Home'    },
+  { to: '/attendance', icon: ClipboardCheck,  label: 'Attend'  },
+  { to: '/labour',     icon: Users,           label: 'Labour'  },
+  { to: '/godown',     icon: Package,         label: 'Godown'  },
+  { to: '/workorders', icon: ClipboardList,   label: 'W.Orders'},
 ]
 
 export default function BottomNav() {

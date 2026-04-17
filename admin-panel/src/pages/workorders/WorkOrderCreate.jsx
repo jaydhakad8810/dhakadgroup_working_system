@@ -546,7 +546,9 @@ export default function WorkOrderCreate() {
       if (steps.length > 0) {
         const stepsRes = await api.post(`/workorders/${wo.id}/steps`, { steps })
         savedSteps = stepsRes.data || []
+        savedSteps = Array.isArray(stepsRes.data) ? stepsRes.data : []
       }
+
       if (materials.length > 0) {
         const nameToId = {}
         savedSteps.forEach(s => { nameToId[s.step_name] = s.id })
@@ -555,6 +557,15 @@ export default function WorkOrderCreate() {
           const isUUID = /^[0-9a-f-]{36}$/.test(m.step_id)
           if (isUUID) return m
           return { ...m, step_id: nameToId[m.step_id] || null }
+        savedSteps.forEach(s => {
+          if (s.step_name && s.id) nameToId[s.step_name] = s.id
+        })
+        const remappedMaterials = materials.map(m => {
+          if (!m.step_id) return { ...m, step_id: null }
+          const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(m.step_id)
+          if (isUUID) return m
+          const realId = nameToId[m.step_id]
+          return { ...m, step_id: realId || null }
         })
         await api.post(`/workorders/${wo.id}/materials`, { materials: remappedMaterials })
       }
