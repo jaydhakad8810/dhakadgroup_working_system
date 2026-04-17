@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import { Home, Building2, Droplets, Plus, X, ChevronUp, ChevronDown, Loader2, Check, CheckCircle, Download } from 'lucide-react'
 import api from '../../utils/api'
 import toast from 'react-hot-toast'
+import useDraftSave from '../../hooks/useDraftSave'
+import DraftBanner from '../../components/ui/DraftBanner'
 
 // ── Autocomplete input — defined OUTSIDE parent ──────────────────────────────
 function AutocompleteInput({ value, onChange, placeholder, fieldType, siteId, className }) {
@@ -484,6 +486,17 @@ export default function WorkOrderCreate() {
   const [steps, setSteps] = useState([])
   const [materials, setMaterials] = useState([])
 
+  const { update: saveDraft, clearDraft, hasDraft } = useDraftSave('wo_create_draft', {})
+
+  const handleRestoreDraft = () => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('wo_create_draft') || '{}')
+      if (saved.formData) setFormData(f => ({ ...f, ...saved.formData }))
+      if (saved.steps) setSteps(saved.steps)
+      if (saved.materials) setMaterials(saved.materials)
+    } catch {}
+  }
+
   useEffect(() => {
     api.get('/sites').then(r => setSites(Array.isArray(r.data) ? r.data : [])).catch(() => {})
   }, [])
@@ -529,13 +542,11 @@ export default function WorkOrderCreate() {
       }
 
       const { data: wo } = await api.post('/workorders', body)
-
       let savedSteps = []
       if (steps.length > 0) {
         const stepsRes = await api.post(`/workorders/${wo.id}/steps`, { steps })
         savedSteps = Array.isArray(stepsRes.data) ? stepsRes.data : []
       }
-
       if (materials.length > 0) {
         const nameToId = {}
         savedSteps.forEach(s => {
@@ -555,6 +566,9 @@ export default function WorkOrderCreate() {
       setCreatedWOId(wo.id)
       setSaving(false)
       return
+      clearDraft()
+      localStorage.removeItem('wo_create_draft')
+      navigate('/workorders/' + wo.id)
     } catch (err) { toast.error(err.response?.data?.message || 'Failed to create work order') }
     setSaving(false)
   }
@@ -637,6 +651,8 @@ export default function WorkOrderCreate() {
         </div>
       </div>
 
+      <DraftBanner hasDraft={hasDraft} onRestore={handleRestoreDraft} onDiscard={clearDraft} />
+
       <StepIndicator current={currentStep} steps={STEP_LABELS} />
 
       <div className="bg-surface-300 border border-white/10 rounded-2xl p-6">
@@ -656,7 +672,7 @@ export default function WorkOrderCreate() {
         ) : <div />}
 
         {currentStep < 4 ? (
-          <button onClick={() => { if (!canNext()) return toast.error('Fill required fields'); setCurrentStep(s => s + 1) }}
+          <button onClick={() => { if (!canNext()) return toast.error('Fill required fields'); saveDraft({ formData, steps, materials }); setCurrentStep(s => s + 1) }}
             className="px-6 py-2.5 rounded-xl bg-yellow-500 text-black font-semibold text-sm hover:bg-yellow-400 transition-all disabled:opacity-50">
             Next →
           </button>
