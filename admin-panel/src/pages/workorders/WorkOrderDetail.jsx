@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
+import { Edit2, Check, X, ChevronUp, ChevronDown, Save, Trash2 } from 'lucide-react'
 import { Edit2, Check, X, ChevronUp, ChevronDown, Save, Download } from 'lucide-react'
 import api from '../../utils/api'
 import toast from 'react-hot-toast'
@@ -379,6 +380,15 @@ export default function WorkOrderDetail() {
 
   useEffect(() => { load() }, [id])
 
+  const handleDelete = async () => {
+    if (!window.confirm('Delete this work order? All steps, materials and flat data will be lost.')) return
+    try {
+      await api.delete(`/workorders/${id}`)
+      toast.success('Work order deleted')
+      navigate('/workorders')
+    } catch { toast.error('Failed to delete') }
+  }
+
   const handlePatch = async (data) => {
     try {
       const res = await api.patch('/workorders/' + id, data)
@@ -436,12 +446,19 @@ export default function WorkOrderDetail() {
           <h1 className="text-xl font-bold text-white">{wo.title}</h1>
           <p className="text-gray-400 text-sm">{wo.site?.name} · {TYPE_LABEL[wo.type]}</p>
         </div>
+        <div className="flex items-center gap-2 flex-shrink-0">
         <div className="flex flex-col items-end gap-2">
           <span className={`text-xs font-semibold px-3 py-1.5 rounded-full border ${
             wo.status === 'completed' ? 'bg-green-500/20 text-green-400 border-green-500/30' :
             wo.status === 'active'    ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30' :
                                         'bg-gray-500/20 text-gray-400 border-gray-500/30'
           }`}>{wo.status}</span>
+          <button
+            onClick={handleDelete}
+            className="flex items-center gap-1.5 text-sm px-3 py-2 rounded-lg border border-red-500/30 text-red-400 hover:bg-red-500/10 transition-all"
+          >
+            <Trash2 size={14} /> Delete
+          </button>
           <div className="flex gap-2">
             <button onClick={handleExportPDF}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 transition-all">

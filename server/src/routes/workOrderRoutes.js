@@ -300,6 +300,17 @@ router.get('/:id/progress', async (req, res) => {
   } catch (e) { res.status(500).json({ message: e.message }); }
 });
 
+router.delete('/:id', adminOnly, async (req, res) => {
+  try {
+    const wo = await WorkOrder.findByPk(req.params.id)
+    if (!wo) return res.status(404).json({ message: 'Work order not found' })
+    await WorkOrderMaterial.destroy({ where: { work_order_id: req.params.id } })
+    await WorkOrderStep.destroy({ where: { work_order_id: req.params.id } })
+    await WorkOrderFlat.destroy({ where: { work_order_id: req.params.id } })
+    await wo.destroy()
+    res.json({ message: 'Work order deleted successfully' })
+  } catch (e) { res.status(500).json({ message: e.message }) }
+})
 // ── GET /:id/export/pdf — export work order as PDF
 router.get('/:id/export/pdf', adminOnly, async (req, res) => {
   try {

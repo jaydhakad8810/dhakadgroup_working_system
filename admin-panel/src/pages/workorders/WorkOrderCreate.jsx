@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Home, Building2, Droplets, Plus, X, ChevronUp, ChevronDown, Loader2, Check } from 'lucide-react'
+import { Home, Building2, Droplets, Plus, X, ChevronUp, ChevronDown, Loader2, Check, CheckCircle, Download } from 'lucide-react'
 import api from '../../utils/api'
 import toast from 'react-hot-toast'
 import useDraftSave from '../../hooks/useDraftSave'
@@ -475,6 +475,7 @@ export default function WorkOrderCreate() {
   const [currentStep, setCurrentStep] = useState(1)
   const [saving, setSaving] = useState(false)
   const [sites, setSites] = useState([])
+  const [createdWOId, setCreatedWOId] = useState(null)
 
   const [formData, setFormData] = useState({
     site_id: '', type: 'internal', title: '', start_date: '', end_date: '', notes: '',
@@ -562,6 +563,9 @@ export default function WorkOrderCreate() {
       }
 
       toast.success('Work order created!')
+      setCreatedWOId(wo.id)
+      setSaving(false)
+      return
       clearDraft()
       localStorage.removeItem('wo_create_draft')
       navigate('/workorders/' + wo.id)
@@ -570,6 +574,72 @@ export default function WorkOrderCreate() {
   }
 
   const STEP_LABELS = ['Basic Info', 'Structure', 'Steps', 'Materials']
+
+  if (createdWOId) {
+    return (
+      <div className="max-w-3xl mx-auto">
+        <div className="flex flex-col items-center justify-center py-16 gap-4">
+          <div className="w-16 h-16 rounded-full bg-green-500/20 flex items-center justify-center">
+            <CheckCircle size={36} className="text-green-400" />
+          </div>
+          <h2 className="text-xl font-bold text-white">Work Order Created!</h2>
+          <p className="text-gray-400 text-sm text-center">
+            Your work order has been created successfully.
+          </p>
+          <div className="flex flex-col gap-3 w-full max-w-sm mt-4">
+            <button
+              onClick={() => navigate('/workorders/' + createdWOId)}
+              className="btn-gold w-full flex items-center justify-center gap-2 py-3"
+            >
+              View Work Order
+            </button>
+            <button
+              onClick={async () => {
+                try {
+                  const token = localStorage.getItem('dg_token')
+                  const res = await fetch(`/api/workorders/${createdWOId}/export/pdf`, {
+                    headers: { Authorization: `Bearer ${token}` }
+                  })
+                  const blob = await res.blob()
+                  const url = URL.createObjectURL(blob)
+                  const a = document.createElement('a')
+                  a.href = url; a.download = `workorder.pdf`; a.click()
+                  URL.revokeObjectURL(url)
+                } catch { toast.error('Export failed') }
+              }}
+              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border border-white/20 text-gray-300 hover:bg-white/5 transition-all"
+            >
+              <Download size={16} /> Export PDF
+            </button>
+            <button
+              onClick={async () => {
+                try {
+                  const token = localStorage.getItem('dg_token')
+                  const res = await fetch(`/api/workorders/${createdWOId}/export/excel`, {
+                    headers: { Authorization: `Bearer ${token}` }
+                  })
+                  const blob = await res.blob()
+                  const url = URL.createObjectURL(blob)
+                  const a = document.createElement('a')
+                  a.href = url; a.download = `workorder.xlsx`; a.click()
+                  URL.revokeObjectURL(url)
+                } catch { toast.error('Export failed') }
+              }}
+              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border border-green-500/30 text-green-400 hover:bg-green-500/10 transition-all"
+            >
+              <Download size={16} /> Export Excel
+            </button>
+            <button
+              onClick={() => navigate('/workorders')}
+              className="text-gray-500 text-sm text-center hover:text-gray-300 transition-all"
+            >
+              Back to Work Orders
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
