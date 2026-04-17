@@ -10,6 +10,7 @@ const titles = {
   '/salary': 'Salary', '/expenses': 'Expenses', '/expenses/add': 'Add Expense',
   '/reports': 'Visit Reports', '/reports/add': 'New Report',
   '/notifications': 'Notifications', '/profile': 'Profile',
+  '/workorders': 'Work Orders',
 }
 
 export default function TopBar() {
@@ -17,7 +18,7 @@ export default function TopBar() {
   const navigate = useNavigate()
   const { user } = useAuth()
   const [unread, setUnread] = useState(0)
-  const isRoot = ['/', '/sites', '/labour', '/attendance', '/expenses', '/reports', '/notifications', '/profile', '/salary'].includes(pathname)
+  const isRoot = ['/', '/sites', '/labour', '/attendance', '/expenses', '/reports', '/notifications', '/profile', '/salary', '/workorders'].includes(pathname)
   const title = titles[pathname] || 'DGSystem'
 
   useEffect(() => {
