@@ -827,7 +827,7 @@ export default function MarkAttendance() {
     if (step !== 5 || !selectedSite) return
     setLoadingWorkOrders(true)
     Promise.all([
-      api.get(`/workorders?site_id=${selectedSite}&status=active`),
+      api.get(`/workorders?site_id=${selectedSite}`),
       api.get(`/attendance/carry-forward?site_id=${selectedSite}&date=${attendanceDate}`)
     ]).then(([woRes, cfRes]) => {
       setWorkOrders(woRes.data?.data || woRes.data || [])
@@ -838,7 +838,7 @@ export default function MarkAttendance() {
   // ── Load site WO materials when entering step 6 or 7 (step 7 for resume)
   useEffect(() => {
     if ((step !== 6 && step !== 7) || !selectedSite) return
-    api.get(`/workorders?site_id=${selectedSite}&status=active`)
+    api.get(`/workorders?site_id=${selectedSite}`)
       .then(res => {
         const wos = res.data?.data || res.data || []
         const allMaterials = wos.flatMap(wo => wo.materials || [])
