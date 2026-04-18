@@ -90,11 +90,21 @@ export default function Notifications() {
   // Step 3A: Trip modal state
   const [tripModal, setTripModal] = useState(false)
   const [drivers, setDrivers] = useState([])
+  const [vehicles, setVehicles] = useState([])
   const [sites, setSites] = useState([])
-  const [tripForm, setTripForm] = useState({ driver_id: '', site_id: '', notes: '' })
+  const [tripForm, setTripForm] = useState({ driver_id: '', site_id: '', notes: '', vehicle_id: '' })
   const [savingTrip, setSavingTrip] = useState(false)
   const [loadingDrivers, setLoadingDrivers] = useState(false)
-  const tf = (k, v) => setTripForm(p => ({ ...p, [k]: v }))
+  const tf = (k, v) => {
+    setTripForm(p => ({ ...p, [k]: v }))
+    if (k === 'driver_id' && v) {
+      api.get('/drivers/' + v).then(r => {
+        const driverVehicles = r.data?.vehicles || r.data?.data?.vehicles || []
+        setVehicles(driverVehicles)
+        if (driverVehicles[0]) setTripForm(p => ({ ...p, vehicle_id: driverVehicles[0].id }))
+      }).catch(() => {})
+    }
+  }
 
   // Step 3B: Requisition modal state
   const [reqModal, setReqModal] = useState(false)
@@ -162,7 +172,8 @@ export default function Notifications() {
 
   // Step 3A: Open trip modal (stock available)
   const openTripFromStock = async () => {
-    setTripForm({ driver_id: '', site_id: stockMeta?.site_id || '', notes: '' })
+    setTripForm({ driver_id: '', site_id: stockMeta?.site_id || '', notes: '', vehicle_id: '' })
+    setVehicles([])
     try {
       const sRes = await api.get('/sites')
       setSites(Array.isArray(sRes.data) ? sRes.data : (sRes.data?.data || []))
@@ -200,6 +211,8 @@ export default function Notifications() {
         trip_type: 'delivery',
         material_name: stockMeta?.material_name || '',
         quantity: stockMeta?.quantity || '',
+        material_unit: stockMeta?.unit || '',
+        vehicle_id: tripForm.vehicle_id || undefined,
         notes: tripForm.notes,
         status: 'pending',
       })
@@ -459,6 +472,17 @@ export default function Notifications() {
                   : <DriverSelect value={tripForm.driver_id} onChange={v => tf('driver_id', v)} drivers={drivers} />
               }
             </div>
+            {vehicles.length > 0 && (
+              <div>
+                <label className="label">Assign Vehicle</label>
+                <select className="select" value={tripForm.vehicle_id} onChange={e => tf('vehicle_id', e.target.value)}>
+                  <option value="">-- Select Vehicle --</option>
+                  {vehicles.map(v => (
+                    <option key={v.id} value={v.id}>{v.registration_number} {v.make ? '· ' + v.make : ''} {v.model || ''}</option>
+                  ))}
+                </select>
+              </div>
+            )}
             <div>
               <label className="label">Notes / Pickup Instructions</label>
               <textarea className="input" rows={2} placeholder="e.g. Pick up from Gate 2, handle with care…" value={tripForm.notes} onChange={e => tf('notes', e.target.value)} />

@@ -161,6 +161,8 @@ export default function TripDetail() {
         <div className="card space-y-0">
           <h3 className="text-white font-semibold mb-3">Material Details</h3>
           <InfoRow label="Material" value={trip.material_name} />
+          {trip.material_company && <InfoRow label="Company" value={trip.material_company} />}
+          {trip.material_product && <InfoRow label="Product" value={trip.material_product} />}
           <InfoRow label="Quantity" value={trip.material_quantity ? `${trip.material_quantity} ${trip.material_unit || ''}` : null} valueClass="text-gold-400" />
         </div>
       )}
@@ -223,7 +225,7 @@ export default function TripDetail() {
       <div className="card space-y-0">
         <h3 className="text-white font-semibold mb-3">Trip Details</h3>
         <InfoRow label="Date" value={trip.trip_date} />
-        <InfoRow label="Vehicle" value={trip.vehicle?.registration_number} valueClass="text-primary-400" />
+        <InfoRow label="Vehicle" value={trip.vehicle ? `${trip.vehicle.registration_number}${trip.vehicle.make ? ' · ' + trip.vehicle.make : ''}${trip.vehicle.model ? ' ' + trip.vehicle.model : ''}` : '—'} valueClass="text-primary-400" />
         <InfoRow label="Purpose" value={trip.purpose} />
         {trip.odometer_start && <InfoRow label="Odometer Start" value={`${trip.odometer_start?.toLocaleString()} km`} />}
         {trip.odometer_end && <InfoRow label="Odometer End" value={`${trip.odometer_end?.toLocaleString()} km`} />}
