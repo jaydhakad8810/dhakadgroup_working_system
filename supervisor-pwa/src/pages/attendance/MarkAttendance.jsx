@@ -354,7 +354,7 @@ function TaskAssignStep({ groups, groupTasks, setGroupTasks, presentLabours, wor
 
       {workOrders.length === 0 && !loadingWorkOrders && (
         <div className="card text-center text-gray-500 text-sm py-4">
-          No active work orders for this site. You can skip task assignment.
+          No work orders found. You can skip task assignment.
         </div>
       )}
 
@@ -830,7 +830,8 @@ export default function MarkAttendance() {
       api.get(`/workorders?site_id=${selectedSite}`),
       api.get(`/attendance/carry-forward?site_id=${selectedSite}&date=${attendanceDate}`)
     ]).then(([woRes, cfRes]) => {
-      setWorkOrders(woRes.data?.data || woRes.data || [])
+      const wos = woRes.data?.data || woRes.data || []
+      setWorkOrders(wos)
       setCarryForwardHints(cfRes.data?.data || cfRes.data || [])
     }).catch(() => {}).finally(() => setLoadingWorkOrders(false))
   }, [step, selectedSite, attendanceDate])
