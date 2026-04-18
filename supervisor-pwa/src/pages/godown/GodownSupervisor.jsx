@@ -184,21 +184,26 @@ export default function GodownSupervisor() {
   }, [])
 
   useEffect(() => {
-    // Fetch WO materials after sites load — uses site_id from first site
-    api.get('/sites').then(sRes => {
+    // Fetch WO materials for ALL supervisor sites
+    api.get('/sites').then(async sRes => {
       const siteList = Array.isArray(sRes.data) ? sRes.data : (sRes.data?.data || [])
-      const firstSite = siteList[0]
-      if (!firstSite) return
-      return api.get('/workorders/site-materials?site_id=' + firstSite.id)
-    }).then(r => {
-      if (!r) return
-      const mats = Array.isArray(r.data) ? r.data : []
-      setWoMaterials(mats.map(m => ({
-        id: m.id,
-        name: m.product_name,
-        unit: m.unit || '',
-        remaining: m.remaining
-      })))
+      if (!siteList.length) return
+      const allMats = {}
+      await Promise.all(siteList.map(site =>
+        api.get('/workorders/site-materials?site_id=' + site.id)
+          .then(r => {
+            const mats = Array.isArray(r.data) ? r.data : []
+            mats.forEach(m => {
+              if (!allMats[m.id]) allMats[m.id] = {
+                id: m.id,
+                name: m.product_name,
+                unit: m.unit || '',
+                remaining: m.remaining
+              }
+            })
+          }).catch(() => {})
+      ))
+      setWoMaterials(Object.values(allMats))
     }).catch(() => {})
   }, [])
 
