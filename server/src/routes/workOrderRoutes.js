@@ -129,6 +129,37 @@ router.post('/', adminOnly, async (req, res) => {
 });
 
 // ── GET /:id — full detail
+
+// ── GET /site-materials?site_id=X — lightweight fetch of all WO materials for a site
+router.get('/site-materials', async (req, res) => {
+  try {
+    const { site_id } = req.query
+    if (!site_id) return res.status(400).json({ message: 'site_id required' })
+    const wos = await WorkOrder.findAll({
+      where: { site_id, status: 'active' },
+      attributes: ['id', 'title', 'type'],
+      include: [{
+        model: WorkOrderMaterial,
+        as: 'materials',
+        attributes: ['id', 'product_name', 'company_name', 'unit', 'total_quantity', 'used_quantity']
+      }]
+    })
+    const materials = wos.flatMap(wo =>
+      (wo.materials || []).map(m => ({
+        id: m.id,
+        product_name: m.product_name,
+        company_name: m.company_name,
+        unit: m.unit,
+        total_quantity: m.total_quantity,
+        used_quantity: m.used_quantity,
+        remaining: parseFloat(m.total_quantity || 0) - parseFloat(m.used_quantity || 0),
+        work_order_title: wo.title
+      }))
+    )
+    res.json(materials)
+  } catch (e) { res.status(500).json({ message: e.message }) }
+})
+
 router.get('/:id', async (req, res) => {
   try {
     const workOrder = await WorkOrder.findByPk(req.params.id, {
@@ -410,36 +441,5 @@ router.get('/:id/export/excel', adminOnly, async (req, res) => {
     res.send(buf);
   } catch (e) { res.status(500).json({ message: e.message }); }
 });
-
-
-// ── GET /site-materials?site_id=X — lightweight fetch of all WO materials for a site
-router.get('/site-materials', async (req, res) => {
-  try {
-    const { site_id } = req.query
-    if (!site_id) return res.status(400).json({ message: 'site_id required' })
-    const wos = await WorkOrder.findAll({
-      where: { site_id, status: 'active' },
-      attributes: ['id', 'title', 'type'],
-      include: [{
-        model: WorkOrderMaterial,
-        as: 'materials',
-        attributes: ['id', 'product_name', 'company_name', 'unit', 'total_quantity', 'used_quantity']
-      }]
-    })
-    const materials = wos.flatMap(wo =>
-      (wo.materials || []).map(m => ({
-        id: m.id,
-        product_name: m.product_name,
-        company_name: m.company_name,
-        unit: m.unit,
-        total_quantity: m.total_quantity,
-        used_quantity: m.used_quantity,
-        remaining: parseFloat(m.total_quantity || 0) - parseFloat(m.used_quantity || 0),
-        work_order_title: wo.title
-      }))
-    )
-    res.json(materials)
-  } catch (e) { res.status(500).json({ message: e.message }) }
-})
 
 module.exports = router;
