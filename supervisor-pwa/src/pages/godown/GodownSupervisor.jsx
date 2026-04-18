@@ -184,17 +184,21 @@ export default function GodownSupervisor() {
   }, [])
 
   useEffect(() => {
-    api.get('/workorders?status=active').then(r => {
-      const wos = Array.isArray(r.data) ? r.data : (r.data?.data || [])
-      const matsMap = {}
-      wos.forEach(wo => {
-        const mats = wo.materials || wo.WorkOrderMaterials || []
-        mats.forEach(m => {
-          const key = m.product_name || m.name
-          if (key && !matsMap[key]) matsMap[key] = { name: key, unit: m.unit || '', id: m.id }
-        })
-      })
-      setWoMaterials(Object.values(matsMap))
+    // Fetch WO materials after sites load — uses site_id from first site
+    api.get('/sites').then(sRes => {
+      const siteList = Array.isArray(sRes.data) ? sRes.data : (sRes.data?.data || [])
+      const firstSite = siteList[0]
+      if (!firstSite) return
+      return api.get('/workorders/site-materials?site_id=' + firstSite.id)
+    }).then(r => {
+      if (!r) return
+      const mats = Array.isArray(r.data) ? r.data : []
+      setWoMaterials(mats.map(m => ({
+        id: m.id,
+        name: m.product_name,
+        unit: m.unit || '',
+        remaining: m.remaining
+      })))
     }).catch(() => {})
   }, [])
 
