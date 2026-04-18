@@ -478,23 +478,60 @@ router.patch('/requests/:id/confirm-delivery', supervisorOrAdmin, async (req, re
 // Supervisor confirms material received at site (after delivery)
 router.post('/stock-in-site', supervisorOrAdmin, async (req, res) => {
   try {
-    const { site_id, category_id, category_name, quantity, notes, photo } = req.body;
+    const { site_id, category_id, category_name, quantity, notes, photo, material_name } = req.body;
     if (!site_id || !quantity) return res.status(400).json({ message: 'site_id and quantity required' });
     if (req.user.role === 'supervisor') {
       const { Site } = require('../models');
       const site = await Site.findOne({ where: { id: site_id, supervisor_id: req.user.id } });
       if (!site) return res.status(403).json({ message: 'Not authorized for this site' });
     }
-    const matName = category_name ||
+    const matName = material_name || category_name ||
       (category_id ? (await MaterialCategory.findByPk(category_id).catch(() => null))?.name : null) ||
       'Material';
     const site = await Site.findByPk(site_id, { attributes: ['id', 'name'] }).catch(() => null);
+
+    // Find or create site godown
+    let siteGodown = await Godown.findOne({ where: { site_id } });
+    if (!siteGodown) {
+      siteGodown = await Godown.create({
+        name: (site?.name || 'Site') + ' Stock',
+        site_id,
+        is_primary: false,
+        incharge_id: req.user.id
+      });
+    }
+
+    // Find or create material category
+    let cat = await MaterialCategory.findOne({ where: { name: matName } });
+    if (!cat) {
+      cat = await MaterialCategory.create({ name: matName, unit: req.body.unit || 'units' });
+    }
+
+    // Add to godown stock
+    const [stock] = await GodownStock.findOrCreate({
+      where: { godown_id: siteGodown.id, category_id: cat.id },
+      defaults: { quantity: 0, unit_price: 0, min_threshold: 0 }
+    });
+    await stock.update({ quantity: parseFloat(stock.quantity) + parseFloat(quantity) });
+
+    // Log stock history
+    await StockHistory.create({
+      godown_id: siteGodown.id,
+      category_id: cat.id,
+      type: 'in',
+      quantity,
+      notes: notes || 'Delivery confirmed by supervisor',
+      photo: photo || null,
+      created_by: req.user.id
+    });
+
     await Notification.create({
       title: 'Material Received at Site',
-      message: `${quantity} units of ${matName} confirmed received at ${site?.name || site_id}. ${notes || ''}`,
+      message: `${quantity} of ${matName} added to ${site?.name || 'site'} stock.`,
       type: 'success', target_role: 'admin', sent_by: req.user.id
     });
-    res.json({ message: 'Site receipt logged', site_id, quantity, material: matName });
+
+    res.json({ message: 'Stock added to site', site_id, quantity, material: matName, stock_id: stock.id });
   } catch (e) { res.status(500).json({ message: e.message }); }
 });
 
