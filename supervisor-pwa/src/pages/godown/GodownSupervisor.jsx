@@ -171,6 +171,15 @@ export default function GodownSupervisor() {
   useEffect(() => { load() }, [])
 
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('request') === 'true') {
+      setReqModal(true)
+      const woId = params.get('wo_id')
+      if (woId) setReqForm(prev => ({ ...prev, work_order_id: woId }))
+    }
+  }, [])
+
+  useEffect(() => {
     api.get('/workorders?status=active').then(r => {
       const wos = Array.isArray(r.data) ? r.data : (r.data?.data || [])
       const names = new Set()

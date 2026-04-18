@@ -754,6 +754,25 @@ export default function MarkAttendance() {
   const [groupMaterials, setGroupMaterials] = useState({})
   const [siteWorkOrderMaterials, setSiteWorkOrderMaterials] = useState([])
 
+  // ── Resume checkout from localStorage (e.g. supervisor left after morning check-in)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('resume') === 'checkout') {
+      try {
+        const saved = localStorage.getItem('dg_resume_checkout')
+        if (saved) {
+          const parsed = JSON.parse(saved)
+          setSelectedSite(parsed.selectedSite || '')
+          setAttendanceDate(parsed.attendanceDate || new Date().toISOString().split('T')[0])
+          setAttendanceRecords(parsed.attendanceRecords || [])
+          setCheckinPhotos(parsed.checkinPhotos || {})
+          setStep(7)
+          localStorage.removeItem('dg_resume_checkout')
+        }
+      } catch {}
+    }
+  }, [])
+
   // ── Load sites on mount
   useEffect(() => {
     setLoadingSites(true)
@@ -813,9 +832,9 @@ export default function MarkAttendance() {
     }).catch(() => {}).finally(() => setLoadingWorkOrders(false))
   }, [step, selectedSite, attendanceDate])
 
-  // ── Load site WO materials when entering step 6
+  // ── Load site WO materials when entering step 6 or 7 (step 7 for resume)
   useEffect(() => {
-    if (step !== 6 || !selectedSite) return
+    if ((step !== 6 && step !== 7) || !selectedSite) return
     api.get(`/workorders?site_id=${selectedSite}&status=active`)
       .then(res => {
         const wos = res.data?.data || res.data || []
@@ -958,6 +977,13 @@ export default function MarkAttendance() {
         })
       )
       toast.success('Check-in recorded')
+      localStorage.setItem('dg_checkin_session', JSON.stringify({
+        selectedSite,
+        attendanceDate,
+        attendanceRecords: attendanceRecords.map(r => ({ id: r._id || r.id, labour_id: r.labour_id, status: r.status })),
+        checkinPhotos,
+        step: 4
+      }))
       setStep(4)
     } catch (err) {
       toast.error(err?.response?.data?.message || 'Failed to record check-in')
@@ -1067,6 +1093,8 @@ export default function MarkAttendance() {
 
   // ── Start new day
   const startNewDay = () => {
+    localStorage.removeItem('dg_checkin_session')
+    localStorage.removeItem('dg_resume_checkout')
     setStep(1)
     setSelectedSite('')
     setAttendanceDate(new Date().toISOString().split('T')[0])
@@ -1443,8 +1471,38 @@ export default function MarkAttendance() {
             setGroupMaterials={setGroupMaterials}
             siteWorkOrderMaterials={siteWorkOrderMaterials}
             presentLabours={presentLabours}
-            onNext={() => setStep(7)}
+            onNext={() => {
+              localStorage.setItem('dg_checkin_session', JSON.stringify({
+                selectedSite,
+                attendanceDate,
+                attendanceRecords: attendanceRecords.map(r => ({ id: r._id || r.id, labour_id: r.labour_id, status: r.status })),
+                checkinPhotos,
+                step: 'checkin_complete'
+              }))
+              setStep('morning_done')
+            }}
           />
+        </div>
+      )}
+
+      {/* ── MORNING DONE: Check-in complete, return in evening ── */}
+      {step === 'morning_done' && (
+        <div className="page-content flex flex-col items-center justify-center py-12 gap-4" style={{ paddingBottom: 100 }}>
+          <div className="w-16 h-16 rounded-full bg-green-500/20 flex items-center justify-center">
+            <CheckCircle size={36} className="text-green-400" />
+          </div>
+          <h2 className="text-xl font-bold text-white text-center">Morning Check-In Complete!</h2>
+          <p className="text-gray-400 text-sm text-center px-4">
+            All workers are checked in. Come back in the evening to complete checkout.
+          </p>
+          <div className="w-full px-4 space-y-3 mt-4">
+            <button
+              className="btn-primary w-full min-h-[52px] flex items-center justify-center gap-2"
+              onClick={() => window.location.href = '/'}
+            >
+              🏠 Go to Home
+            </button>
+          </div>
         </div>
       )}
 
@@ -1460,11 +1518,21 @@ export default function MarkAttendance() {
             </div>
             <div className="mb-4">
               <label className="label">Task Description *</label>
+              <select
+                className="select text-white mb-2"
+                value={taskDescription}
+                onChange={e => setTaskDescription(e.target.value)}
+              >
+                <option value="">-- Select task from work order --</option>
+                {workOrders.flatMap(wo => (wo.steps || []).map(s => (
+                  <option key={s.id} value={s.step_name}>{wo.title} — {s.step_name}</option>
+                )))}
+              </select>
               <input
                 className="input text-white"
-                placeholder="e.g. Wall putty, primer coat, final painting..."
+                placeholder="Or type custom task description..."
                 value={taskDescription}
-                onChange={(e) => setTaskDescription(e.target.value)}
+                onChange={e => setTaskDescription(e.target.value)}
               />
             </div>
             <button
@@ -1499,6 +1567,29 @@ export default function MarkAttendance() {
               Material Usage Entry
             </h3>
             <div className="space-y-2 mb-3">
+              {siteWorkOrderMaterials.length > 0 && (
+                <div className="mb-3">
+                  <label className="label">Quick add from Work Order</label>
+                  <select
+                    className="select text-white"
+                    defaultValue=""
+                    onChange={e => {
+                      const wom = siteWorkOrderMaterials.find(m => m.id === e.target.value)
+                      if (wom) {
+                        setMatName(wom.product_name)
+                        setMatUnit(wom.unit)
+                      }
+                    }}
+                  >
+                    <option value="">-- Select WO material --</option>
+                    {siteWorkOrderMaterials.map(m => (
+                      <option key={m.id} value={m.id}>
+                        {m.product_name} ({m.unit}) — Rem: {(parseFloat(m.total_quantity||0) - parseFloat(m.used_quantity||0)).toFixed(1)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
               <div>
                 <label className="label">Item Name</label>
                 <input
