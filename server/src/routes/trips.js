@@ -21,7 +21,7 @@ const generateMasterCard = async () => {
 const notify = async (user_id, title, message, metadata = null) => {
   try {
     if (!user_id) return;
-    await Notification.create({ user_id, title, message });
+    await Notification.create({ target_user_id: user_id, title, message, metadata });
   } catch {}
 };
 
