@@ -1,5 +1,6 @@
 import { ClipboardList, ChevronDown, ChevronUp, CheckCircle, Clock, Package, Layers, AlertCircle, RefreshCw, TrendingUp } from 'lucide-react'
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import api from '../../utils/api'
 import toast from 'react-hot-toast'
 
@@ -53,6 +54,7 @@ function WorkOrderCard({ wo }) {
   const [expanded, setExpanded] = useState(false)
   const [progress, setProgress] = useState(null)
   const [loading, setLoading] = useState(false)
+  const navigate = useNavigate()
 
   const toggle = async () => {
     if (!expanded && !progress) {
@@ -140,6 +142,13 @@ function WorkOrderCard({ wo }) {
               )}
             </>
           )}
+
+          <button
+            className="btn-primary w-full mt-3 flex items-center justify-center gap-2 min-h-[44px]"
+            onClick={() => navigate('/godown?request=true&wo_id=' + wo.id)}
+          >
+            <Package size={16} /> Request Material from Godown
+          </button>
         </div>
       )}
     </div>

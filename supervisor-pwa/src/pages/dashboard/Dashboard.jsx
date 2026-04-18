@@ -54,8 +54,19 @@ export default function Dashboard() {
   const [siteStats, setSiteStats] = useState({}) // { [site_id]: stats }
   const [transfers, setTransfers] = useState([])
   const [loading, setLoading] = useState(true)
+  const [pendingCheckin, setPendingCheckin] = useState(null)
   const { user } = useAuth()
   const navigate = useNavigate()
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('dg_checkin_session')
+      if (saved) {
+        const parsed = JSON.parse(saved)
+        if (parsed.step === 'checkin_complete') setPendingCheckin(parsed)
+      }
+    } catch {}
+  }, [])
 
   useEffect(() => {
     Promise.all([
@@ -91,6 +102,30 @@ export default function Dashboard() {
 
   return (
     <div className="page-content space-y-5">
+      {/* Pending checkout reminder */}
+      {pendingCheckin && (
+        <div
+          className="card mb-4 border-2 border-primary-500/50 cursor-pointer active:scale-95 transition-all"
+          onClick={() => {
+            localStorage.setItem('dg_resume_checkout', JSON.stringify(pendingCheckin))
+            window.location.href = '/attendance?resume=checkout'
+          }}
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-primary-500/20 flex items-center justify-center flex-shrink-0">
+              <span className="text-xl">⏰</span>
+            </div>
+            <div className="flex-1">
+              <p className="text-white font-semibold text-sm">Complete Checkout Process</p>
+              <p className="text-xs text-gray-400 mt-0.5">
+                {pendingCheckin.attendanceDate} · Tap to start evening checkout
+              </p>
+            </div>
+            <ChevronRight size={18} className="text-primary-400 flex-shrink-0" />
+          </div>
+        </div>
+      )}
+
       {/* Greeting */}
       <div className="card bg-gradient-to-r from-primary-500/20 to-surface-300 border-primary-500/20">
         <p className="text-gray-400 text-sm">
