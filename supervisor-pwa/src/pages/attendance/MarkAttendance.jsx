@@ -776,7 +776,7 @@ export default function MarkAttendance() {
           setAttendanceDate(parsed.attendanceDate || new Date().toISOString().split('T')[0])
           setAttendanceRecords(parsed.attendanceRecords || [])
           setCheckinPhotos(parsed.checkinPhotos || {})
-          // Load labour list for checkout
+          // Load labour list + work orders + materials for checkout
           if (site) {
             api.get('/labour?site_id=' + site + '&is_active=true').then(res => {
               const list = res.data?.data || res.data || []
@@ -785,6 +785,18 @@ export default function MarkAttendance() {
               ;(parsed.attendanceRecords || []).forEach(r => { att[r.labour_id] = r.status })
               setAttendance(att)
             }).catch(() => {})
+            // Load work orders for task dropdown
+            api.get('/workorders?site_id=' + site).then(res => {
+              const wos = res.data?.data || res.data || []
+              setWorkOrders(wos)
+              const allMats = wos.flatMap(wo => wo.materials || [])
+              setSiteWorkOrderMaterials(allMats)
+            }).catch(() => {})
+            // Restore groupTasks from localStorage if saved
+            try {
+              const savedTasks = localStorage.getItem('dg_group_tasks')
+              if (savedTasks) setGroupTasks(JSON.parse(savedTasks))
+            } catch {}
           }
           setStep(7)
           localStorage.removeItem('dg_resume_checkout')
