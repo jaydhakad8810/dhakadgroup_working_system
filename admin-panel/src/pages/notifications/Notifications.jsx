@@ -95,16 +95,7 @@ export default function Notifications() {
   const [tripForm, setTripForm] = useState({ driver_id: '', site_id: '', notes: '', vehicle_id: '' })
   const [savingTrip, setSavingTrip] = useState(false)
   const [loadingDrivers, setLoadingDrivers] = useState(false)
-  const tf = (k, v) => {
-    setTripForm(p => ({ ...p, [k]: v }))
-    if (k === 'driver_id' && v) {
-      api.get('/drivers/' + v).then(r => {
-        const driverVehicles = r.data?.vehicles || r.data?.data?.vehicles || []
-        setVehicles(driverVehicles)
-        if (driverVehicles[0]) setTripForm(p => ({ ...p, vehicle_id: driverVehicles[0].id }))
-      }).catch(() => {})
-    }
-  }
+  const tf = (k, v) => setTripForm(p => ({ ...p, [k]: v }))
 
   // Step 3B: Requisition modal state
   const [reqModal, setReqModal] = useState(false)
@@ -128,12 +119,15 @@ export default function Notifications() {
   useEffect(() => {
     if (!tripModal) return
     setLoadingDrivers(true)
-    api.get('/drivers').then(r => {
-      const active = (Array.isArray(r.data) ? r.data : (r.data?.data || [])).filter(d => d.is_active !== false)
+    Promise.all([
+      api.get('/drivers'),
+      api.get('/drivers/vehicles/all')
+    ]).then(([dRes, vRes]) => {
+      const active = (Array.isArray(dRes.data) ? dRes.data : (dRes.data?.data || [])).filter(d => d.is_active !== false)
       setDrivers(active)
-      console.log('Drivers loaded:', active.length)
+      const allVehicles = Array.isArray(vRes.data) ? vRes.data : (vRes.data?.data || [])
+      setVehicles(allVehicles)
     }).catch(e => {
-      console.error('Driver fetch error:', e)
       toast.error('Failed to load drivers')
     }).finally(() => setLoadingDrivers(false))
   }, [tripModal])
@@ -210,7 +204,7 @@ export default function Notifications() {
         trip_date: new Date().toISOString().split('T')[0],
         trip_type: 'delivery',
         material_name: stockMeta?.material_name || '',
-        quantity: stockMeta?.quantity || '',
+        material_quantity: stockMeta?.quantity || '',
         material_unit: stockMeta?.unit || '',
         vehicle_id: tripForm.vehicle_id || undefined,
         notes: tripForm.notes,
