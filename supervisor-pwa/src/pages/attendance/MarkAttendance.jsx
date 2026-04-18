@@ -323,9 +323,15 @@ function TaskAssignStep({ groups, groupTasks, setGroupTasks, presentLabours, wor
     (wo.steps || []).map(s => ({ ...s, work_order_id: wo.id, work_order_title: wo.title }))
   )
 
-  const getFlatsForWO = (woId) => {
+  const getFlatsForWO = (woId, stepId) => {
     const wo = workOrders.find(w => w.id === woId)
-    return wo?.flats || []
+    const flats = wo?.flats || []
+    if (!stepId) return flats
+    // Hide flats where this specific step is already done
+    return flats.filter(f => {
+      const progress = f.step_progress || {}
+      return progress[stepId] !== 'done'
+    })
   }
 
   return (
@@ -384,7 +390,7 @@ function TaskAssignStep({ groups, groupTasks, setGroupTasks, presentLabours, wor
             <>
               <label className="label">Flats being worked today (select multiple)</label>
               <div className="flex flex-wrap gap-1 max-h-32 overflow-y-auto">
-                {getFlatsForWO(groupTasks[group.id].work_order_id).map(flat => {
+                {getFlatsForWO(groupTasks[group.id].work_order_id, groupTasks[group.id].step_id).map(flat => {
                   const selected = (groupTasks[group.id]?.flat_nos || []).includes(flat.flat_no)
                   return (
                     <button

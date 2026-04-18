@@ -32,18 +32,19 @@ router.get('/', async (req, res) => {
     const [allSteps, allMaterials, flatCounts] = await Promise.all([
       WorkOrderStep.findAll({ where: { work_order_id: { [Op.in]: ids } }, order: [['sequence_order', 'ASC']] }),
       WorkOrderMaterial.findAll({ where: { work_order_id: { [Op.in]: ids } }, attributes: ['id', 'work_order_id', 'product_name', 'company_name', 'unit', 'total_quantity', 'used_quantity', 'product_category'] }),
-      WorkOrderFlat.findAll({ where: { work_order_id: { [Op.in]: ids } }, attributes: ['work_order_id'] }),
+      WorkOrderFlat.findAll({ where: { work_order_id: { [Op.in]: ids } }, attributes: ['id', 'work_order_id', 'wing', 'floor_no', 'flat_no', 'step_progress'] }),
     ]);
     const stepsMap = allSteps.reduce((m, s) => { if (!m[s.work_order_id]) m[s.work_order_id] = []; m[s.work_order_id].push(s.toJSON()); return m; }, {});
     const matsMap  = allMaterials.reduce((m, s) => { if (!m[s.work_order_id]) m[s.work_order_id] = []; m[s.work_order_id].push(s.toJSON()); return m; }, {});
-    const flatMap  = flatCounts.reduce((m, s) => { m[s.work_order_id] = (m[s.work_order_id] || 0) + 1; return m; }, {});
+    const flatsMap = flatCounts.reduce((m, s) => { if (!m[s.work_order_id]) m[s.work_order_id] = []; m[s.work_order_id].push(s.toJSON()); return m; }, {});
     const result = workOrders.map(w => ({
       ...w.toJSON(),
       steps:          stepsMap[w.id] || [],
       materials:      matsMap[w.id]  || [],
       step_count:     (stepsMap[w.id] || []).length,
       material_count: (matsMap[w.id]  || []).length,
-      flat_count:     flatMap[w.id]  || 0,
+      flats:          (flatsMap[w.id] || []),
+      flat_count:     (flatsMap[w.id] || []).length,
     }));
     res.json(result);
   } catch (e) { res.status(500).json({ message: e.message }); }
