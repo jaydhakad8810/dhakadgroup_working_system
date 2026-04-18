@@ -26,23 +26,24 @@ router.get('/', async (req, res) => {
       order: [['createdAt', 'DESC']],
     });
 
-    // Attach counts without complex subqueries
+    // Attach steps and materials to each work order
     const ids = workOrders.map(w => w.id);
-    const [stepCounts, materialCounts, flatCounts] = await Promise.all([
-      WorkOrderStep.findAll({ where: { work_order_id: { [Op.in]: ids } }, attributes: ['work_order_id'] }),
-      WorkOrderMaterial.findAll({ where: { work_order_id: { [Op.in]: ids } }, attributes: ['work_order_id'] }),
+    if (ids.length === 0) { res.json([]); return; }
+    const [allSteps, allMaterials, flatCounts] = await Promise.all([
+      WorkOrderStep.findAll({ where: { work_order_id: { [Op.in]: ids } }, order: [['sequence_order', 'ASC']] }),
+      WorkOrderMaterial.findAll({ where: { work_order_id: { [Op.in]: ids } }, attributes: ['id', 'work_order_id', 'product_name', 'company_name', 'unit', 'total_quantity', 'used_quantity', 'product_category'] }),
       WorkOrderFlat.findAll({ where: { work_order_id: { [Op.in]: ids } }, attributes: ['work_order_id'] }),
     ]);
-
-    const stepMap    = stepCounts.reduce((m, s) => { m[s.work_order_id] = (m[s.work_order_id] || 0) + 1; return m; }, {});
-    const matMap     = materialCounts.reduce((m, s) => { m[s.work_order_id] = (m[s.work_order_id] || 0) + 1; return m; }, {});
-    const flatMap    = flatCounts.reduce((m, s) => { m[s.work_order_id] = (m[s.work_order_id] || 0) + 1; return m; }, {});
-
+    const stepsMap = allSteps.reduce((m, s) => { if (!m[s.work_order_id]) m[s.work_order_id] = []; m[s.work_order_id].push(s.toJSON()); return m; }, {});
+    const matsMap  = allMaterials.reduce((m, s) => { if (!m[s.work_order_id]) m[s.work_order_id] = []; m[s.work_order_id].push(s.toJSON()); return m; }, {});
+    const flatMap  = flatCounts.reduce((m, s) => { m[s.work_order_id] = (m[s.work_order_id] || 0) + 1; return m; }, {});
     const result = workOrders.map(w => ({
       ...w.toJSON(),
-      step_count:     stepMap[w.id] || 0,
-      material_count: matMap[w.id]  || 0,
-      flat_count:     flatMap[w.id] || 0,
+      steps:          stepsMap[w.id] || [],
+      materials:      matsMap[w.id]  || [],
+      step_count:     (stepsMap[w.id] || []).length,
+      material_count: (matsMap[w.id]  || []).length,
+      flat_count:     flatMap[w.id]  || 0,
     }));
     res.json(result);
   } catch (e) { res.status(500).json({ message: e.message }); }
