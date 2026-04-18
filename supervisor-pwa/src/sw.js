@@ -1,8 +1,11 @@
-import { precacheAndRoute } from 'workbox-precaching';
+import { precacheAndRoute, cleanupOutdatedCaches } from 'workbox-precaching';
 import { registerRoute } from 'workbox-routing';
 import { NetworkFirst, CacheFirst } from 'workbox-strategies';
 
 precacheAndRoute(self.__WB_MANIFEST);
+cleanupOutdatedCaches();
+self.skipWaiting();
+self.addEventListener('activate', e => e.waitUntil(clients.claim()));
 
 registerRoute(
   ({ url }) => url.origin === 'https://fonts.googleapis.com',
