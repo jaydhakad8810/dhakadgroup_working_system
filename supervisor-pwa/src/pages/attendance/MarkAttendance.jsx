@@ -792,10 +792,12 @@ export default function MarkAttendance() {
               const allMats = wos.flatMap(wo => wo.materials || [])
               setSiteWorkOrderMaterials(allMats)
             }).catch(() => {})
-            // Restore groupTasks from localStorage if saved
+            // Restore groupTasks and groupMaterials from localStorage
             try {
               const savedTasks = localStorage.getItem('dg_group_tasks')
               if (savedTasks) setGroupTasks(JSON.parse(savedTasks))
+              const savedMats = localStorage.getItem('dg_group_materials')
+              if (savedMats) setGroupMaterials(JSON.parse(savedMats))
             } catch {}
           }
           setMatQty('')
@@ -1505,7 +1507,10 @@ export default function MarkAttendance() {
             workOrders={workOrders}
             carryForwardHints={carryForwardHints}
             loadingWorkOrders={loadingWorkOrders}
-            onNext={(individualTasks) => { setStep(6) }}
+            onNext={(individualTasks) => {
+              try { localStorage.setItem('dg_group_tasks', JSON.stringify(groupTasks)) } catch {}
+              setStep(6)
+            }}
           />
         </div>
       )}
