@@ -1,13 +1,12 @@
 import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, Building2, Users, ClipboardCheck, Package, User } from 'lucide-react'
+import { LayoutDashboard, Users, ClipboardCheck, Package, ClipboardList } from 'lucide-react'
 
 const items = [
-  { to: '/',           icon: LayoutDashboard, label: 'Home' },
-  { to: '/sites',      icon: Building2,       label: 'Sites' },
-  { to: '/attendance', icon: ClipboardCheck,  label: 'Attend' },
-  { to: '/labour',     icon: Users,           label: 'Labour' },
-  { to: '/godown',     icon: Package,         label: 'Godown' },
-  { to: '/profile',    icon: User,            label: 'Profile' },
+  { to: '/',           icon: LayoutDashboard, label: 'Home'    },
+  { to: '/attendance', icon: ClipboardCheck,  label: 'Attend'  },
+  { to: '/labour',     icon: Users,           label: 'Labour'  },
+  { to: '/godown',     icon: Package,         label: 'Godown'  },
+  { to: '/workorders', icon: ClipboardList,   label: 'W.Orders'},
 ]
 
 export default function BottomNav() {

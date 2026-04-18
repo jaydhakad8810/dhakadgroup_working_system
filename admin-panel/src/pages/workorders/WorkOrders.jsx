@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, ClipboardList, Home, Building2, Droplets, Calendar, Layers } from 'lucide-react'
+import { Plus, ClipboardList, Home, Building2, Droplets, Calendar, Layers, Trash2 } from 'lucide-react'
 import api from '../../utils/api'
 import toast from 'react-hot-toast'
 
@@ -40,6 +40,16 @@ export default function WorkOrders() {
   useEffect(() => { load() }, [filters])
 
   const f = (k, v) => setFilters(p => ({ ...p, [k]: v }))
+
+  const handleDelete = async (e, woId) => {
+    e.stopPropagation()
+    if (!window.confirm('Delete this work order? This cannot be undone.')) return
+    try {
+      await api.delete(`/workorders/${woId}`)
+      toast.success('Work order deleted')
+      setWorkOrders(prev => prev.filter(w => w.id !== woId))
+    } catch { toast.error('Failed to delete') }
+  }
 
   return (
     <div className="space-y-6">
@@ -97,7 +107,14 @@ export default function WorkOrders() {
             const TypeIcon   = typeMeta.icon
             return (
               <div key={wo.id} onClick={() => navigate('/workorders/' + wo.id)}
-                className="bg-surface-300 border border-white/10 rounded-2xl p-5 cursor-pointer hover:border-yellow-500/40 hover:bg-surface-200 transition-all space-y-4">
+                className="bg-surface-300 border border-white/10 rounded-2xl p-5 cursor-pointer hover:border-yellow-500/40 hover:bg-surface-200 transition-all space-y-4 relative">
+                <button
+                  onClick={(e) => handleDelete(e, wo.id)}
+                  className="absolute top-2 right-2 p-1.5 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-all z-10"
+                  title="Delete work order"
+                >
+                  <Trash2 size={13} />
+                </button>
                 {/* Badges */}
                 <div className="flex items-start justify-between gap-2">
                   <span className={`flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full border ${typeMeta.color}`}>

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { Edit2, Check, X, ChevronUp, ChevronDown, Save } from 'lucide-react'
+import { Edit2, Check, X, ChevronUp, ChevronDown, Save, Trash2, Download } from 'lucide-react'
 import api from '../../utils/api'
 import toast from 'react-hot-toast'
 
@@ -364,6 +364,27 @@ export default function WorkOrderDetail() {
   const [progress, setProgress] = useState(null)
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState('Overview')
+  const handleDelete = async () => {
+    if (!window.confirm('Delete this work order? This cannot be undone.')) return
+    try { await api.delete('/workorders/' + id); toast.success('Deleted'); navigate('/workorders') }
+    catch { toast.error('Failed to delete') }
+  }
+  const handleExportPDF = async () => {
+    try {
+      const token = localStorage.getItem('dg_token')
+      const res = await fetch('/api/workorders/' + id + '/export/pdf', { headers: { Authorization: 'Bearer ' + token } })
+      const blob = await res.blob(); const url = URL.createObjectURL(blob)
+      const a = document.createElement('a'); a.href = url; a.download = 'workorder.pdf'; a.click(); URL.revokeObjectURL(url)
+    } catch { toast.error('PDF export failed') }
+  }
+  const handleExportExcel = async () => {
+    try {
+      const token = localStorage.getItem('dg_token')
+      const res = await fetch('/api/workorders/' + id + '/export/excel', { headers: { Authorization: 'Bearer ' + token } })
+      const blob = await res.blob(); const url = URL.createObjectURL(blob)
+      const a = document.createElement('a'); a.href = url; a.download = 'workorder.xlsx'; a.click(); URL.revokeObjectURL(url)
+    } catch { toast.error('Excel export failed') }
+  }
 
   const load = async () => {
     try {
@@ -413,6 +434,11 @@ export default function WorkOrderDetail() {
         }`}>{wo.status}</span>
       </div>
 
+      <div className="flex gap-2 flex-wrap mb-3">
+        <button onClick={handleExportPDF} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-white/5 text-gray-300 border border-white/10 hover:bg-white/10 transition-all"><Download size={12} /> PDF</button>
+        <button onClick={handleExportExcel} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-green-500/10 text-green-400 border border-green-500/20 hover:bg-green-500/20 transition-all"><Download size={12} /> Excel</button>
+        <button onClick={handleDelete} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 transition-all"><Trash2 size={12} /> Delete</button>
+      </div>
       {/* Tabs */}
       <div className="flex gap-1 bg-surface-300 border border-white/10 rounded-xl p-1 overflow-x-auto">
         {TABS.map(t => (

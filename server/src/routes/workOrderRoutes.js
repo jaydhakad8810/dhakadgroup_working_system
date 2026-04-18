@@ -3,6 +3,8 @@ const { Op } = require('sequelize');
 const { auth, adminOnly } = require('../middleware/auth');
 const { WorkOrder, WorkOrderStep, WorkOrderFlat, WorkOrderMaterial, WorkOrderHint } = require('../models/WorkOrderModels');
 const { Site, User } = require('../models');
+const PDFDocument = require('pdfkit');
+const XLSX = require('xlsx');
 
 router.use(auth);
 
@@ -295,6 +297,117 @@ router.get('/:id/progress', async (req, res) => {
     const overallPct  = totalSteps ? Math.round((doneSteps / totalSteps) * 100) : 0;
 
     res.json({ steps_progress: stepsProgress, materials_progress: materialsProgress, overall_percent: overallPct, total_flats: flats.length });
+  } catch (e) { res.status(500).json({ message: e.message }); }
+});
+
+router.delete('/:id', adminOnly, async (req, res) => {
+  try {
+    const wo = await WorkOrder.findByPk(req.params.id)
+    if (!wo) return res.status(404).json({ message: 'Work order not found' })
+    await WorkOrderMaterial.destroy({ where: { work_order_id: req.params.id } })
+    await WorkOrderStep.destroy({ where: { work_order_id: req.params.id } })
+    await WorkOrderFlat.destroy({ where: { work_order_id: req.params.id } })
+    await wo.destroy()
+    res.json({ message: 'Work order deleted successfully' })
+  } catch (e) { res.status(500).json({ message: e.message }) }
+})
+// ── GET /:id/export/pdf — export work order as PDF
+router.get('/:id/export/pdf', adminOnly, async (req, res) => {
+  try {
+    const wo = await WorkOrder.findByPk(req.params.id, {
+      include: [
+        { model: Site, as: 'site', attributes: ['name'] },
+        { model: WorkOrderStep, as: 'steps', order: [['sequence_order', 'ASC']] },
+        { model: WorkOrderMaterial, as: 'materials' },
+      ],
+    });
+    if (!wo) return res.status(404).json({ message: 'Not found' });
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="workorder-${wo.id}.pdf"`);
+
+    const doc = new PDFDocument({ margin: 40 });
+    doc.pipe(res);
+
+    doc.fontSize(18).fillColor('#333').text('Work Order Report', { align: 'center' });
+    doc.moveDown(0.5);
+    doc.fontSize(13).text(wo.title, { align: 'center' });
+    doc.moveDown();
+
+    doc.fontSize(10).fillColor('#555');
+    doc.text(`Site: ${wo.site?.name || '—'}`);
+    doc.text(`Type: ${wo.type}  |  Status: ${wo.status}`);
+    doc.text(`Dates: ${wo.start_date} → ${wo.end_date}`);
+    if (wo.notes) doc.text(`Notes: ${wo.notes}`);
+    doc.moveDown();
+
+    if (wo.steps && wo.steps.length > 0) {
+      doc.fontSize(12).fillColor('#333').text('Steps', { underline: true });
+      doc.moveDown(0.3);
+      wo.steps.forEach((s, i) => {
+        doc.fontSize(10).fillColor('#555').text(`${i + 1}. ${s.step_name}  [${s.status}]`);
+      });
+      doc.moveDown();
+    }
+
+    if (wo.materials && wo.materials.length > 0) {
+      doc.fontSize(12).fillColor('#333').text('Materials', { underline: true });
+      doc.moveDown(0.3);
+      wo.materials.forEach(m => {
+        const rem = Math.max(0, (parseFloat(m.total_quantity) || 0) - (parseFloat(m.used_quantity) || 0));
+        doc.fontSize(10).fillColor('#555').text(
+          `${m.product_name} (${m.company_name}) — Total: ${m.total_quantity} ${m.unit}, Used: ${m.used_quantity || 0}, Remaining: ${rem.toFixed(1)}`
+        );
+      });
+    }
+
+    doc.end();
+  } catch (e) { res.status(500).json({ message: e.message }); }
+});
+
+// ── GET /:id/export/excel — export work order as Excel
+router.get('/:id/export/excel', adminOnly, async (req, res) => {
+  try {
+    const wo = await WorkOrder.findByPk(req.params.id, {
+      include: [
+        { model: Site, as: 'site', attributes: ['name'] },
+        { model: WorkOrderStep, as: 'steps', order: [['sequence_order', 'ASC']] },
+        { model: WorkOrderMaterial, as: 'materials' },
+      ],
+    });
+    if (!wo) return res.status(404).json({ message: 'Not found' });
+
+    const wb = XLSX.utils.book_new();
+
+    // Info sheet
+    const infoData = [
+      ['Title', wo.title],
+      ['Site', wo.site?.name || ''],
+      ['Type', wo.type],
+      ['Status', wo.status],
+      ['Start Date', wo.start_date],
+      ['End Date', wo.end_date],
+      ['Notes', wo.notes || ''],
+    ];
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(infoData), 'Info');
+
+    // Steps sheet
+    const stepsHeader = ['#', 'Step Name', 'Status', 'Start Date', 'End Date'];
+    const stepsRows = (wo.steps || []).map((s, i) => [i + 1, s.step_name, s.status, s.start_date || '', s.end_date || '']);
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([stepsHeader, ...stepsRows]), 'Steps');
+
+    // Materials sheet
+    const matHeader = ['Product', 'Company', 'Unit', 'Total Qty', 'Used Qty', 'Remaining'];
+    const matRows = (wo.materials || []).map(m => {
+      const rem = Math.max(0, (parseFloat(m.total_quantity) || 0) - (parseFloat(m.used_quantity) || 0));
+      return [m.product_name, m.company_name, m.unit, m.total_quantity, m.used_quantity || 0, rem.toFixed(1)];
+    });
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([matHeader, ...matRows]), 'Materials');
+
+    const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="workorder-${wo.id}.xlsx"`);
+    res.send(buf);
   } catch (e) { res.status(500).json({ message: e.message }); }
 });
 

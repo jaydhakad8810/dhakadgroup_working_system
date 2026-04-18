@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Home, Building2, Droplets, Plus, X, ChevronUp, ChevronDown, Loader2, Check } from 'lucide-react'
+import { Home, Building2, Droplets, Plus, X, ChevronUp, ChevronDown, Loader2, Check, CheckCircle, Download } from 'lucide-react'
 import api from '../../utils/api'
 import toast from 'react-hot-toast'
+import useDraftSave from '../../hooks/useDraftSave'
+import DraftBanner from '../../components/ui/DraftBanner'
 
 // ── Autocomplete input — defined OUTSIDE parent ──────────────────────────────
 function AutocompleteInput({ value, onChange, placeholder, fieldType, siteId, className }) {
@@ -473,6 +475,7 @@ export default function WorkOrderCreate() {
   const [currentStep, setCurrentStep] = useState(1)
   const [saving, setSaving] = useState(false)
   const [sites, setSites] = useState([])
+  const [createdWOId, setCreatedWOId] = useState(null)
 
   const [formData, setFormData] = useState({
     site_id: '', type: 'internal', title: '', start_date: '', end_date: '', notes: '',
@@ -482,6 +485,17 @@ export default function WorkOrderCreate() {
 
   const [steps, setSteps] = useState([])
   const [materials, setMaterials] = useState([])
+
+  const { update: saveDraft, clearDraft, hasDraft } = useDraftSave('wo_create_draft', {})
+
+  const handleRestoreDraft = () => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('wo_create_draft') || '{}')
+      if (saved.formData) setFormData(f => ({ ...f, ...saved.formData }))
+      if (saved.steps) setSteps(saved.steps)
+      if (saved.materials) setMaterials(saved.materials)
+    } catch {}
+  }
 
   useEffect(() => {
     api.get('/sites').then(r => setSites(Array.isArray(r.data) ? r.data : [])).catch(() => {})
@@ -528,21 +542,104 @@ export default function WorkOrderCreate() {
       }
 
       const { data: wo } = await api.post('/workorders', body)
-
+      let savedSteps = []
       if (steps.length > 0) {
-        await api.post(`/workorders/${wo.id}/steps`, { steps })
+        const stepsRes = await api.post(`/workorders/${wo.id}/steps`, { steps })
+        savedSteps = Array.isArray(stepsRes.data) ? stepsRes.data : []
       }
       if (materials.length > 0) {
-        await api.post(`/workorders/${wo.id}/materials`, { materials })
+        const nameToId = {}
+        savedSteps.forEach(s => {
+          if (s.step_name && s.id) nameToId[s.step_name] = s.id
+        })
+        const remappedMaterials = materials.map(m => {
+          if (!m.step_id) return { ...m, step_id: null }
+          const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(m.step_id)
+          if (isUUID) return m
+          const realId = nameToId[m.step_id]
+          return { ...m, step_id: realId || null }
+        })
+        await api.post(`/workorders/${wo.id}/materials`, { materials: remappedMaterials })
       }
 
       toast.success('Work order created!')
+      setCreatedWOId(wo.id)
+      setSaving(false)
+      return
+      clearDraft()
+      localStorage.removeItem('wo_create_draft')
       navigate('/workorders/' + wo.id)
     } catch (err) { toast.error(err.response?.data?.message || 'Failed to create work order') }
     setSaving(false)
   }
 
   const STEP_LABELS = ['Basic Info', 'Structure', 'Steps', 'Materials']
+
+  if (createdWOId) {
+    return (
+      <div className="max-w-3xl mx-auto">
+        <div className="flex flex-col items-center justify-center py-16 gap-4">
+          <div className="w-16 h-16 rounded-full bg-green-500/20 flex items-center justify-center">
+            <CheckCircle size={36} className="text-green-400" />
+          </div>
+          <h2 className="text-xl font-bold text-white">Work Order Created!</h2>
+          <p className="text-gray-400 text-sm text-center">
+            Your work order has been created successfully.
+          </p>
+          <div className="flex flex-col gap-3 w-full max-w-sm mt-4">
+            <button
+              onClick={() => navigate('/workorders/' + createdWOId)}
+              className="btn-gold w-full flex items-center justify-center gap-2 py-3"
+            >
+              View Work Order
+            </button>
+            <button
+              onClick={async () => {
+                try {
+                  const token = localStorage.getItem('dg_token')
+                  const res = await fetch(`/api/workorders/${createdWOId}/export/pdf`, {
+                    headers: { Authorization: `Bearer ${token}` }
+                  })
+                  const blob = await res.blob()
+                  const url = URL.createObjectURL(blob)
+                  const a = document.createElement('a')
+                  a.href = url; a.download = `workorder.pdf`; a.click()
+                  URL.revokeObjectURL(url)
+                } catch { toast.error('Export failed') }
+              }}
+              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border border-white/20 text-gray-300 hover:bg-white/5 transition-all"
+            >
+              <Download size={16} /> Export PDF
+            </button>
+            <button
+              onClick={async () => {
+                try {
+                  const token = localStorage.getItem('dg_token')
+                  const res = await fetch(`/api/workorders/${createdWOId}/export/excel`, {
+                    headers: { Authorization: `Bearer ${token}` }
+                  })
+                  const blob = await res.blob()
+                  const url = URL.createObjectURL(blob)
+                  const a = document.createElement('a')
+                  a.href = url; a.download = `workorder.xlsx`; a.click()
+                  URL.revokeObjectURL(url)
+                } catch { toast.error('Export failed') }
+              }}
+              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border border-green-500/30 text-green-400 hover:bg-green-500/10 transition-all"
+            >
+              <Download size={16} /> Export Excel
+            </button>
+            <button
+              onClick={() => navigate('/workorders')}
+              className="text-gray-500 text-sm text-center hover:text-gray-300 transition-all"
+            >
+              Back to Work Orders
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
@@ -553,6 +650,8 @@ export default function WorkOrderCreate() {
           <p className="text-gray-400 text-sm">New paint / construction work order</p>
         </div>
       </div>
+
+      <DraftBanner hasDraft={hasDraft} onRestore={handleRestoreDraft} onDiscard={clearDraft} />
 
       <StepIndicator current={currentStep} steps={STEP_LABELS} />
 
@@ -573,7 +672,7 @@ export default function WorkOrderCreate() {
         ) : <div />}
 
         {currentStep < 4 ? (
-          <button onClick={() => { if (!canNext()) return toast.error('Fill required fields'); setCurrentStep(s => s + 1) }}
+          <button onClick={() => { if (!canNext()) return toast.error('Fill required fields'); saveDraft({ formData, steps, materials }); setCurrentStep(s => s + 1) }}
             className="px-6 py-2.5 rounded-xl bg-yellow-500 text-black font-semibold text-sm hover:bg-yellow-400 transition-all disabled:opacity-50">
             Next →
           </button>
