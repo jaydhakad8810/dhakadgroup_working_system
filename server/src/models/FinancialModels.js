@@ -109,6 +109,7 @@ const Notification = sequelize.define('Notification', {
   target_user_id: { type: DataTypes.UUID, allowNull: true },
   is_read: { type: DataTypes.BOOLEAN, defaultValue: false },
   sent_by: { type: DataTypes.UUID, allowNull: true },
+  metadata: { type: DataTypes.JSON, allowNull: true },
 }, { tableName: 'notifications' });
 
 // ── Visit Report ──────────────────────────────────────────────────────────────

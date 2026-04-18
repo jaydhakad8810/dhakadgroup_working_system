@@ -18,7 +18,7 @@ const generateMasterCard = async () => {
 };
 
 // Helper: create notification
-const notify = async (user_id, title, message) => {
+const notify = async (user_id, title, message, metadata = null) => {
   try {
     if (!user_id) return;
     await Notification.create({ user_id, title, message });
@@ -188,8 +188,17 @@ router.patch('/:id/deliver', async (req, res) => {
     // Notify admin
     const admins = await User.findAll({ where: { role: 'admin' } });
     for (const admin of admins) {
-      await notify(admin.id, 'Trip Delivered',
-        `Trip ${trip.master_card_number} delivered. Awaiting supervisor confirmation.`);
+      // Notify supervisor (trip.to_site_id supervisor) instead of admin
+      const { Site } = require('../models')
+      const deliveredSite = trip.to_site_id ? await Site.findByPk(trip.to_site_id, { include: [{ model: require('../models').User, as: 'supervisor', attributes: ['id'] }] }).catch(() => null) : null
+      const supervisorUserId = deliveredSite?.supervisor?.id
+      const tripMeta = { trip_id: trip.id, master_card: trip.master_card_number, material_name: trip.material_name, material_quantity: trip.material_quantity, material_unit: trip.material_unit, site_id: trip.to_site_id }
+      if (supervisorUserId) {
+        await notify(supervisorUserId, 'Trip Delivered', `Trip ${trip.master_card_number} delivered. Tap to confirm receipt.`, tripMeta)
+      }
+      for (const admin of admins) {
+        await notify(admin.id, 'Trip Delivered', `Trip ${trip.master_card_number} delivered. Awaiting supervisor confirmation.`, tripMeta)
+      }
     }
     res.json(trip);
   } catch (e) { res.status(500).json({ message: e.message }); }
