@@ -798,6 +798,10 @@ export default function MarkAttendance() {
               if (savedTasks) setGroupTasks(JSON.parse(savedTasks))
             } catch {}
           }
+          setMatQty('')
+          setMatName('')
+          setMatUnit('')
+          setMaterials([])
           setStep(7)
           localStorage.removeItem('dg_resume_checkout')
         }
@@ -864,6 +868,20 @@ export default function MarkAttendance() {
       setCarryForwardHints(cfRes.data?.data || cfRes.data || [])
     }).catch(() => {}).finally(() => setLoadingWorkOrders(false))
   }, [step, selectedSite, attendanceDate])
+
+  // ── Auto-fill task from groupTasks when entering step 7
+  useEffect(() => {
+    if (step !== 7) return
+    const firstTask = Object.values(groupTasks).find(t => t.step_name)
+    if (firstTask && !taskDescription) setTaskDescription(firstTask.step_name)
+    // Auto-fill material from groupMaterials
+    const allGroupMats = Object.values(groupMaterials).flat()
+    if (allGroupMats.length > 0 && materials.length === 0) {
+      setMaterials(allGroupMats.filter(m => m.name && m.quantity).map(m => ({
+        name: m.name, quantity: m.quantity, unit: m.unit || 'KG'
+      })))
+    }
+  }, [step])
 
   // ── Load site WO materials when entering step 6 or 7 (step 7 for resume)
   useEffect(() => {
@@ -1648,12 +1666,10 @@ export default function MarkAttendance() {
                 </div>
                 <div>
                   <label className="label">Unit</label>
-                  <input
-                    className="input text-white"
-                    placeholder="bags / pcs / kg"
-                    value={matUnit}
-                    onChange={(e) => setMatUnit(e.target.value)}
-                  />
+                  <select className="select text-white" value={matUnit} onChange={e => setMatUnit(e.target.value)}>
+                    <option value="">-- Unit --</option>
+                    {['KG','LTR','Nos','Unit','bags','pcs'].map(u => <option key={u} value={u}>{u}</option>)}
+                  </select>
                 </div>
               </div>
             </div>
