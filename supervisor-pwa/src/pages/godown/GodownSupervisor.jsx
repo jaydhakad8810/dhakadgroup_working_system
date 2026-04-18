@@ -162,9 +162,13 @@ export default function GodownSupervisor() {
       const res = await api.get('/sites/all')
       const list = Array.isArray(res.data) ? res.data : (res.data?.data || [])
       setAllSites(list)
-      if (list.length === 1) setReqForm(p => ({ ...p, site_id: list[0].id }))
+      // Auto-select first site (supervisor's site)
+      const firstSite = list[0] || sites[0]
+      if (firstSite) setReqForm(p => ({ ...p, site_id: p.site_id || firstSite.id }))
     } catch {
       setAllSites(sites)
+      const firstSite = sites[0]
+      if (firstSite) setReqForm(p => ({ ...p, site_id: p.site_id || firstSite.id }))
     }
   }
 
@@ -182,12 +186,15 @@ export default function GodownSupervisor() {
   useEffect(() => {
     api.get('/workorders?status=active').then(r => {
       const wos = Array.isArray(r.data) ? r.data : (r.data?.data || [])
-      const names = new Set()
+      const matsMap = {}
       wos.forEach(wo => {
         const mats = wo.materials || wo.WorkOrderMaterials || []
-        mats.forEach(m => { if (m.name) names.add(m.name) })
+        mats.forEach(m => {
+          const key = m.product_name || m.name
+          if (key && !matsMap[key]) matsMap[key] = { name: key, unit: m.unit || '', id: m.id }
+        })
       })
-      setWoMaterials([...names])
+      setWoMaterials(Object.values(matsMap))
     }).catch(() => {})
   }, [])
 
@@ -510,10 +517,10 @@ export default function GodownSupervisor() {
             {woMaterials.length > 0 && (
               <div className="flex flex-wrap gap-1.5 mb-2">
                 {woMaterials.map(m => (
-                  <button key={m} type="button"
-                    onClick={() => setReqForm(p => ({ ...p, material_name: m }))}
-                    className={`px-2 py-1 rounded-lg text-xs font-medium transition-all ${reqForm.material_name === m ? 'bg-primary-500 text-white' : 'bg-surface-400 text-gray-400'}`}>
-                    {m}
+                  <button key={m.id || m.name} type="button"
+                    onClick={() => setReqForm(p => ({ ...p, material_name: m.name, unit: m.unit || p.unit }))}
+                    className={`px-2 py-1 rounded-lg text-xs font-medium transition-all ${reqForm.material_name === m.name ? 'bg-primary-500 text-white' : 'bg-surface-400 text-gray-400'}`}>
+                    {m.name} {m.unit ? `(${m.unit})` : ''}
                   </button>
                 ))}
               </div>
@@ -533,7 +540,7 @@ export default function GodownSupervisor() {
           <div>
             <label className="label">Site *</label>
             <select className="select" required value={reqForm.site_id || ''} onChange={e => setReqForm(p => ({ ...p, site_id: e.target.value }))}>
-              <option value="">Select site</option>
+              <option value="">-- Select site --</option>
               {(allSites.length > 0 ? allSites : sites).map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
             </select>
           </div>

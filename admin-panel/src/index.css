@@ -21,6 +21,7 @@
     --border: rgba(0,0,0,0.1);
     --text: #111111;
     --muted: #555555;
+    --force-text: #111111;
   }
   body {
     background: var(--bg);
@@ -31,6 +32,27 @@
   ::-webkit-scrollbar { width: 6px; height: 6px; }
   ::-webkit-scrollbar-track { background: var(--bg); }
   ::-webkit-scrollbar-thumb { background: #C9A84C; border-radius: 3px; }
+
+  /* Light mode: override hardcoded text-white to be readable */
+  [data-theme="light"] .text-white {
+    color: #111111 !important;
+  }
+  [data-theme="light"] .text-gray-400 {
+    color: #555555 !important;
+  }
+  [data-theme="light"] .text-gray-500 {
+    color: #666666 !important;
+  }
+  [data-theme="light"] .bg-surface-300,
+  [data-theme="light"] .bg-surface-200,
+  [data-theme="light"] .bg-surface-400 {
+    background: var(--bg3) !important;
+  }
+  [data-theme="light"] .border-white\/10,
+  [data-theme="light"] .border-white\/20 {
+    border-color: rgba(0,0,0,0.1) !important;
+  }
+
 }
 
 @layer components {
