@@ -771,10 +771,21 @@ export default function MarkAttendance() {
         const saved = localStorage.getItem('dg_resume_checkout')
         if (saved) {
           const parsed = JSON.parse(saved)
-          setSelectedSite(parsed.selectedSite || '')
+          const site = parsed.selectedSite || ''
+          setSelectedSite(site)
           setAttendanceDate(parsed.attendanceDate || new Date().toISOString().split('T')[0])
           setAttendanceRecords(parsed.attendanceRecords || [])
           setCheckinPhotos(parsed.checkinPhotos || {})
+          // Load labour list for checkout
+          if (site) {
+            api.get('/labour?site_id=' + site + '&is_active=true').then(res => {
+              const list = res.data?.data || res.data || []
+              setLabourList(list)
+              const att = {}
+              ;(parsed.attendanceRecords || []).forEach(r => { att[r.labour_id] = r.status })
+              setAttendance(att)
+            }).catch(() => {})
+          }
           setStep(7)
           localStorage.removeItem('dg_resume_checkout')
         }
