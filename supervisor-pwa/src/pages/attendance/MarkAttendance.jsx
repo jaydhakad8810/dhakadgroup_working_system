@@ -792,8 +792,10 @@ export default function MarkAttendance() {
               const allMats = wos.flatMap(wo => wo.materials || [])
               setSiteWorkOrderMaterials(allMats)
             }).catch(() => {})
-            // Restore groupTasks and groupMaterials from localStorage
+            // Restore groups, groupTasks and groupMaterials from localStorage
             try {
+              const savedGroups = localStorage.getItem('dg_groups')
+              if (savedGroups) setGroups(JSON.parse(savedGroups))
               const savedTasks = localStorage.getItem('dg_group_tasks')
               if (savedTasks) setGroupTasks(JSON.parse(savedTasks))
               const savedMats = localStorage.getItem('dg_group_materials')
@@ -1484,7 +1486,11 @@ export default function MarkAttendance() {
             setEditingGroups={setEditingGroups}
             attendanceDate={attendanceDate}
             selectedSite={selectedSite}
-            onNext={(savedGroups) => { setGroups(savedGroups); setStep(5) }}
+            onNext={(savedGroups) => {
+              setGroups(savedGroups)
+              try { localStorage.setItem('dg_groups', JSON.stringify(savedGroups)) } catch {}
+              setStep(5)
+            }}
           />
         </div>
       )}
@@ -1507,7 +1513,10 @@ export default function MarkAttendance() {
             carryForwardHints={carryForwardHints}
             loadingWorkOrders={loadingWorkOrders}
             onNext={(individualTasks) => {
-              try { localStorage.setItem('dg_group_tasks', JSON.stringify(groupTasks)) } catch {}
+              try {
+                localStorage.setItem('dg_group_tasks', JSON.stringify(groupTasks))
+                localStorage.setItem('dg_groups', JSON.stringify(groups))
+              } catch {}
               setStep(6)
             }}
           />
