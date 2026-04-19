@@ -94,7 +94,8 @@ router.get('/report/pdf', async (req, res) => {
       const status = r.status || '—';
       const checkIn = r.check_in_time ? new Date(r.check_in_time).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }) : '—';
       const checkOut = r.check_out_time ? new Date(r.check_out_time).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }) : '—';
-      const taskNote = r.task_note || r.task_description || '—';
+      const flatNos = Array.isArray(r.flat_nos) ? r.flat_nos.join(', ') : (typeof r.flat_nos === 'string' ? r.flat_nos : '')
+      const taskNote = (r.task_note || r.task_description || '—') + (flatNos ? ' [Flats: ' + flatNos + ']' : '');
       let matsText = '—';
       try {
         const mats = typeof r.materials === 'string' ? JSON.parse(r.materials) : (Array.isArray(r.materials) ? r.materials : []);
