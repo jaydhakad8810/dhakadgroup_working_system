@@ -908,7 +908,11 @@ export default function MarkAttendance() {
         const existing = prev.map(m => m.name)
         const newMats = validMats
           .filter(m => !existing.includes(m.name))
-          .map(m => ({ name: m.name, quantity: String(m.quantity), unit: m.unit || 'KG' }))
+          .map(m => {
+            // Find matching site stock to get proper unit
+            const siteStock = siteWorkOrderMaterials.find(s => s.product_name === m.name)
+            return { name: m.name, quantity: String(m.quantity || ''), unit: siteStock?.unit || m.unit || 'KG' }
+          })
         return [...prev, ...newMats]
       })
     }
@@ -1688,8 +1692,13 @@ export default function MarkAttendance() {
                       const wom = siteWorkOrderMaterials.find(m => m.id === e.target.value)
                       if (wom) {
                         setMatName(wom.product_name)
-                        setMatUnit(wom.unit)
+                        setMatUnit(wom.unit || 'KG')
                         setMatQty('')
+                        // Scroll to quantity input to prompt supervisor
+                        setTimeout(() => {
+                          const qtyInput = document.querySelector('input[type="number"]')
+                          if (qtyInput) qtyInput.focus()
+                        }, 100)
                       }
                     }}
                   >
