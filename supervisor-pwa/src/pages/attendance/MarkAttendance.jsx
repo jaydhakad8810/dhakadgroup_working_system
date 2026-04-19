@@ -319,8 +319,18 @@ function TaskAssignStep({ groups, groupTasks, setGroupTasks, presentLabours, wor
     setGroupTasks(prev => ({ ...prev, [groupId]: { ...(prev[groupId] || {}), [field]: value } }))
   }
 
+  // Get already assigned step_ids from other groups to prevent overlap
+  const assignedStepIds = new Set(
+    Object.entries(groupTasks)
+      .filter(([gId]) => gId !== 'undefined')
+      .map(([, t]) => t.step_id)
+      .filter(Boolean)
+  )
+
   const allSteps = workOrders.flatMap(wo =>
-    (wo.steps || []).map(s => ({ ...s, work_order_id: wo.id, work_order_title: wo.title }))
+    (wo.steps || [])
+      .filter(s => s.status !== 'completed') // hide completed steps
+      .map(s => ({ ...s, work_order_id: wo.id, work_order_title: wo.title }))
   )
 
   const getFlatsForWO = (woId, stepId) => {
