@@ -887,13 +887,23 @@ export default function MarkAttendance() {
   useEffect(() => {
     if (step !== 7) return
     // Auto-fill task description from first assigned group task
-    const firstTask = Object.values(groupTasks).find(t => t.step_name)
+    // Read from localStorage directly in case state hasn't synced yet
+    let tasks = groupTasks
+    let mats = groupMaterials
+    try {
+      const savedTasks = localStorage.getItem('dg_group_tasks')
+      if (savedTasks) tasks = JSON.parse(savedTasks)
+      const savedMats = localStorage.getItem('dg_group_materials')
+      if (savedMats) mats = JSON.parse(savedMats)
+    } catch {}
+
+    const firstTask = Object.values(tasks).find(t => t.step_name)
     if (firstTask && !taskDescription) setTaskDescription(firstTask.step_name)
+
     // Merge ALL group materials into the materials state for checkout
-    const allGroupMats = Object.values(groupMaterials).flat()
+    const allGroupMats = Object.values(mats).flat()
     const validMats = allGroupMats.filter(m => m.name && m.quantity && parseFloat(m.quantity) > 0)
     if (validMats.length > 0) {
-      // Merge with existing materials, avoid duplicates by name
       setMaterials(prev => {
         const existing = prev.map(m => m.name)
         const newMats = validMats
