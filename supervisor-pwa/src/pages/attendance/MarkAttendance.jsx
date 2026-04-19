@@ -885,14 +885,13 @@ export default function MarkAttendance() {
     }
   }, [step])
 
-  // ── Load site WO materials when entering step 6 or 7 (step 7 for resume)
+  // ── Load SITE STOCK (available materials at site) when entering step 6 or 7
   useEffect(() => {
     if ((step !== 6 && step !== 7) || !selectedSite) return
-    api.get(`/workorders?site_id=${selectedSite}`)
+    api.get(`/godown/site-stock?site_id=${selectedSite}`)
       .then(res => {
-        const wos = res.data?.data || res.data || []
-        const allMaterials = wos.flatMap(wo => wo.materials || [])
-        setSiteWorkOrderMaterials(allMaterials)
+        const stocks = Array.isArray(res.data) ? res.data : []
+        setSiteWorkOrderMaterials(stocks)
       }).catch(() => {})
   }, [step, selectedSite])
 
@@ -1637,13 +1636,14 @@ export default function MarkAttendance() {
                       if (wom) {
                         setMatName(wom.product_name)
                         setMatUnit(wom.unit)
+                        setMatQty('')
                       }
                     }}
                   >
                     <option value="">-- Select WO material --</option>
                     {siteWorkOrderMaterials.map(m => (
                       <option key={m.id} value={m.id}>
-                        {m.product_name} ({m.unit}) — Rem: {(parseFloat(m.total_quantity||0) - parseFloat(m.used_quantity||0)).toFixed(1)}
+                        {m.product_name} ({m.unit}) — Available: {m.quantity}
                       </option>
                     ))}
                   </select>
