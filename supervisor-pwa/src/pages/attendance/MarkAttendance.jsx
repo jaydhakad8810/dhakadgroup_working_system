@@ -886,14 +886,21 @@ export default function MarkAttendance() {
   // ── Auto-fill task from groupTasks when entering step 7
   useEffect(() => {
     if (step !== 7) return
+    // Auto-fill task description from first assigned group task
     const firstTask = Object.values(groupTasks).find(t => t.step_name)
     if (firstTask && !taskDescription) setTaskDescription(firstTask.step_name)
-    // Auto-fill material from groupMaterials
+    // Merge ALL group materials into the materials state for checkout
     const allGroupMats = Object.values(groupMaterials).flat()
-    if (allGroupMats.length > 0 && materials.length === 0) {
-      setMaterials(allGroupMats.filter(m => m.name && m.quantity).map(m => ({
-        name: m.name, quantity: m.quantity, unit: m.unit || 'KG'
-      })))
+    const validMats = allGroupMats.filter(m => m.name && m.quantity && parseFloat(m.quantity) > 0)
+    if (validMats.length > 0) {
+      // Merge with existing materials, avoid duplicates by name
+      setMaterials(prev => {
+        const existing = prev.map(m => m.name)
+        const newMats = validMats
+          .filter(m => !existing.includes(m.name))
+          .map(m => ({ name: m.name, quantity: String(m.quantity), unit: m.unit || 'KG' }))
+        return [...prev, ...newMats]
+      })
     }
   }, [step])
 

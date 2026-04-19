@@ -100,7 +100,7 @@ router.get('/report/pdf', async (req, res) => {
         const mats = typeof r.materials === 'string' ? JSON.parse(r.materials) : (Array.isArray(r.materials) ? r.materials : []);
         if (mats.length > 0) matsText = mats.map(m => `${m.name} ${m.quantity}${m.unit ? ' '+m.unit : ''}`).join(', ');
       } catch {}
-      const taskDone = r.task_status === 'completed' ? 'Yes ✓' : r.task_status === 'pending' ? 'No ⏳' : (r.task_completed === true ? 'Yes ✓' : r.task_completed === false ? 'No ⏳' : '—');
+      const taskDone = r.task_status === 'completed' ? 'Yes' : r.task_status === 'pending' ? 'No' : (r.task_completed === true ? 'Yes' : r.task_completed === false ? 'No' : '—');
       const rowY = doc.y;
       doc.fontSize(7.5).font('Helvetica');
       doc.text(name, colX[0], rowY, { width: 82 });
