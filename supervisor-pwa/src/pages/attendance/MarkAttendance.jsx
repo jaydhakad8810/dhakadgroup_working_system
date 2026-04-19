@@ -902,7 +902,7 @@ export default function MarkAttendance() {
 
     // Merge ALL group materials into the materials state for checkout
     const allGroupMats = Object.values(mats).flat()
-    const validMats = allGroupMats.filter(m => m.name && m.quantity && parseFloat(m.quantity) > 0)
+    const validMats = allGroupMats.filter(m => m.name && m.name.trim() !== '')
     if (validMats.length > 0) {
       setMaterials(prev => {
         const existing = prev.map(m => m.name)
