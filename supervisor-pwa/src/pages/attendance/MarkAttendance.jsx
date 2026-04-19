@@ -921,6 +921,23 @@ export default function MarkAttendance() {
       .then(res => {
         const stocks = Array.isArray(res.data) ? res.data : []
         setSiteWorkOrderMaterials(stocks)
+        // Auto-populate each group with available stock items as blank entries
+        if (step === 6 && stocks.length > 0) {
+          setGroupMaterials(prev => {
+            const updated = { ...prev }
+            groups.forEach(g => {
+              if (!updated[g.id] || updated[g.id].length === 0) {
+                updated[g.id] = stocks.map(s => ({
+                  work_order_material_id: s.id,
+                  name: s.product_name,
+                  quantity: '',
+                  unit: s.unit || 'KG'
+                }))
+              }
+            })
+            return updated
+          })
+        }
       }).catch(() => {})
   }, [step, selectedSite])
 
