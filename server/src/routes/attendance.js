@@ -73,14 +73,17 @@ router.get('/report/pdf', async (req, res) => {
     doc.fontSize(10).font('Helvetica-Bold').text(`Summary: Present: ${present}  Half-Day: ${half}  Absent: ${absent}  Total: ${records.length}`);
     doc.moveDown(0.7);
 
-    // Labour table header
-    const colX = [40, 160, 230, 300, 370, 480];
-    doc.fontSize(9).font('Helvetica-Bold');
-    doc.text('Labour', colX[0], doc.y, { width: 115 });
-    doc.text('Status', colX[1], doc.y - doc.currentLineHeight(), { width: 65 });
-    doc.text('Check-In', colX[2], doc.y - doc.currentLineHeight(), { width: 65 });
-    doc.text('Check-Out', colX[3], doc.y - doc.currentLineHeight(), { width: 65 });
-    doc.text('Task Note', colX[4], doc.y - doc.currentLineHeight(), { width: 110 });
+    // Labour table header - 7 columns
+    const colX = [40, 125, 175, 220, 265, 370, 480];
+    doc.fontSize(8).font('Helvetica-Bold');
+    const headerY = doc.y;
+    doc.text('Labour', colX[0], headerY, { width: 82 });
+    doc.text('Status', colX[1], headerY, { width: 48 });
+    doc.text('In', colX[2], headerY, { width: 43 });
+    doc.text('Out', colX[3], headerY, { width: 43 });
+    doc.text('Task', colX[4], headerY, { width: 103 });
+    doc.text('Material Used', colX[5], headerY, { width: 108 });
+    doc.text('Done?', colX[6], headerY, { width: 60 });
     doc.moveDown(0.2);
     doc.moveTo(40, doc.y).lineTo(555, doc.y).stroke('#aaa');
     doc.moveDown(0.3);
@@ -91,14 +94,22 @@ router.get('/report/pdf', async (req, res) => {
       const status = r.status || '—';
       const checkIn = r.check_in_time ? new Date(r.check_in_time).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }) : '—';
       const checkOut = r.check_out_time ? new Date(r.check_out_time).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }) : '—';
-      const taskNote = r.task_note || '—';
+      const taskNote = r.task_note || r.task_description || '—';
+      let matsText = '—';
+      try {
+        const mats = typeof r.materials === 'string' ? JSON.parse(r.materials) : (Array.isArray(r.materials) ? r.materials : []);
+        if (mats.length > 0) matsText = mats.map(m => `${m.name} ${m.quantity}${m.unit ? ' '+m.unit : ''}`).join(', ');
+      } catch {}
+      const taskDone = r.task_status === 'completed' ? 'Yes ✓' : r.task_status === 'pending' ? 'No ⏳' : (r.task_completed === true ? 'Yes ✓' : r.task_completed === false ? 'No ⏳' : '—');
       const rowY = doc.y;
-      doc.fontSize(8).font('Helvetica');
-      doc.text(name, colX[0], rowY, { width: 115 });
-      doc.text(status, colX[1], rowY, { width: 65 });
-      doc.text(checkIn, colX[2], rowY, { width: 65 });
-      doc.text(checkOut, colX[3], rowY, { width: 65 });
-      doc.text(taskNote, colX[4], rowY, { width: 110 });
+      doc.fontSize(7.5).font('Helvetica');
+      doc.text(name, colX[0], rowY, { width: 82 });
+      doc.text(status, colX[1], rowY, { width: 48 });
+      doc.text(checkIn, colX[2], rowY, { width: 43 });
+      doc.text(checkOut, colX[3], rowY, { width: 43 });
+      doc.text(taskNote, colX[4], rowY, { width: 103 });
+      doc.text(matsText, colX[5], rowY, { width: 108 });
+      doc.text(taskDone, colX[6], rowY, { width: 60 });
       doc.moveDown(0.1);
       doc.moveTo(40, doc.y).lineTo(555, doc.y).stroke('#eee');
       doc.moveDown(0.2);
@@ -312,6 +323,27 @@ router.patch('/:id/checkout', supervisorOrAdmin, async (req, res) => {
     if (req.body.task_note !== undefined) update.task_note = req.body.task_note;
     if (req.body.materials !== undefined) update.materials = req.body.materials;
     await att.update(update);
+
+    // Deduct site stock when materials used at checkout
+    const usedMaterials = req.body.materials || []
+    if (usedMaterials.length > 0 && att.site_id) {
+      try {
+        const { GodownStock, Godown, MaterialCategory } = require('../models')
+        const { Op } = require('sequelize')
+        const siteGodowns = await Godown.findAll({ where: { site_id: att.site_id } })
+        const godownIds = siteGodowns.map(g => g.id)
+        for (const mat of usedMaterials) {
+          if (!mat.name || !mat.quantity || parseFloat(mat.quantity) <= 0) continue
+          const cat = await MaterialCategory.findOne({ where: { name: mat.name } })
+          if (cat && godownIds.length > 0) {
+            const stock = await GodownStock.findOne({ where: { godown_id: { [Op.in]: godownIds }, category_id: cat.id } })
+            if (stock && parseFloat(stock.quantity) >= parseFloat(mat.quantity)) {
+              await stock.update({ quantity: parseFloat(stock.quantity) - parseFloat(mat.quantity) })
+            }
+          }
+        }
+      } catch (_) {}
+    }
     res.json(att);
   } catch (e) { res.status(500).json({ message: e.message }); }
 });
