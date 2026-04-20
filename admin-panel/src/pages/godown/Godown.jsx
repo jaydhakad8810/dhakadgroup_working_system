@@ -24,7 +24,7 @@ const StockTable = ({ stockList }) => (
       {stockList.map(s => (
         <tr key={s.id} className="hover:bg-gray-50">
           <td className="px-4 py-3 font-medium text-gray-900">{s.category?.name || '—'}</td>
-          <td className="px-4 py-3 font-bold text-gray-900">{parseFloat(s.quantity || 0).toFixed(2)}</td>
+          <td className="px-4 py-3 font-bold text-gray-900">{parseFloat(s.quantity || 0).toFixed(2)} <span className="text-xs font-normal text-gray-500">{s.category?.unit || s.unit || ''}</span></td>
           <td className="px-4 py-3 text-gray-500 text-sm">₹{parseFloat(s.unit_price || 0).toLocaleString('en-IN')}</td>
           <td className="px-4 py-3 text-gray-500 text-sm">{s.min_threshold || '—'}</td>
         </tr>

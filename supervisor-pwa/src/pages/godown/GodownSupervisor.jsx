@@ -455,7 +455,7 @@ export default function GodownSupervisor() {
                     </div>
                     <div className="text-right">
                       <p className={`font-bold text-lg ${stock.min_threshold && parseFloat(stock.quantity) <= parseFloat(stock.min_threshold) ? 'text-red-400' : 'text-primary-400'}`}>
-                        {stock.quantity}
+                        {stock.quantity} <span className="text-sm font-normal">{stock.category?.unit || ''}</span>
                       </p>
                       <button
                         onClick={() => {
