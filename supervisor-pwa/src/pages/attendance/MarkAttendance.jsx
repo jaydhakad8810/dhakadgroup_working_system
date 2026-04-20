@@ -883,6 +883,18 @@ export default function MarkAttendance() {
     }).catch(() => {}).finally(() => setLoadingWorkOrders(false))
   }, [step, selectedSite, attendanceDate])
 
+  // ── Load site stock at step 7 independently
+  useEffect(() => {
+    if (step !== 7 || !selectedSite) return
+    if (siteWorkOrderMaterials.length === 0) {
+      api.get('/godown/site-stock?site_id=' + selectedSite)
+        .then(res => {
+          const stocks = Array.isArray(res.data) ? res.data : []
+          setSiteWorkOrderMaterials(stocks)
+        }).catch(() => {})
+    }
+  }, [step, selectedSite])
+
   // ── Auto-fill task from groupTasks when entering step 7
   useEffect(() => {
     if (step !== 7) return
