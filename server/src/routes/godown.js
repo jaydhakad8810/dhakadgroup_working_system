@@ -529,7 +529,14 @@ router.post('/stock-in-site', supervisorOrAdmin, async (req, res) => {
     // Find or create material category
     let cat = await MaterialCategory.findOne({ where: { name: matName } });
     if (!cat) {
-      cat = await MaterialCategory.create({ name: matName, unit: req.body.unit || 'units' });
+      const autoUnit = (() => {
+        const n = matName.toLowerCase()
+        if (n.includes('primer') || n.includes('paint') || n.includes('glory') || n.includes('look') || n.includes('emulsion')) return 'Liters'
+        if (n.includes('putty') || n.includes('gypsum') || n.includes('cement') || n.includes('sand')) return 'KG'
+        if (n.includes('paper') || n.includes('sheet') || n.includes('tape')) return 'Units'
+        return req.body.unit || 'Units'
+      })()
+      cat = await MaterialCategory.create({ name: matName, unit: autoUnit })
     }
 
     // Add to godown stock
