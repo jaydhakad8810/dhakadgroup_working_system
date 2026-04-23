@@ -130,8 +130,6 @@ router.post('/', adminOnly, async (req, res) => {
   } catch (e) { res.status(500).json({ message: e.message }); }
 });
 
-// ── GET /:id — full detail
-
 // ── GET /site-materials?site_id=X — lightweight fetch of all WO materials for a site
 router.get('/site-materials', async (req, res) => {
   try {
@@ -162,6 +160,7 @@ router.get('/site-materials', async (req, res) => {
   } catch (e) { res.status(500).json({ message: e.message }) }
 })
 
+// ── GET /:id — full detail
 router.get('/:id', async (req, res) => {
   try {
     const workOrder = await WorkOrder.findByPk(req.params.id, {
