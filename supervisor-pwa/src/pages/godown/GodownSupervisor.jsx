@@ -131,8 +131,10 @@ export default function GodownSupervisor() {
   // Delivery confirmation modal
   const [delivModal, setDelivModal] = useState(null)
 
-  // WO material hints for quick-select in request form
+  // Site materials for request form dropdown
   const [woMaterials, setWoMaterials] = useState([])
+  const [siteMaterialsLoading, setSiteMaterialsLoading] = useState(false)
+  const [siteMaterialsError, setSiteMaterialsError] = useState(false)
 
   const load = async () => {
     setLoading(true)
@@ -158,18 +160,36 @@ export default function GodownSupervisor() {
 
   const openReqModal = async () => {
     setReqModal(true)
+    setSiteMaterialsLoading(true)
+    setSiteMaterialsError(false)
+    setWoMaterials([])
+    let resolvedSiteId = reqForm.site_id
     try {
       const res = await api.get('/sites/all')
       const list = Array.isArray(res.data) ? res.data : (res.data?.data || [])
       setAllSites(list)
-      // Auto-select first site (supervisor's site)
       const firstSite = list[0] || sites[0]
-      if (firstSite) setReqForm(p => ({ ...p, site_id: p.site_id || firstSite.id }))
+      if (firstSite) {
+        if (!resolvedSiteId) resolvedSiteId = firstSite.id
+        setReqForm(p => ({ ...p, site_id: p.site_id || firstSite.id }))
+      }
     } catch {
       setAllSites(sites)
       const firstSite = sites[0]
-      if (firstSite) setReqForm(p => ({ ...p, site_id: p.site_id || firstSite.id }))
+      if (firstSite) {
+        if (!resolvedSiteId) resolvedSiteId = firstSite.id
+        setReqForm(p => ({ ...p, site_id: p.site_id || firstSite.id }))
+      }
     }
+    if (resolvedSiteId) {
+      try {
+        const mRes = await api.get(`/workorders/site-materials?site_id=${resolvedSiteId}`)
+        setWoMaterials(Array.isArray(mRes.data) ? mRes.data : [])
+      } catch {
+        setSiteMaterialsError(true)
+      }
+    }
+    setSiteMaterialsLoading(false)
   }
 
   useEffect(() => { load() }, [])
@@ -181,30 +201,6 @@ export default function GodownSupervisor() {
       const woId = params.get('wo_id')
       if (woId) setReqForm(prev => ({ ...prev, work_order_id: woId }))
     }
-  }, [])
-
-  useEffect(() => {
-    // Fetch WO materials for ALL supervisor sites
-    api.get('/sites').then(async sRes => {
-      const siteList = Array.isArray(sRes.data) ? sRes.data : (sRes.data?.data || [])
-      if (!siteList.length) return
-      const allMats = {}
-      await Promise.all(siteList.map(site =>
-        api.get('/workorders/site-materials?site_id=' + site.id)
-          .then(r => {
-            const mats = Array.isArray(r.data) ? r.data : []
-            mats.forEach(m => {
-              if (!allMats[m.id]) allMats[m.id] = {
-                id: m.id,
-                name: m.product_name,
-                unit: m.unit || '',
-                remaining: m.remaining
-              }
-            })
-          }).catch(() => {})
-      ))
-      setWoMaterials(Object.values(allMats))
-    }).catch(() => {})
   }, [])
 
   useEffect(() => {
@@ -523,16 +519,27 @@ export default function GodownSupervisor() {
         <form onSubmit={handleRequest} className="space-y-4">
           <div>
             <label className="label">Material Name *</label>
-            {woMaterials.length > 0 && (
-              <div className="flex flex-wrap gap-1.5 mb-2">
+            {siteMaterialsLoading ? (
+              <p className="text-sm text-gray-400 py-2">Loading materials...</p>
+            ) : siteMaterialsError ? (
+              <p className="text-sm text-red-400 py-2">Failed to load materials</p>
+            ) : (
+              <select
+                className="select mb-2"
+                value={reqForm.material_name || ''}
+                onChange={e => {
+                  const mat = woMaterials.find(m => m.product_name === e.target.value)
+                  if (mat) setReqForm(p => ({ ...p, material_name: mat.product_name, unit: mat.unit || p.unit }))
+                  else setReqForm(p => ({ ...p, material_name: '' }))
+                }}
+              >
+                <option value="">{woMaterials.length === 0 ? 'No materials available for this site' : '-- Select material --'}</option>
                 {woMaterials.map(m => (
-                  <button key={m.id || m.name} type="button"
-                    onClick={() => setReqForm(p => ({ ...p, material_name: m.name, unit: m.unit || p.unit }))}
-                    className={`px-2 py-1 rounded-lg text-xs font-medium transition-all ${reqForm.material_name === m.name ? 'bg-primary-500 text-white' : 'bg-surface-400 text-gray-400'}`}>
-                    {m.name} {m.unit ? `(${m.unit})` : ''}
-                  </button>
+                  <option key={m.id || m.product_name} value={m.product_name}>
+                    {m.product_name} — {parseFloat(m.remaining || 0).toFixed(1)} {m.unit} remaining
+                  </option>
                 ))}
-              </div>
+              </select>
             )}
             <input className="input" required value={reqForm.material_name || ''} onChange={e => setReqForm(p => ({ ...p, material_name: e.target.value }))} placeholder="e.g. Cement, Steel rods…" />
           </div>
