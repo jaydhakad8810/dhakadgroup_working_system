@@ -18,6 +18,8 @@ const MaterialRequest = sequelize.define('MaterialRequest', {
   dispatched_by: { type: DataTypes.UUID, allowNull: true },
   dispatch_photo: { type: DataTypes.TEXT, allowNull: true },
   rejection_reason: { type: DataTypes.TEXT, allowNull: true },
+  work_order_id: { type: DataTypes.UUID, allowNull: true },
+  work_order_material_id: { type: DataTypes.UUID, allowNull: true },
 }, { tableName: 'material_requests' });
 
 // Website Content - admin customizable company website

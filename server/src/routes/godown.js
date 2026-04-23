@@ -228,6 +228,68 @@ router.get('/site-stock', async (req, res) => {
   } catch (e) { res.status(500).json({ message: e.message }) }
 })
 
+// ── POST /requests/batch — supervisor places a cart order (multiple items at once)
+// MUST be before /:id wildcard
+router.post('/requests/batch', supervisorOrAdmin, async (req, res) => {
+  try {
+    const { MaterialRequest } = require('../models');
+    if (!MaterialRequest) return res.status(400).json({ message: 'Model not available' });
+
+    const { site_id, urgency, notes, items } = req.body;
+    if (!items || !Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({ error: 'items array must have at least one item' });
+    }
+
+    const site = site_id ? await Site.findByPk(site_id, { attributes: ['id', 'name'] }).catch(() => null) : null;
+
+    const createdItems = await MaterialRequest.sequelize.transaction(async (t) => {
+      return Promise.all(items.map(item =>
+        MaterialRequest.create({
+          material_name: item.material_name,
+          quantity: item.quantity,
+          unit: item.unit || 'units',
+          site_id,
+          urgency: urgency || 'normal',
+          notes: notes || null,
+          work_order_id: item.work_order_id || null,
+          work_order_material_id: item.work_order_material_id || null,
+          status: 'pending',
+          requested_by: req.user.id,
+        }, { transaction: t })
+      ));
+    });
+
+    const metadata = {
+      site_id,
+      site_name: site?.name || null,
+      supervisor_name: req.user.name || null,
+      item_count: items.length,
+      items: items.map(i => ({ material_name: i.material_name, quantity: i.quantity, unit: i.unit })),
+      urgency: urgency || 'normal',
+    };
+
+    await Notification.create({
+      title: `New Material Order — ${site?.name || 'Site'}`,
+      message: `Batch order of ${items.length} item(s) from ${req.user.name || 'supervisor'}`,
+      type: 'material_order',
+      target_role: 'admin',
+      sent_by: req.user.id,
+      metadata,
+    });
+
+    if (req.io) req.io.emit('material_order', { item_count: items.length, site_id, supervisor: req.user.name });
+
+    res.status(201).json({
+      success: true,
+      order_id: createdItems[0].id,
+      item_count: createdItems.length,
+      items: createdItems.map(i => ({ id: i.id, material_name: i.material_name, status: i.status })),
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 router.get('/:id', async (req, res) => {
   try {
     const godown = await Godown.findByPk(req.params.id, {
