@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
-import { Package, Plus, ArrowUp, ArrowDown, Loader2, CheckCircle, Camera, Upload, X } from 'lucide-react'
+import { Package, ArrowUp, ArrowDown, Loader2, CheckCircle, Camera, Upload, X } from 'lucide-react'
 import api from '../../utils/api'
 import toast from 'react-hot-toast'
-import { LoadingPage, EmptyState, StatusBadge, Modal } from '../../components/ui'
+import { LoadingPage, EmptyState, Modal } from '../../components/ui'
 
 // Minimal photo picker used for delivery/receipt photos
 function PhotoPicker({ value, onChange, label }) {
@@ -113,11 +113,6 @@ export default function GodownSupervisor() {
   const [selected, setSelected]     = useState(null)
   const [history, setHistory]       = useState([])
 
-  // Request material modal
-  const [reqModal, setReqModal]     = useState(false)
-  const [reqForm, setReqForm]       = useState({ urgency: 'normal', quantity: '' })
-  const [requesting, setRequesting] = useState(false)
-
   // Stock In modal
   const [stockInModal, setStockInModal]   = useState(false)
   const [stockInForm, setStockInForm]     = useState({ category_id: '', category_name: '', quantity: '', unit: 'units', delivery_photo: '', receipt_photo: '', notes: '' })
@@ -131,10 +126,8 @@ export default function GodownSupervisor() {
   // Delivery confirmation modal
   const [delivModal, setDelivModal] = useState(null)
 
-  // Site materials for request form dropdown
-  const [woMaterials, setWoMaterials] = useState([])
-  const [siteMaterialsLoading, setSiteMaterialsLoading] = useState(false)
-  const [siteMaterialsError, setSiteMaterialsError] = useState(false)
+  // Request list filter
+  const [activeRequestFilter, setActiveRequestFilter] = useState('all')
 
   const load = async () => {
     setLoading(true)
@@ -158,50 +151,7 @@ export default function GodownSupervisor() {
     setLoading(false)
   }
 
-  const openReqModal = async () => {
-    setReqModal(true)
-    setSiteMaterialsLoading(true)
-    setSiteMaterialsError(false)
-    setWoMaterials([])
-    let resolvedSiteId = reqForm.site_id
-    try {
-      const res = await api.get('/sites/all')
-      const list = Array.isArray(res.data) ? res.data : (res.data?.data || [])
-      setAllSites(list)
-      const firstSite = list[0] || sites[0]
-      if (firstSite) {
-        if (!resolvedSiteId) resolvedSiteId = firstSite.id
-        setReqForm(p => ({ ...p, site_id: p.site_id || firstSite.id }))
-      }
-    } catch {
-      setAllSites(sites)
-      const firstSite = sites[0]
-      if (firstSite) {
-        if (!resolvedSiteId) resolvedSiteId = firstSite.id
-        setReqForm(p => ({ ...p, site_id: p.site_id || firstSite.id }))
-      }
-    }
-    if (resolvedSiteId) {
-      try {
-        const mRes = await api.get(`/workorders/site-materials?site_id=${resolvedSiteId}`)
-        setWoMaterials(Array.isArray(mRes.data) ? mRes.data : [])
-      } catch {
-        setSiteMaterialsError(true)
-      }
-    }
-    setSiteMaterialsLoading(false)
-  }
-
   useEffect(() => { load() }, [])
-
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search)
-    if (params.get('request') === 'true') {
-      setReqModal(true)
-      const woId = params.get('wo_id')
-      if (woId) setReqForm(prev => ({ ...prev, work_order_id: woId }))
-    }
-  }, [])
 
   useEffect(() => {
     if (selected) {
@@ -211,7 +161,10 @@ export default function GodownSupervisor() {
 
   const selectedGodown = godowns.find(g => g.id === selected)
   const otherGodowns   = allGodowns.filter(g => g.id !== selected)
-  const deliveries     = requests.filter(r => r.status === 'dispatched')
+  const deliveries       = requests.filter(r => r.status === 'dispatched')
+  const filteredRequests = activeRequestFilter === 'all'
+    ? requests
+    : requests.filter(r => r.status === activeRequestFilter)
 
   // Group history entries by date for the history tab
   const groupedHistory = history.reduce((acc, h) => {
@@ -230,23 +183,6 @@ export default function GodownSupervisor() {
       )
     })
     window.open(`https://wa.me/?text=${encodeURIComponent(lines.join('\n'))}`, '_blank')
-  }
-
-  // ── Request Material
-  const [lastRequest, setLastRequest] = useState(null)
-
-  const handleRequest = async (e) => {
-    e.preventDefault(); setRequesting(true)
-    try {
-      const res = await api.post('/godown/requests', reqForm)
-      setLastRequest({ ...reqForm, id: res.data?.id })
-      toast.success(`✅ Request sent: ${reqForm.quantity} ${reqForm.unit || ''} of ${reqForm.material_name}`)
-      setReqModal(false)
-      setReqForm({ urgency: 'normal', quantity: '' })
-      const updated = await api.get('/godown/requests/all')
-      setRequests(Array.isArray(updated.data) ? updated.data : (updated.data?.data || []))
-    } catch { toast.error('Request failed') }
-    setRequesting(false)
   }
 
   // ── Stock In
@@ -353,27 +289,34 @@ export default function GodownSupervisor() {
       {/* ── REQUEST TAB ── */}
       {tab === 'request' && (
         <div className="space-y-3">
-          <button onClick={openReqModal} className="btn-primary w-full">
-            <Plus size={18} /> Request Material from Godown
-          </button>
-          {lastRequest && (
-            <div className="p-3 bg-green-500/10 border border-green-500/20 rounded-xl space-y-1">
-              <p className="text-green-400 font-semibold text-sm">✅ Last Request Sent</p>
-              <p className="text-xs text-gray-300">📦 {lastRequest.quantity} {lastRequest.unit || ''} of <strong>{lastRequest.material_name}</strong></p>
-              <p className="text-xs text-gray-400">Urgency: {lastRequest.urgency} · Admin will review and dispatch</p>
-            </div>
-          )}
-          {requests.map(r => (
+          {/* Filter tabs */}
+          <div className="flex gap-1 bg-surface-400 rounded-xl p-1 overflow-x-auto">
+            {['all', 'pending', 'approved', 'dispatched', 'delivered'].map(f => (
+              <button key={f} onClick={() => setActiveRequestFilter(f)}
+                className={`flex-1 py-1.5 rounded-lg text-xs font-medium capitalize transition-all whitespace-nowrap ${activeRequestFilter === f ? 'bg-primary-500 text-white' : 'text-gray-400'}`}>
+                {f}
+              </button>
+            ))}
+          </div>
+          {filteredRequests.map(r => (
             <div key={r.id} className="card space-y-2">
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-white font-semibold">{r.material_name}</p>
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex-1 min-w-0">
+                  <p className="text-white font-semibold truncate">{r.material_name}</p>
                   <p className="text-gray-400 text-xs">{r.quantity} {r.unit} · {r.site?.name}</p>
-                  <p className="text-gray-500 text-xs">{new Date(r.createdAt).toLocaleDateString('en-IN')}</p>
+                  <p className="text-gray-500 text-xs">{new Date(r.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
+                  {r.work_order_id && <p className="text-primary-400 text-xs mt-0.5">WO Ref: {r.work_order_id.toString().slice(0, 8)}…</p>}
+                  {r.status === 'dispatched' && r.driver_name && <p className="text-gray-400 text-xs">Driver: {r.driver_name}</p>}
                 </div>
-                <div className="flex flex-col items-end gap-2">
+                <div className="flex flex-col items-end gap-1.5 shrink-0">
+                  <span className={
+                    r.status === 'pending'    ? 'bg-amber-500/20 text-amber-400 text-xs px-2 py-0.5 rounded-lg font-medium capitalize' :
+                    r.status === 'approved'   ? 'bg-blue-500/20 text-blue-400 text-xs px-2 py-0.5 rounded-lg font-medium capitalize' :
+                    r.status === 'dispatched' ? 'bg-orange-500/20 text-orange-400 text-xs px-2 py-0.5 rounded-lg font-medium capitalize' :
+                    r.status === 'delivered'  ? 'bg-green-500/20 text-green-400 text-xs px-2 py-0.5 rounded-lg font-medium capitalize' :
+                    'bg-gray-500/20 text-gray-400 text-xs px-2 py-0.5 rounded-lg font-medium capitalize'
+                  }>{r.status}</span>
                   <span className={r.urgency === 'critical' ? 'badge-red' : r.urgency === 'urgent' ? 'badge-orange' : 'badge-gray'}>{r.urgency}</span>
-                  <StatusBadge status={r.status} />
                 </div>
               </div>
               {r.notes && <p className="text-gray-500 text-xs">{r.notes}</p>}
@@ -384,7 +327,10 @@ export default function GodownSupervisor() {
               )}
             </div>
           ))}
-          {!requests.length && <EmptyState icon={Package} title="No requests" message="Request materials from admin godown" />}
+          {!filteredRequests.length && (
+            <EmptyState icon={Package} title="No requests"
+              message={activeRequestFilter === 'all' ? 'No requests yet' : `No ${activeRequestFilter} requests`} />
+          )}
         </div>
       )}
 
@@ -513,78 +459,6 @@ export default function GodownSupervisor() {
           ))}
         </div>
       )}
-
-      {/* ── REQUEST MATERIAL MODAL ── */}
-      <Modal open={reqModal} onClose={() => setReqModal(false)} title="Request Material"><div style={{ paddingBottom: 100 }}>
-        <form onSubmit={handleRequest} className="space-y-4">
-          <div>
-            <label className="label">Material Name *</label>
-            {siteMaterialsLoading ? (
-              <p className="text-sm text-gray-400 py-2">Loading materials...</p>
-            ) : siteMaterialsError ? (
-              <p className="text-sm text-red-400 py-2">Failed to load materials</p>
-            ) : (
-              <select
-                className="select mb-2"
-                value={reqForm.material_name || ''}
-                onChange={e => {
-                  const mat = woMaterials.find(m => m.product_name === e.target.value)
-                  if (mat) setReqForm(p => ({ ...p, material_name: mat.product_name, unit: mat.unit || p.unit }))
-                  else setReqForm(p => ({ ...p, material_name: '' }))
-                }}
-              >
-                <option value="">{woMaterials.length === 0 ? 'No materials available for this site' : '-- Select material --'}</option>
-                {woMaterials.map(m => (
-                  <option key={m.id || m.product_name} value={m.product_name}>
-                    {m.product_name} — {parseFloat(m.remaining || 0).toFixed(1)} {m.unit} remaining
-                  </option>
-                ))}
-              </select>
-            )}
-            <input className="input" required value={reqForm.material_name || ''} onChange={e => setReqForm(p => ({ ...p, material_name: e.target.value }))} placeholder="e.g. Cement, Steel rods…" />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="label">Quantity *</label>
-              <input type="number" className="input" required value={reqForm.quantity} onChange={e => setReqForm(p => ({ ...p, quantity: e.target.value }))} />
-            </div>
-            <div>
-              <label className="label">Unit</label>
-              <input className="input" value={reqForm.unit || ''} onChange={e => setReqForm(p => ({ ...p, unit: e.target.value }))} placeholder="bags, kg, pcs…" />
-            </div>
-          </div>
-          <div>
-            <label className="label">Site *</label>
-            <select className="select" required value={reqForm.site_id || ''} onChange={e => setReqForm(p => ({ ...p, site_id: e.target.value }))}>
-              <option value="">-- Select site --</option>
-              {(allSites.length > 0 ? allSites : sites).map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="label">Urgency</label>
-            <div className="flex gap-2">
-              {['normal', 'urgent', 'critical'].map(u => (
-                <button key={u} type="button" onClick={() => setReqForm(p => ({ ...p, urgency: u }))}
-                  className={`flex-1 py-2 rounded-xl text-sm font-medium capitalize transition-all ${
-                    reqForm.urgency === u
-                      ? u === 'critical' ? 'bg-red-500 text-white'
-                      : u === 'urgent' ? 'bg-orange-500 text-white'
-                      : 'bg-primary-500 text-white'
-                      : 'bg-surface-200 text-gray-400'
-                  }`}>{u}</button>
-              ))}
-            </div>
-          </div>
-          <div>
-            <label className="label">Notes</label>
-            <textarea className="input" rows={2} value={reqForm.notes || ''} onChange={e => setReqForm(p => ({ ...p, notes: e.target.value }))} />
-          </div>
-          <button type="submit" disabled={requesting} className="btn-primary w-full">
-            {requesting ? <Loader2 size={18} className="animate-spin" /> : null}
-            {requesting ? 'Sending…' : 'Send Request'}
-          </button>
-        </form>
-      </div></Modal>
 
       {/* ── STOCK IN MODAL ── */}
       <Modal open={stockInModal} onClose={() => setStockInModal(false)} title="📥 Stock In">
