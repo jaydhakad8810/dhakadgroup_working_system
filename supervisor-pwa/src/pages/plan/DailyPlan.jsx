@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react'
-import { ArrowLeft, Plus, X, AlertCircle, Loader2, ClipboardList } from 'lucide-react'
+import { useState, useEffect, useRef } from 'react'
+import { ArrowLeft, Plus, X, AlertCircle, Loader2, ClipboardList, Camera, CheckCircle, Users } from 'lucide-react'
 import api from '../../utils/api'
 import toast from 'react-hot-toast'
 
@@ -30,11 +30,12 @@ function StatusBadge({ status }) {
 }
 
 // ─── PlanCard ─────────────────────────────────────────────────────────────────
-function PlanCard({ plan, onContinue }) {
+function PlanCard({ plan, onContinue, onMarkAttendance }) {
   const canContinue = plan.status === 'draft' || plan.status === 'submitted'
+  const isSubmitted = plan.status === 'submitted'
   return (
     <div className="card">
-      <div className="flex items-center justify-between">
+      <div className="flex items-start justify-between">
         <div className="flex-1">
           <div className="flex items-center gap-2 mb-1">
             <span className="text-white font-medium text-sm">{fmtDate(plan.date)}</span>
@@ -42,14 +43,24 @@ function PlanCard({ plan, onContinue }) {
           </div>
           <p className="text-xs text-gray-500">{plan.item_count || 0} tasks</p>
         </div>
-        {canContinue && (
-          <button
-            onClick={() => onContinue(plan)}
-            className="bg-primary-500/20 text-primary-400 border border-primary-500/30 text-xs px-3 py-1.5 rounded-lg font-medium ml-2 active:scale-95 transition-all"
-          >
-            Continue
-          </button>
-        )}
+        <div className="flex flex-col gap-1.5 ml-2 items-end">
+          {canContinue && (
+            <button
+              onClick={() => onContinue(plan)}
+              className="bg-primary-500/20 text-primary-400 border border-primary-500/30 text-xs px-3 py-1.5 rounded-lg font-medium active:scale-95 transition-all"
+            >
+              Continue
+            </button>
+          )}
+          {isSubmitted && onMarkAttendance && (
+            <button
+              onClick={() => onMarkAttendance(plan)}
+              className="bg-green-500/20 text-green-400 border border-green-500/30 text-xs px-3 py-1.5 rounded-lg font-medium active:scale-95 transition-all"
+            >
+              Mark Attendance
+            </button>
+          )}
+        </div>
       </div>
     </div>
   )
@@ -262,6 +273,103 @@ function GroupCard({ group, index, workOrderSteps, siteMaterials, onUpdate, onRe
   )
 }
 
+// ─── LabourAttendanceCard ─────────────────────────────────────────────────────
+function LabourAttendanceCard({ labour, status, onStatusChange }) {
+  const initials = labour.name ? labour.name[0].toUpperCase() : '?'
+  const buttons = [
+    { key: 'present',  label: 'Present',  active: 'bg-green-500 text-white',  inactive: 'bg-surface-400 text-gray-400 border border-white/10' },
+    { key: 'half_day', label: 'Half Day', active: 'bg-yellow-500 text-white', inactive: 'bg-surface-400 text-gray-400 border border-white/10' },
+    { key: 'absent',   label: 'Absent',   active: 'bg-red-500 text-white',    inactive: 'bg-surface-400 text-gray-400 border border-white/10' },
+  ]
+  return (
+    <div className="card">
+      <div className="flex items-center gap-3 mb-3">
+        {labour.photo
+          ? <img src={labour.photo} className="w-10 h-10 rounded-full object-cover shrink-0" alt={labour.name} />
+          : <div className="w-10 h-10 rounded-full bg-primary-500/20 flex items-center justify-center text-primary-400 font-bold shrink-0">{initials}</div>
+        }
+        <div className="flex-1 min-w-0">
+          <p className="text-white font-semibold text-sm truncate">{labour.name}</p>
+          {labour.employee_id && <p className="text-gray-500 text-xs">{labour.employee_id}</p>}
+        </div>
+      </div>
+      <div className="flex gap-2">
+        {buttons.map(btn => (
+          <button
+            key={btn.key}
+            type="button"
+            onClick={() => onStatusChange(labour.id, btn.key)}
+            className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-all active:scale-95 ${status === btn.key ? btn.active : btn.inactive}`}
+          >
+            {btn.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// ─── PhotoCaptureCard ─────────────────────────────────────────────────────────
+function PhotoCaptureCard({ labour, photoUrl, onPhotoCapture, uploading }) {
+  const fileRef = useRef(null)
+  const initials = labour.name ? labour.name[0].toUpperCase() : '?'
+  const isUploading = uploading[labour.id]
+  const hasPhoto = !!photoUrl
+  return (
+    <div className={`card ${hasPhoto ? 'border-green-500/40' : 'border-red-500/30'}`}>
+      <div className="flex items-center gap-3">
+        {labour.photo
+          ? <img src={labour.photo} className="w-10 h-10 rounded-full object-cover shrink-0" alt={labour.name} />
+          : <div className="w-10 h-10 rounded-full bg-primary-500/20 flex items-center justify-center text-primary-400 font-bold shrink-0">{initials}</div>
+        }
+        <div className="flex-1 min-w-0">
+          <p className="text-white font-semibold text-sm truncate">{labour.name}</p>
+          {labour.employee_id && <p className="text-gray-500 text-xs">{labour.employee_id}</p>}
+        </div>
+        {hasPhoto && <CheckCircle size={20} className="text-green-400 shrink-0" />}
+      </div>
+      {hasPhoto ? (
+        <div className="mt-3 flex items-center gap-3">
+          <img src={photoUrl} className="w-16 h-16 rounded-lg object-cover border border-green-500/30" alt="check-in" />
+          <button
+            type="button"
+            onClick={() => fileRef.current?.click()}
+            className="text-xs text-gray-400 border border-white/10 px-3 py-1.5 rounded-lg active:scale-95 transition-all"
+          >
+            Retake
+          </button>
+        </div>
+      ) : (
+        <div className="mt-3">
+          {isUploading ? (
+            <div className="flex items-center gap-2 py-2">
+              <Loader2 size={16} className="animate-spin text-primary-400" />
+              <span className="text-xs text-gray-400">Uploading...</span>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => fileRef.current?.click()}
+              className="w-full py-2 rounded-lg border border-primary-500/40 text-primary-400 text-xs font-medium flex items-center justify-center gap-2 active:scale-95 transition-all"
+            >
+              <Camera size={14} />
+              Take Photo
+            </button>
+          )}
+        </div>
+      )}
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        className="hidden"
+        onChange={e => e.target.files[0] && onPhotoCapture(labour.id, e.target.files[0])}
+      />
+    </div>
+  )
+}
+
 // ─── DailyPlan (main) ─────────────────────────────────────────────────────────
 export default function DailyPlan() {
   const [view, setView] = useState('list')
@@ -276,6 +384,15 @@ export default function DailyPlan() {
   const [siteMaterials, setSiteMaterials] = useState([])
   const [saving, setSaving] = useState(false)
   const [loading, setLoading] = useState(true)
+
+  // Attendance flow state
+  const [labours, setLabours] = useState([])
+  const [attendance, setAttendance] = useState({})
+  const [checkInPhotos, setCheckInPhotos] = useState({})
+  const [attendanceStep, setAttendanceStep] = useState(1)
+  const [uploadingPhoto, setUploadingPhoto] = useState({})
+  const [submittingAttendance, setSubmittingAttendance] = useState(false)
+  const [attendancePlanId, setAttendancePlanId] = useState(null)
 
   async function fetchInitialData(sid) {
     if (!sid) return
@@ -419,10 +536,230 @@ export default function DailyPlan() {
     }
   }
 
+  async function loadLaboursForAttendance() {
+    try {
+      const res = await api.get(`/labour?site_id=${siteId}&is_active=true`)
+      const fetched = res.data || []
+      setLabours(fetched)
+      const defaults = {}
+      fetched.forEach(l => { defaults[l.id] = 'present' })
+      setAttendance(defaults)
+    } catch {
+      toast.error('Failed to load labours')
+    }
+  }
+
+  async function uploadCheckInPhoto(labourId, file) {
+    setUploadingPhoto(prev => ({ ...prev, [labourId]: true }))
+    try {
+      const form = new FormData()
+      form.append('file', file)
+      const res = await api.post('/upload/single', form, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      const url = res.data?.url || res.data?.data?.url || ''
+      setCheckInPhotos(prev => ({ ...prev, [labourId]: url }))
+    } catch {
+      toast.error('Photo upload failed')
+    } finally {
+      setUploadingPhoto(prev => { const n = { ...prev }; delete n[labourId]; return n })
+    }
+  }
+
+  async function submitAttendance() {
+    setSubmittingAttendance(true)
+    try {
+      const date = todayPlan?.date || TODAY
+      const records = labours.map(l => ({
+        labour_id: l.id,
+        status: attendance[l.id] || 'absent',
+        date,
+        site_id: siteId,
+      }))
+      const bulkRes = await api.post('/attendance/bulk', { site_id: siteId, date, records })
+      const attRecords = bulkRes.data?.data || bulkRes.data || []
+
+      const presentRecords = attRecords.filter(r => r.status === 'present' || r.status === 'half_day')
+      await Promise.allSettled(
+        presentRecords.map(r => {
+          const photoUrl = checkInPhotos[r.labour_id]
+          if (!photoUrl) return Promise.resolve()
+          return api.patch(`/attendance/${r._id || r.id}/checkin`, { check_in_photo: photoUrl })
+        })
+      )
+
+      if (attendancePlanId) {
+        await api.put(`/daily-plans/${attendancePlanId}`, { status: 'in_progress' })
+      }
+
+      toast.success('Attendance submitted successfully')
+      setView('list')
+      fetchInitialData(siteId)
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Failed to submit attendance')
+    } finally {
+      setSubmittingAttendance(false)
+    }
+  }
+
+  function handleMarkAttendance(plan) {
+    setAttendancePlanId(plan.id)
+    setTodayPlan(plan)
+    setAttendanceStep(1)
+    setCheckInPhotos({})
+    setAttendance({})
+    loadLaboursForAttendance()
+    setView('attend')
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
         <Loader2 size={32} className="animate-spin text-primary-500" />
+      </div>
+    )
+  }
+
+  if (view === 'attend') {
+    const presentLabours = labours.filter(l => attendance[l.id] !== 'absent')
+    const presentCount  = labours.filter(l => attendance[l.id] === 'present').length
+    const halfCount     = labours.filter(l => attendance[l.id] === 'half_day').length
+    const absentCount   = labours.filter(l => attendance[l.id] === 'absent').length
+    const photosCount   = presentLabours.filter(l => checkInPhotos[l.id]).length
+    const totalForPhotos = presentLabours.length
+    const allPhotosReady = totalForPhotos > 0 && photosCount === totalForPhotos
+
+    // ── Step 1: Mark Present / Absent ──
+    if (attendanceStep === 1) {
+      return (
+        <div className="page-content" style={{ paddingBottom: 120 }}>
+          <div className="card">
+            <div className="flex items-center gap-3">
+              <button onClick={() => setView('list')} className="text-gray-400 hover:text-white p-1 transition-colors">
+                <ArrowLeft size={20} />
+              </button>
+              <div className="flex-1">
+                <h1 className="text-base font-bold text-white">Attendance — Step 1 of 3</h1>
+                <p className="text-xs text-gray-500">{fmtDate(todayPlan?.date)}</p>
+              </div>
+              <button
+                onClick={() => {
+                  const all = {}
+                  labours.forEach(l => { all[l.id] = 'present' })
+                  setAttendance(all)
+                }}
+                className="text-xs bg-green-500/20 text-green-400 border border-green-500/30 px-3 py-1.5 rounded-lg font-medium active:scale-95 transition-all"
+              >
+                All Present
+              </button>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-center gap-2">
+            {[1, 2, 3].map(n => (
+              <div key={n} className={`h-2 rounded-full transition-all ${n === attendanceStep ? 'w-8 bg-primary-500' : n < attendanceStep ? 'w-6 bg-primary-500/60' : 'w-6 bg-surface-400'}`} />
+            ))}
+          </div>
+
+          <div className="card">
+            <div className="flex gap-4 text-xs">
+              <span className="text-green-400 font-medium">Present: {presentCount}</span>
+              <span className="text-yellow-400 font-medium">Half Day: {halfCount}</span>
+              <span className="text-red-400 font-medium">Absent: {absentCount}</span>
+            </div>
+          </div>
+
+          {labours.length === 0 ? (
+            <div className="text-center py-12">
+              <Users size={40} className="mx-auto text-gray-600 mb-3" />
+              <p className="text-gray-400 font-medium">No labours assigned to this site</p>
+              <p className="text-gray-500 text-sm mt-1">Add labours in the Labour section first</p>
+            </div>
+          ) : (
+            labours.map(l => (
+              <LabourAttendanceCard
+                key={l.id}
+                labour={l}
+                status={attendance[l.id] || 'present'}
+                onStatusChange={(id, s) => setAttendance(prev => ({ ...prev, [id]: s }))}
+              />
+            ))
+          )}
+
+          <div className="flex gap-3">
+            <button
+              onClick={() => setView('list')}
+              className="py-3 px-5 rounded-xl bg-surface-400 text-gray-300 font-semibold text-sm transition-all active:scale-95"
+            >
+              Back
+            </button>
+            <button
+              onClick={() => setAttendanceStep(2)}
+              disabled={presentLabours.length === 0}
+              className="flex-1 py-3 rounded-xl bg-primary-500 text-white font-semibold text-sm transition-all active:scale-95 disabled:opacity-40"
+            >
+              Next — Check-in Photos
+            </button>
+          </div>
+        </div>
+      )
+    }
+
+    // ── Step 2: Check-in Photos ──
+    return (
+      <div className="page-content" style={{ paddingBottom: 120 }}>
+        <div className="card">
+          <div className="flex items-center gap-3">
+            <button onClick={() => setAttendanceStep(1)} className="text-gray-400 hover:text-white p-1 transition-colors">
+              <ArrowLeft size={20} />
+            </button>
+            <div className="flex-1">
+              <h1 className="text-base font-bold text-white">Check-in Photos — Step 2 of 3</h1>
+              <p className="text-xs text-gray-500">{fmtDate(todayPlan?.date)}</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-center gap-2">
+          {[1, 2, 3].map(n => (
+            <div key={n} className={`h-2 rounded-full transition-all ${n === attendanceStep ? 'w-8 bg-primary-500' : n < attendanceStep ? 'w-6 bg-primary-500/60' : 'w-6 bg-surface-400'}`} />
+          ))}
+        </div>
+
+        <div className="card">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-sm text-white font-medium">Photos taken: {photosCount} / {totalForPhotos}</p>
+          </div>
+          <div className="h-2 rounded-full bg-surface-400 overflow-hidden">
+            <div
+              className="h-full bg-primary-500 rounded-full transition-all duration-300"
+              style={{ width: totalForPhotos > 0 ? `${Math.round((photosCount / totalForPhotos) * 100)}%` : '0%' }}
+            />
+          </div>
+        </div>
+
+        {presentLabours.map(l => (
+          <PhotoCaptureCard
+            key={l.id}
+            labour={l}
+            photoUrl={checkInPhotos[l.id] || ''}
+            onPhotoCapture={uploadCheckInPhoto}
+            uploading={uploadingPhoto}
+          />
+        ))}
+
+        {!allPhotosReady && totalForPhotos > 0 && (
+          <p className="text-center text-xs text-gray-500">Take photos for all present labours to continue</p>
+        )}
+
+        <button
+          onClick={submitAttendance}
+          disabled={!allPhotosReady || submittingAttendance}
+          className="w-full py-3 rounded-xl bg-primary-500 text-white font-semibold text-sm flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-40"
+        >
+          {submittingAttendance && <Loader2 size={15} className="animate-spin" />}
+          Submit Attendance
+        </button>
       </div>
     )
   }
@@ -441,28 +778,43 @@ export default function DailyPlan() {
           <p className="text-xs text-gray-400 mt-1">Plan your site's tasks for the day</p>
         </div>
 
-        <button
-          className={`w-full py-4 rounded-2xl font-semibold text-base transition-all active:scale-95 ${
-            canContinueToday || !todayPlan
-              ? 'bg-primary-500 text-white'
-              : 'bg-surface-400 text-gray-400 border border-white/10'
-          }`}
-          onClick={() => {
-            if (todayBlocked) {
-              toast('Attendance already submitted for today')
-            } else if (canContinueToday) {
-              openCreateView(todayPlan)
-            } else {
-              openCreateView(null)
-            }
-          }}
-        >
-          {canContinueToday
-            ? "Continue Today's Plan"
-            : todayBlocked
-            ? `Today's Plan — ${todayPlan.status.replace(/_/g, ' ')}`
-            : 'Plan for Today'}
-        </button>
+        {todayPlan && todayPlan.status === 'in_progress' ? (
+          <div className="flex gap-3">
+            <div className="flex-1 py-4 rounded-2xl bg-green-500/10 border border-green-500/30 text-center">
+              <p className="text-green-400 font-semibold text-sm">Attendance Done ✓</p>
+              <p className="text-green-500/70 text-xs mt-0.5">{fmtDate(todayPlan.date)}</p>
+            </div>
+            <button
+              disabled
+              className="py-4 px-4 rounded-2xl bg-surface-400 text-gray-500 border border-white/5 font-medium text-sm cursor-not-allowed opacity-60"
+            >
+              Mark Checkout
+            </button>
+          </div>
+        ) : (
+          <button
+            className={`w-full py-4 rounded-2xl font-semibold text-base transition-all active:scale-95 ${
+              canContinueToday || !todayPlan
+                ? 'bg-primary-500 text-white'
+                : 'bg-surface-400 text-gray-400 border border-white/10'
+            }`}
+            onClick={() => {
+              if (todayBlocked) {
+                toast(`Today's Plan is ${todayPlan.status.replace(/_/g, ' ')}`)
+              } else if (canContinueToday) {
+                openCreateView(todayPlan)
+              } else {
+                openCreateView(null)
+              }
+            }}
+          >
+            {canContinueToday
+              ? "Continue Today's Plan"
+              : todayBlocked
+              ? `Today's Plan — ${todayPlan.status.replace(/_/g, ' ')}`
+              : 'Plan for Today'}
+          </button>
+        )}
 
         {carryForwardItems.length > 0 && (
           <div className="flex items-center gap-2 bg-orange-500/10 border border-orange-500/30 rounded-xl px-4 py-3">
@@ -486,6 +838,7 @@ export default function DailyPlan() {
                     openCreateView(p)
                   }
                 }}
+                onMarkAttendance={handleMarkAttendance}
               />
             ))}
           </div>
