@@ -180,8 +180,45 @@ const PushSubscription = sequelize.define('PushSubscription', {
   auth: { type: DataTypes.TEXT, allowNull: false },
 }, { tableName: 'push_subscriptions' });
 
+// ── Site Ledger Entry (daily cost roll-up per site) ───────────────────────────
+const SiteLedgerEntry = sequelize.define('SiteLedgerEntry', {
+  id: { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
+  site_id: { type: DataTypes.UUID, allowNull: false },
+  date: { type: DataTypes.DATEONLY, allowNull: false },
+  labour_cost: { type: DataTypes.DECIMAL(12, 2), defaultValue: 0 },
+  expense_cost: { type: DataTypes.DECIMAL(12, 2), defaultValue: 0 },
+  material_cost: { type: DataTypes.DECIMAL(12, 2), defaultValue: 0 },
+  equipment_cost: { type: DataTypes.DECIMAL(12, 2), defaultValue: 0 },
+  total_cost: { type: DataTypes.DECIMAL(12, 2), defaultValue: 0 },
+  entry_type: { type: DataTypes.ENUM('auto', 'manual'), defaultValue: 'auto' },
+  notes: { type: DataTypes.TEXT, allowNull: true },
+  created_by: { type: DataTypes.UUID, allowNull: true },
+}, {
+  tableName: 'site_ledger_entries',
+  indexes: [{ unique: true, fields: ['site_id', 'date'] }],
+});
+
+// ── Client Ledger (payments received from client per site) ────────────────────
+const ClientLedger = sequelize.define('ClientLedger', {
+  id: { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
+  site_id: { type: DataTypes.UUID, allowNull: false },
+  client_name: { type: DataTypes.STRING, allowNull: false },
+  contract_amount: { type: DataTypes.DECIMAL(14, 2), defaultValue: 0 },
+  invoice_number: { type: DataTypes.STRING, allowNull: true },
+  invoice_date: { type: DataTypes.DATEONLY, allowNull: true },
+  amount: { type: DataTypes.DECIMAL(12, 2), allowNull: false },
+  payment_mode: { type: DataTypes.ENUM('Cash', 'Cheque', 'Bank Transfer', 'UPI'), allowNull: false },
+  payment_date: { type: DataTypes.DATEONLY, allowNull: false },
+  milestone: { type: DataTypes.STRING, allowNull: true },
+  balance_due: { type: DataTypes.DECIMAL(14, 2), defaultValue: 0 },
+  notes: { type: DataTypes.TEXT, allowNull: true },
+  receipt_photo: { type: DataTypes.STRING, allowNull: true },
+  created_by: { type: DataTypes.UUID, allowNull: true },
+}, { tableName: 'client_ledger' });
+
 module.exports = {
   SalaryRecord, AdvancePayment, LabourTransfer, SiteLedger, ClientPayment,
   ExpenseCategory, DailyExpense, DriverExpense, Notification, VisitReport, VisitTask,
   BOQLabour, BOQMaterial, PushSubscription,
+  SiteLedgerEntry, ClientLedger,
 };

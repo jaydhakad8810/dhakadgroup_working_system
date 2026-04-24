@@ -8,6 +8,7 @@ const {
   SalaryRecord, AdvancePayment, LabourTransfer, SiteLedger, ClientPayment,
   ExpenseCategory, DailyExpense, DriverExpense, Notification, VisitReport, VisitTask,
   BOQLabour, BOQMaterial, PushSubscription,
+  SiteLedgerEntry, ClientLedger,
 } = require('./FinancialModels');
 const { MaterialCategory, Godown, GodownStock, StockHistory } = require('./GodownModels');
 const { MachineCategory, Machine, MachineRequest } = require('./MachineModels');
@@ -44,6 +45,8 @@ LabourTransfer.belongsTo(Site, { foreignKey: 'to_site_id', as: 'toSite' });
 // Ledger
 SiteLedger.belongsTo(Site, { foreignKey: 'site_id', as: 'site' });
 ClientPayment.belongsTo(Site, { foreignKey: 'site_id', as: 'site' });
+SiteLedgerEntry.belongsTo(Site, { foreignKey: 'site_id', as: 'site' });
+ClientLedger.belongsTo(Site, { foreignKey: 'site_id', as: 'site' });
 
 // Expenses
 DailyExpense.belongsTo(Site, { foreignKey: 'site_id', as: 'site' });
@@ -100,6 +103,7 @@ module.exports = {
   SalaryRecord, AdvancePayment, LabourTransfer, SiteLedger, ClientPayment,
   ExpenseCategory, DailyExpense, DriverExpense, Notification, VisitReport, VisitTask,
   BOQLabour, BOQMaterial, PushSubscription,
+  SiteLedgerEntry, ClientLedger,
   MaterialCategory, Godown, GodownStock, StockHistory,
   MachineCategory, Machine, MachineRequest,
   Driver, Vehicle, Trip,
