@@ -25,6 +25,7 @@ import GodownSupervisor from './pages/godown/GodownSupervisor'
 import DeliveryConfirmation from './pages/godown/DeliveryConfirmation'
 import MachineSupervisor from './pages/machines/MachineSupervisor'
 import WorkOrderView from './pages/workorders/WorkOrderView'
+import DailyPlan from './pages/plan/DailyPlan'
 
 function Guard({ children }) {
   const { user } = useAuth()
@@ -70,6 +71,7 @@ export default function App() {
           <Route path="/deliveries"         element={<Guard><AppLayout><DeliveryConfirmation /></AppLayout></Guard>} />
           <Route path="/machines"           element={<Guard><AppLayout><MachineSupervisor /></AppLayout></Guard>} />
           <Route path="/workorders"         element={<Guard><AppLayout><WorkOrderView /></AppLayout></Guard>} />
+          <Route path="/plan"              element={<Guard><AppLayout><DailyPlan /></AppLayout></Guard>} />
           <Route path="/notifications"      element={<Guard><AppLayout><Notifications /></AppLayout></Guard>} />
           <Route path="/profile"            element={<Guard><AppLayout><Profile /></AppLayout></Guard>} />
           <Route path="*" element={<Navigate to="/" replace />} />
