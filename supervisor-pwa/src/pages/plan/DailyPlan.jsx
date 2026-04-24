@@ -370,6 +370,135 @@ function PhotoCaptureCard({ labour, photoUrl, onPhotoCapture, uploading }) {
   )
 }
 
+// ─── CheckoutItemCard ─────────────────────────────────────────────────────────
+function CheckoutItemCard({ item, onUpdate }) {
+  const statusOptions = [
+    { value: 'done',           label: 'Done',       cls: 'bg-green-500 text-white' },
+    { value: 'partial',        label: 'Partial',    cls: 'bg-yellow-500 text-white' },
+    { value: 'carry_forward',  label: 'Carry Fwd',  cls: 'bg-orange-500 text-white' },
+    { value: 'pending',        label: 'Pending',    cls: 'bg-surface-400 text-gray-400 border border-white/10' },
+  ]
+  return (
+    <div className="card">
+      <div className="mb-3">
+        <p className="text-white font-semibold text-sm">{item.step_name || 'Task'}</p>
+        {item.group_name && <p className="text-gray-500 text-xs mt-0.5">Group: {item.group_name}</p>}
+        {item.flat_nos?.length > 0 && <p className="text-gray-500 text-xs">Flats: {item.flat_nos.join(', ')}</p>}
+        {item.estimated_qty && <p className="text-gray-500 text-xs">Estimated: {item.estimated_qty} {item.unit}</p>}
+      </div>
+
+      <div className="mb-3">
+        <label className="label">Status</label>
+        <div className="flex flex-wrap gap-2">
+          {statusOptions.map(opt => (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => onUpdate(item.id, { checkout_status: opt.value })}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all active:scale-95 ${item.checkout_status === opt.value ? opt.cls : 'bg-surface-400 text-gray-400 border border-white/10'}`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-2 mb-3">
+        <div>
+          <label className="label">Actual Qty</label>
+          <input
+            type="number"
+            className="input"
+            placeholder="0"
+            value={item.actual_qty || ''}
+            onChange={e => onUpdate(item.id, { actual_qty: e.target.value })}
+          />
+        </div>
+        <div>
+          <label className="label">Unit</label>
+          <input className="input" value={item.unit || ''} readOnly />
+        </div>
+      </div>
+
+      {item.checkout_status === 'partial' && (
+        <div className="mb-3">
+          <label className="label">Completed Flats</label>
+          <input
+            className="input"
+            placeholder="e.g. A-101, A-102"
+            value={item.partial_flat_nos || ''}
+            onChange={e => onUpdate(item.id, { partial_flat_nos: e.target.value })}
+          />
+        </div>
+      )}
+
+      <div>
+        <label className="label">Notes</label>
+        <input
+          className="input"
+          placeholder="Any checkout notes..."
+          value={item.checkout_notes || ''}
+          onChange={e => onUpdate(item.id, { checkout_notes: e.target.value })}
+        />
+      </div>
+    </div>
+  )
+}
+
+// ─── CheckoutPhotoCard ────────────────────────────────────────────────────────
+function CheckoutPhotoCard({ labour, photoUrl, onPhotoCapture, uploading }) {
+  const fileRef = useRef(null)
+  const initials = labour.name ? labour.name[0].toUpperCase() : '?'
+  const isUploading = uploading[labour.id]
+  const hasPhoto = !!photoUrl
+  return (
+    <div className={`card ${hasPhoto ? 'border-green-500/40' : 'border-white/10'}`}>
+      <div className="flex items-center gap-3">
+        {labour.photo
+          ? <img src={labour.photo} className="w-10 h-10 rounded-full object-cover shrink-0" alt={labour.name} />
+          : <div className="w-10 h-10 rounded-full bg-primary-500/20 flex items-center justify-center text-primary-400 font-bold shrink-0">{initials}</div>
+        }
+        <div className="flex-1 min-w-0">
+          <p className="text-white font-semibold text-sm truncate">{labour.name}</p>
+        </div>
+        {hasPhoto && <CheckCircle size={20} className="text-green-400 shrink-0" />}
+      </div>
+      {hasPhoto ? (
+        <div className="mt-3 flex items-center gap-3">
+          <img src={photoUrl} className="w-16 h-16 rounded-lg object-cover border border-green-500/30" alt="checkout" />
+          <button type="button" onClick={() => fileRef.current?.click()}
+            className="text-xs text-gray-400 border border-white/10 px-3 py-1.5 rounded-lg active:scale-95 transition-all">
+            Retake
+          </button>
+        </div>
+      ) : (
+        <div className="mt-3">
+          {isUploading ? (
+            <div className="flex items-center gap-2 py-2">
+              <Loader2 size={16} className="animate-spin text-primary-400" />
+              <span className="text-xs text-gray-400">Uploading...</span>
+            </div>
+          ) : (
+            <button type="button" onClick={() => fileRef.current?.click()}
+              className="w-full py-2 rounded-lg border border-primary-500/40 text-primary-400 text-xs font-medium flex items-center justify-center gap-2 active:scale-95 transition-all">
+              <Camera size={14} />
+              Take Checkout Photo
+            </button>
+          )}
+        </div>
+      )}
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        className="hidden"
+        onChange={e => e.target.files[0] && onPhotoCapture(labour.id, e.target.files[0])}
+      />
+    </div>
+  )
+}
+
 // ─── DailyPlan (main) ─────────────────────────────────────────────────────────
 export default function DailyPlan() {
   const [view, setView] = useState('list')
@@ -393,6 +522,12 @@ export default function DailyPlan() {
   const [uploadingPhoto, setUploadingPhoto] = useState({})
   const [submittingAttendance, setSubmittingAttendance] = useState(false)
   const [attendancePlanId, setAttendancePlanId] = useState(null)
+
+  // Checkout flow state
+  const [checkoutItems, setCheckoutItems] = useState([])
+  const [checkoutPhotos, setCheckoutPhotos] = useState({})
+  const [uploadingCheckoutPhoto, setUploadingCheckoutPhoto] = useState({})
+  const [submittingCheckout, setSubmittingCheckout] = useState(false)
 
   async function fetchInitialData(sid) {
     if (!sid) return
@@ -612,6 +747,94 @@ export default function DailyPlan() {
     setView('attend')
   }
 
+  async function initializeCheckoutItems() {
+    try {
+      const date = todayPlan?.date || TODAY
+      const res = await api.get(`/daily-plans?site_id=${siteId}&date=${date}`)
+      const plan = res.data?.plan || todayPlan
+      const items = (plan?.items || []).map(i => ({
+        ...i,
+        checkout_status: 'pending',
+        actual_qty: '',
+        partial_flat_nos: '',
+        checkout_notes: '',
+      }))
+      setCheckoutItems(items)
+    } catch {
+      const items = (todayPlan?.items || []).map(i => ({
+        ...i,
+        checkout_status: 'pending',
+        actual_qty: '',
+        partial_flat_nos: '',
+        checkout_notes: '',
+      }))
+      setCheckoutItems(items)
+    }
+  }
+
+  function updateCheckoutItem(itemId, updates) {
+    setCheckoutItems(prev => prev.map(i => i.id === itemId ? { ...i, ...updates } : i))
+  }
+
+  async function uploadCheckoutPhoto(labourId, file) {
+    setUploadingCheckoutPhoto(prev => ({ ...prev, [labourId]: true }))
+    try {
+      const form = new FormData()
+      form.append('file', file)
+      const res = await api.post('/upload/single', form, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      const url = res.data?.url || res.data?.data?.url || ''
+      setCheckoutPhotos(prev => ({ ...prev, [labourId]: url }))
+    } catch {
+      toast.error('Photo upload failed')
+    } finally {
+      setUploadingCheckoutPhoto(prev => { const n = { ...prev }; delete n[labourId]; return n })
+    }
+  }
+
+  async function submitCheckout() {
+    setSubmittingCheckout(true)
+    try {
+      await Promise.allSettled(
+        checkoutItems.map(item =>
+          api.patch(`/daily-plans/items/${item.id}/checkout`, {
+            actual_qty: item.actual_qty ? parseFloat(item.actual_qty) : null,
+            status: item.checkout_status || 'pending',
+            partial_flat_nos: item.partial_flat_nos
+              ? item.partial_flat_nos.split(',').map(s => s.trim()).filter(Boolean)
+              : [],
+            checkout_notes: item.checkout_notes || '',
+          })
+        )
+      )
+
+      const date = todayPlan?.date || TODAY
+      try {
+        const attRes = await api.get(`/attendance?site_id=${siteId}&date=${date}`)
+        const attRecords = attRes.data?.data || attRes.data || []
+        await Promise.allSettled(
+          attRecords
+            .filter(r => r.status === 'present' || r.status === 'half_day')
+            .map(r => {
+              const photoUrl = checkoutPhotos[r.labour_id]
+              if (!photoUrl) return Promise.resolve()
+              return api.patch(`/attendance/${r._id || r.id}/checkout`, { check_out_photo: photoUrl })
+            })
+        )
+      } catch {}
+
+      await api.put(`/daily-plans/${todayPlan.id}`, { status: 'completed' })
+      toast.success('Checkout complete!')
+      setView('list')
+      fetchInitialData(siteId)
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Checkout failed')
+    } finally {
+      setSubmittingCheckout(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -785,10 +1008,10 @@ export default function DailyPlan() {
               <p className="text-green-500/70 text-xs mt-0.5">{fmtDate(todayPlan.date)}</p>
             </div>
             <button
-              disabled
-              className="py-4 px-4 rounded-2xl bg-surface-400 text-gray-500 border border-white/5 font-medium text-sm cursor-not-allowed opacity-60"
+              onClick={() => { initializeCheckoutItems(); loadLaboursForAttendance(); setView('checkout') }}
+              className="py-4 px-4 rounded-2xl bg-orange-500 text-white border border-orange-500/30 font-medium text-sm transition-all active:scale-95"
             >
-              Mark Checkout
+              Start Checkout
             </button>
           </div>
         ) : (
@@ -851,6 +1074,60 @@ export default function DailyPlan() {
             <p className="text-gray-500 text-sm mt-1">Start by planning today's tasks</p>
           </div>
         )}
+      </div>
+    )
+  }
+
+  if (view === 'checkout') {
+    const presentLabours = labours.filter(l => !attendance[l.id] || attendance[l.id] !== 'absent')
+    return (
+      <div className="page-content" style={{ paddingBottom: 120 }}>
+        <div className="card">
+          <div className="flex items-center gap-3">
+            <button onClick={() => setView('list')} className="text-gray-400 hover:text-white p-1 transition-colors">
+              <ArrowLeft size={20} />
+            </button>
+            <div className="flex-1">
+              <h1 className="text-base font-bold text-white">End of Day Checkout</h1>
+              <p className="text-xs text-gray-500">{fmtDate(todayPlan?.date)}</p>
+            </div>
+          </div>
+        </div>
+
+        {checkoutItems.length > 0 && (
+          <>
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide px-1">Task Progress</p>
+            {checkoutItems.map(item => (
+              <CheckoutItemCard key={item.id} item={item} onUpdate={updateCheckoutItem} />
+            ))}
+          </>
+        )}
+
+        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide px-1">Checkout Photos</p>
+        {presentLabours.length === 0 ? (
+          <div className="card text-center py-4">
+            <p className="text-gray-500 text-sm">No present labours for checkout photos</p>
+          </div>
+        ) : (
+          presentLabours.map(l => (
+            <CheckoutPhotoCard
+              key={l.id}
+              labour={l}
+              photoUrl={checkoutPhotos[l.id] || ''}
+              onPhotoCapture={uploadCheckoutPhoto}
+              uploading={uploadingCheckoutPhoto}
+            />
+          ))
+        )}
+
+        <button
+          onClick={submitCheckout}
+          disabled={submittingCheckout}
+          className="w-full py-3 rounded-xl bg-primary-500 text-white font-semibold text-sm flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-40"
+        >
+          {submittingCheckout && <Loader2 size={15} className="animate-spin" />}
+          Submit Checkout
+        </button>
       </div>
     )
   }
