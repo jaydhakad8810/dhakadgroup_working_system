@@ -3,6 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
+const cron = require('node-cron');
 const { createServer } = require('http');
 const { Server } = require('socket.io');
 const { connectDB, sequelize } = require('./config/database');
@@ -81,3 +82,19 @@ const start = async () => {
 };
 
 start().catch(console.error);
+
+// Nightly ledger calculation — 11:59 PM every day
+cron.schedule('59 23 * * *', async () => {
+  try {
+    const { calculateSiteLedger } = require('./routes/ledger');
+    const { Site } = require('./models');
+    const sites = await Site.findAll({ where: { status: 'active' } });
+    const today = new Date().toISOString().split('T')[0];
+    for (const site of sites) {
+      await calculateSiteLedger(site.id, today);
+    }
+    console.log(`Nightly ledger calculated for ${sites.length} sites`);
+  } catch (err) {
+    console.error('Nightly ledger cron error:', err.message);
+  }
+});

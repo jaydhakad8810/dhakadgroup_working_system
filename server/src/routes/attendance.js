@@ -223,6 +223,21 @@ router.post('/bulk', supervisorOrAdmin, async (req, res) => {
       results.push(att);
     }
     if (req.io) req.io.to(`site_${site_id}`).emit('attendance_updated', { site_id, date });
+
+    // Fire-and-forget ledger calculation — must not block or break attendance response
+    try {
+      const { calculateSiteLedger } = require('./ledger');
+      const attendanceDate = req.body.date || new Date().toISOString().split('T')[0];
+      const siteId = req.body.site_id;
+      if (siteId && attendanceDate) {
+        calculateSiteLedger(siteId, attendanceDate).catch(err => {
+          console.error('Ledger auto-calc error after attendance:', err.message);
+        });
+      }
+    } catch (err) {
+      console.error('Ledger trigger setup error:', err.message);
+    }
+
     res.json(results);
   } catch (e) { res.status(500).json({ message: e.message }); }
 });
