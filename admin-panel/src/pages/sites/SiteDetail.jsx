@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Edit, MapPin } from 'lucide-react'
+import { ArrowLeft, Edit, MapPin, Loader2 } from 'lucide-react'
 import api from '../../utils/api'
 import { LoadingPage, StatusBadge, Modal, InfoRow } from '../../components/ui'
 import { PhotoUpload } from '../../components/ui/PhotoUpload'
 import toast from 'react-hot-toast'
+
+const fmt = (v) => `₹${parseFloat(v || 0).toLocaleString('en-IN')}`
 
 export default function SiteDetail() {
   const { id } = useParams()
@@ -16,31 +18,56 @@ export default function SiteDetail() {
   const [saving, setSaving] = useState(false)
   const [users, setUsers] = useState([])
   const [boqSummary, setBoqSummary] = useState(null)
-  const [ledgerSummary, setLedgerSummary] = useState(null)
   const f = (k, v) => setForm(p => ({ ...p, [k]: v }))
+
+  // Tab state
+  const [activeTab, setActiveTab] = useState('overview')
+
+  // Financials tab state
+  const [financialsLoaded, setFinancialsLoaded] = useState(false)
+  const [financialsLoading, setFinancialsLoading] = useState(false)
+  const [newLedgerSummary, setNewLedgerSummary] = useState(null)
+  const [clientSummary, setClientSummary] = useState(null)
 
   const load = async () => {
     try {
-      const [s, b, l, u] = await Promise.all([
+      const [s, b, u] = await Promise.all([
         api.get(`/sites/${id}`),
         api.get(`/boq/summary/${id}`).catch(() => ({ data: null })),
-        api.get(`/ledger/summary/${id}`).catch(() => ({ data: null })),
         api.get('/users?role=supervisor')
       ])
       setSite(s.data); setForm(s.data)
-      setBoqSummary(b.data); setLedgerSummary(l.data); setUsers(u.data)
+      setBoqSummary(b.data); setUsers(u.data)
     } catch { toast.error('Failed to load') }
     setLoading(false)
   }
   useEffect(() => { load() }, [id])
 
+  // Fetch financials only when Financials tab is active and not yet loaded
+  useEffect(() => {
+    if (activeTab !== 'financials' || financialsLoaded) return
+    const fetchFinancials = async () => {
+      setFinancialsLoading(true)
+      try {
+        const [ls, cs] = await Promise.all([
+          api.get(`/ledger/summary?site_id=${id}`),
+          api.get(`/ledger/client/summary?site_id=${id}`),
+        ])
+        setNewLedgerSummary(ls.data)
+        setClientSummary(cs.data)
+        setFinancialsLoaded(true)
+      } catch {}
+      setFinancialsLoading(false)
+    }
+    fetchFinancials()
+  }, [activeTab, id, financialsLoaded])
+
   const handleSave = async (e) => {
     e.preventDefault(); setSaving(true)
     try {
       const oldSupervisorId = site.supervisor_id
-      const updated = await api.put(`/sites/${id}`, form)
+      await api.put(`/sites/${id}`, form)
       toast.success('Site updated')
-      // If supervisor changed, show notification
       if (form.supervisor_id && form.supervisor_id !== oldSupervisorId) {
         toast.success('Supervisor reassigned. All labour transferred to new supervisor.')
       }
@@ -70,48 +97,121 @@ export default function SiteDetail() {
       {/* Site photo */}
       {site.raw_photo && <img src={site.raw_photo} className="w-full max-h-64 object-cover rounded-xl" alt="Site" />}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="card space-y-0 lg:col-span-2">
-          <h3 className="font-semibold mb-3" style={{ color: 'var(--text)' }}>Site Information</h3>
-          <InfoRow label="Client" value={site.client_name} />
-          <InfoRow label="Client Phone" value={site.client_phone} />
-          <InfoRow label="Contract Value" value={site.contract_value ? `₹${parseFloat(site.contract_value).toLocaleString('en-IN')}` : null} valueClass="text-gold-400 font-semibold" />
-          <InfoRow label="Supervisor" value={site.supervisor ? `${site.supervisor.name} (${site.supervisor.employee_id || ''})` : null} />
-          <InfoRow label="Start Date" value={site.start_date} />
-          <InfoRow label="Expected End" value={site.expected_end_date} />
-          <InfoRow label="City" value={`${site.city || ''} ${site.state || ''}`.trim()} />
-          {site.latitude && <InfoRow label="GPS" value={`${parseFloat(site.latitude).toFixed(4)}, ${parseFloat(site.longitude).toFixed(4)} (${site.gps_radius_meters}m radius)`} valueClass="text-green-400" />}
-          {site.latitude && site.longitude && (
-            <div className="py-2">
-              <a href={`https://www.google.com/maps?q=${site.latitude},${site.longitude}`}
-                 target="_blank" rel="noreferrer"
-                 className="btn-outline text-sm inline-flex items-center gap-1">
-                🗺️ Open in Google Maps →
-              </a>
-            </div>
-          )}
-        </div>
-
-        <div className="space-y-4">
-          {ledgerSummary && (
-            <div className="card">
-              <h3 className="font-semibold mb-3" style={{ color: 'var(--text)' }}>Financial Summary</h3>
-              <InfoRow label="Credits" value={`₹${parseFloat(ledgerSummary.credits || 0).toLocaleString('en-IN')}`} valueClass="text-green-400" />
-              <InfoRow label="Debits" value={`₹${parseFloat(ledgerSummary.debits || 0).toLocaleString('en-IN')}`} valueClass="text-red-400" />
-              <InfoRow label="Expenses" value={`₹${parseFloat(ledgerSummary.total_expenses || 0).toLocaleString('en-IN')}`} valueClass="text-orange-400" />
-              <InfoRow label="Balance" value={`₹${parseFloat(ledgerSummary.balance || 0).toLocaleString('en-IN')}`} valueClass="text-gold-400 font-bold" />
-              <InfoRow label="Received" value={`₹${parseFloat(ledgerSummary.total_received || 0).toLocaleString('en-IN')}`} valueClass="text-blue-400" />
-            </div>
-          )}
-          {boqSummary && (
-            <div className="card">
-              <h3 className="font-semibold mb-3" style={{ color: 'var(--text)' }}>BOQ Summary</h3>
-              <InfoRow label="Estimated" value={`₹${parseFloat(boqSummary.total?.estimated || 0).toLocaleString('en-IN')}`} />
-              <InfoRow label="Actual" value={`₹${parseFloat(boqSummary.total?.actual || 0).toLocaleString('en-IN')}`} valueClass="text-gold-400" />
-            </div>
-          )}
-        </div>
+      {/* Tab navigation */}
+      <div className="flex gap-1 p-1 rounded-xl w-fit" style={{ background: 'var(--bg2)' }}>
+        {[['overview', 'Overview'], ['financials', 'Financials']].map(([key, label]) => (
+          <button key={key} onClick={() => setActiveTab(key)}
+            className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${activeTab === key ? 'bg-gold-500 text-dark-950' : 'text-gray-400 hover:text-white'}`}>
+            {label}
+          </button>
+        ))}
       </div>
+
+      {/* ── Overview Tab ── */}
+      {activeTab === 'overview' && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="card space-y-0 lg:col-span-2">
+            <h3 className="font-semibold mb-3" style={{ color: 'var(--text)' }}>Site Information</h3>
+            <InfoRow label="Client" value={site.client_name} />
+            <InfoRow label="Client Phone" value={site.client_phone} />
+            <InfoRow label="Contract Value" value={site.contract_value ? fmt(site.contract_value) : null} valueClass="text-gold-400 font-semibold" />
+            <InfoRow label="Supervisor" value={site.supervisor ? `${site.supervisor.name} (${site.supervisor.employee_id || ''})` : null} />
+            <InfoRow label="Start Date" value={site.start_date} />
+            <InfoRow label="Expected End" value={site.expected_end_date} />
+            <InfoRow label="City" value={`${site.city || ''} ${site.state || ''}`.trim()} />
+            {site.latitude && <InfoRow label="GPS" value={`${parseFloat(site.latitude).toFixed(4)}, ${parseFloat(site.longitude).toFixed(4)} (${site.gps_radius_meters}m radius)`} valueClass="text-green-400" />}
+            {site.latitude && site.longitude && (
+              <div className="py-2">
+                <a href={`https://www.google.com/maps?q=${site.latitude},${site.longitude}`}
+                   target="_blank" rel="noreferrer"
+                   className="btn-outline text-sm inline-flex items-center gap-1">
+                  🗺️ Open in Google Maps →
+                </a>
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-4">
+            {boqSummary && (
+              <div className="card">
+                <h3 className="font-semibold mb-3" style={{ color: 'var(--text)' }}>BOQ Summary</h3>
+                <InfoRow label="Estimated" value={fmt(boqSummary.total?.estimated)} />
+                <InfoRow label="Actual" value={fmt(boqSummary.total?.actual)} valueClass="text-gold-400" />
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── Financials Tab ── */}
+      {activeTab === 'financials' && (
+        <div>
+          {financialsLoading ? (
+            <div className="flex justify-center py-16">
+              <Loader2 size={36} className="animate-spin text-gold-500" />
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Section 1 — Site Cost Summary */}
+              <div className="card space-y-3">
+                <h3 className="font-semibold" style={{ color: 'var(--text)' }}>Site Cost Summary</h3>
+                {newLedgerSummary ? (
+                  <>
+                    <InfoRow label="Labour" value={fmt(newLedgerSummary.total_labour)} valueClass="text-blue-400 font-semibold" />
+                    <InfoRow label="Expenses" value={fmt(newLedgerSummary.total_expenses)} valueClass="text-orange-400 font-semibold" />
+                    <InfoRow label="Materials" value={fmt(newLedgerSummary.total_materials)} valueClass="text-purple-400 font-semibold" />
+                    <InfoRow label="Grand Total" value={fmt(newLedgerSummary.grand_total)} valueClass="text-gold-400 font-bold" />
+                  </>
+                ) : (
+                  <p className="text-sm py-4" style={{ color: 'var(--muted)' }}>No cost data yet</p>
+                )}
+                <button
+                  onClick={() => navigate(`/ledger?site_id=${id}`)}
+                  className="btn-outline w-full mt-2 text-sm"
+                >
+                  View Full Ledger →
+                </button>
+              </div>
+
+              {/* Section 2 — Client Summary */}
+              <div className="card space-y-3">
+                <h3 className="font-semibold" style={{ color: 'var(--text)' }}>Client Collection Summary</h3>
+                {clientSummary ? (
+                  <>
+                    <InfoRow label="Contract Value" value={fmt(clientSummary.contract_amount)} valueClass="text-white font-semibold" />
+                    <InfoRow label="Total Paid" value={fmt(clientSummary.total_paid)} valueClass="text-green-400 font-semibold" />
+                    <InfoRow
+                      label="Balance Due"
+                      value={fmt(clientSummary.balance_due)}
+                      valueClass={parseFloat(clientSummary.balance_due) > 0 ? 'text-red-400 font-semibold' : 'text-green-400 font-semibold'}
+                    />
+                    <div className="pt-1">
+                      <div className="flex justify-between mb-1.5">
+                        <span className="text-xs" style={{ color: 'var(--muted)' }}>Collection Progress</span>
+                        <span className="text-gold-400 text-xs font-semibold">{clientSummary.percent_collected}%</span>
+                      </div>
+                      <div className="w-full h-2.5 rounded-full" style={{ background: 'var(--bg2)' }}>
+                        <div
+                          className="h-2.5 rounded-full bg-gold-500 transition-all duration-500"
+                          style={{ width: `${Math.min(Math.max(clientSummary.percent_collected, 0), 100)}%` }}
+                        />
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <p className="text-sm py-4" style={{ color: 'var(--muted)' }}>No client payments recorded</p>
+                )}
+                <button
+                  onClick={() => navigate(`/ledger?site_id=${id}`)}
+                  className="btn-outline w-full mt-2 text-sm"
+                >
+                  Add Payment →
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       <Modal open={editModal} onClose={() => setEditModal(false)} title="Edit Site" size="xl">
         <form onSubmit={handleSave} className="space-y-4">
