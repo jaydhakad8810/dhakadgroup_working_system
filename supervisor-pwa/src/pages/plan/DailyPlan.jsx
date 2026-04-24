@@ -371,41 +371,60 @@ function PhotoCaptureCard({ labour, photoUrl, onPhotoCapture, uploading }) {
 }
 
 // ─── CheckoutItemCard ─────────────────────────────────────────────────────────
-function CheckoutItemCard({ item, onUpdate }) {
+function CheckoutItemCard({ item, onUpdate, extraMaterials, onAddExtra, onRemoveExtra, onUpdateExtra }) {
+  const itemExtras = extraMaterials[item.id] || []
+  const allFlats = item.flat_nos || []
+  const completedFlats = item.completed_flat_nos || []
   const statusOptions = [
-    { value: 'done',           label: 'Done',       cls: 'bg-green-500 text-white' },
-    { value: 'partial',        label: 'Partial',    cls: 'bg-yellow-500 text-white' },
-    { value: 'carry_forward',  label: 'Carry Fwd',  cls: 'bg-orange-500 text-white' },
-    { value: 'pending',        label: 'Pending',    cls: 'bg-surface-400 text-gray-400 border border-white/10' },
+    { value: 'done',          label: 'Done',      cls: 'bg-green-500 text-white' },
+    { value: 'carry_forward', label: 'Carry Fwd', cls: 'bg-orange-500 text-white' },
+    { value: 'partial',       label: 'Partial',   cls: 'bg-yellow-500 text-white' },
   ]
   return (
-    <div className="card">
+    <div className="card" style={{ borderLeft: '3px solid #F97316' }}>
+      {/* Header */}
       <div className="mb-3">
-        <p className="text-white font-semibold text-sm">{item.step_name || 'Task'}</p>
-        {item.group_name && <p className="text-gray-500 text-xs mt-0.5">Group: {item.group_name}</p>}
-        {item.flat_nos?.length > 0 && <p className="text-gray-500 text-xs">Flats: {item.flat_nos.join(', ')}</p>}
-        {item.estimated_qty && <p className="text-gray-500 text-xs">Estimated: {item.estimated_qty} {item.unit}</p>}
+        {item.group_name && <p className="text-orange-400 font-bold text-sm">{item.group_name}</p>}
+        <p className="text-gray-400 text-xs mt-0.5">{item.step_name || 'Task'}</p>
+        {item.material_name && (
+          <p className="text-gray-500 text-xs mt-1">
+            {item.material_name}
+            {item.estimated_qty && <span className="text-gray-600"> · Est. {item.estimated_qty} {item.unit}</span>}
+          </p>
+        )}
       </div>
 
-      <div className="mb-3">
-        <label className="label">Status</label>
-        <div className="flex flex-wrap gap-2">
-          {statusOptions.map(opt => (
-            <button
-              key={opt.value}
-              type="button"
-              onClick={() => onUpdate(item.id, { checkout_status: opt.value })}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all active:scale-95 ${item.checkout_status === opt.value ? opt.cls : 'bg-surface-400 text-gray-400 border border-white/10'}`}
-            >
-              {opt.label}
-            </button>
-          ))}
+      {/* Flat toggles — all selected by default */}
+      {allFlats.length > 0 && (
+        <div className="mb-3">
+          <label className="label">Flats Done Today</label>
+          <div className="flex flex-wrap gap-2">
+            {allFlats.map(flat => {
+              const isDone = completedFlats.includes(flat)
+              return (
+                <button
+                  key={flat}
+                  type="button"
+                  onClick={() => {
+                    const next = isDone
+                      ? completedFlats.filter(f => f !== flat)
+                      : [...completedFlats, flat]
+                    onUpdate(item.id, { completed_flat_nos: next })
+                  }}
+                  className={`px-3 py-1 rounded-lg text-xs font-medium transition-all active:scale-95 ${isDone ? 'bg-primary-500 text-white' : 'bg-surface-400 text-gray-500 border border-white/10'}`}
+                >
+                  {flat}
+                </button>
+              )
+            })}
+          </div>
         </div>
-      </div>
+      )}
 
+      {/* Actual qty */}
       <div className="grid grid-cols-2 gap-2 mb-3">
         <div>
-          <label className="label">Actual Qty</label>
+          <label className="label">Actual Qty *</label>
           <input
             type="number"
             className="input"
@@ -416,22 +435,103 @@ function CheckoutItemCard({ item, onUpdate }) {
         </div>
         <div>
           <label className="label">Unit</label>
-          <input className="input" value={item.unit || ''} readOnly />
+          <input className="input text-gray-500" value={item.unit || ''} readOnly />
         </div>
       </div>
 
-      {item.checkout_status === 'partial' && (
+      {/* Extra material rows */}
+      {itemExtras.map((extra, idx) => (
+        <div key={idx} className="flex gap-2 mb-2 items-end">
+          <div className="flex-1">
+            {idx === 0 && <label className="label">Extra Material</label>}
+            <input
+              className="input"
+              placeholder="Material name"
+              value={extra.material_name}
+              onChange={e => onUpdateExtra(item.id, idx, 'material_name', e.target.value)}
+            />
+          </div>
+          <div className="w-20">
+            {idx === 0 && <label className="label">Qty</label>}
+            <input
+              type="number"
+              className="input"
+              placeholder="0"
+              value={extra.qty}
+              onChange={e => onUpdateExtra(item.id, idx, 'qty', e.target.value)}
+            />
+          </div>
+          <div className="w-16">
+            {idx === 0 && <label className="label">Unit</label>}
+            <input
+              className="input"
+              placeholder="unit"
+              value={extra.unit}
+              onChange={e => onUpdateExtra(item.id, idx, 'unit', e.target.value)}
+            />
+          </div>
+          <button
+            type="button"
+            onClick={() => onRemoveExtra(item.id, idx)}
+            className="p-2 text-red-400 hover:text-red-300 transition-colors shrink-0"
+          >
+            <X size={15} />
+          </button>
+        </div>
+      ))}
+      <button
+        type="button"
+        onClick={() => onAddExtra(item.id)}
+        className="text-xs text-primary-400 flex items-center gap-1 mb-3 transition-all active:scale-95"
+      >
+        <Plus size={13} />
+        Add Extra Material
+      </button>
+
+      {/* Status */}
+      <div className="mb-3">
+        <label className="label">Status</label>
+        <div className="flex gap-2">
+          {statusOptions.map(opt => (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => onUpdate(item.id, { status: opt.value })}
+              className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-all active:scale-95 ${item.status === opt.value ? opt.cls : 'bg-surface-400 text-gray-400 border border-white/10'}`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Partial flat selector */}
+      {item.status === 'partial' && allFlats.length > 0 && (
         <div className="mb-3">
-          <label className="label">Completed Flats</label>
-          <input
-            className="input"
-            placeholder="e.g. A-101, A-102"
-            value={item.partial_flat_nos || ''}
-            onChange={e => onUpdate(item.id, { partial_flat_nos: e.target.value })}
-          />
+          <label className="label">Completed Flats (Partial)</label>
+          <div className="flex flex-wrap gap-2">
+            {allFlats.map(flat => {
+              const selected = (item.partial_flat_nos || []).includes(flat)
+              return (
+                <button
+                  key={flat}
+                  type="button"
+                  onClick={() => {
+                    const curr = item.partial_flat_nos || []
+                    const next = selected ? curr.filter(f => f !== flat) : [...curr, flat]
+                    onUpdate(item.id, { partial_flat_nos: next })
+                  }}
+                  className={`px-3 py-1 rounded-lg text-xs font-medium transition-all active:scale-95 ${selected ? 'bg-yellow-500 text-white' : 'bg-surface-400 text-gray-400 border border-white/10'}`}
+                >
+                  {flat}
+                </button>
+              )
+            })}
+          </div>
         </div>
       )}
 
+      {/* Notes */}
       <div>
         <label className="label">Notes</label>
         <input
@@ -526,8 +626,10 @@ export default function DailyPlan() {
   // Checkout flow state
   const [checkoutItems, setCheckoutItems] = useState([])
   const [checkoutPhotos, setCheckoutPhotos] = useState({})
+  const [checkoutStep, setCheckoutStep] = useState(1)
   const [uploadingCheckoutPhoto, setUploadingCheckoutPhoto] = useState({})
   const [submittingCheckout, setSubmittingCheckout] = useState(false)
+  const [extraMaterials, setExtraMaterials] = useState({})
 
   async function fetchInitialData(sid) {
     if (!sid) return
@@ -748,32 +850,48 @@ export default function DailyPlan() {
   }
 
   async function initializeCheckoutItems() {
-    try {
-      const date = todayPlan?.date || TODAY
-      const res = await api.get(`/daily-plans?site_id=${siteId}&date=${date}`)
-      const plan = res.data?.plan || todayPlan
-      const items = (plan?.items || []).map(i => ({
-        ...i,
-        checkout_status: 'pending',
-        actual_qty: '',
-        partial_flat_nos: '',
-        checkout_notes: '',
-      }))
-      setCheckoutItems(items)
-    } catch {
-      const items = (todayPlan?.items || []).map(i => ({
-        ...i,
-        checkout_status: 'pending',
-        actual_qty: '',
-        partial_flat_nos: '',
-        checkout_notes: '',
-      }))
-      setCheckoutItems(items)
+    let items = todayPlan?.items
+    if (!items) {
+      try {
+        const res = await api.get(`/daily-plans?site_id=${siteId}&date=${todayPlan?.date || TODAY}`)
+        items = res.data?.plan?.items
+      } catch {}
     }
+    setCheckoutItems((items || []).map(item => ({
+      ...item,
+      completed_flat_nos: item.flat_nos || [],
+      actual_qty: '',
+      status: 'done',
+      partial_flat_nos: [],
+      checkout_notes: '',
+    })))
+    setExtraMaterials({})
+    setCheckoutStep(1)
   }
 
   function updateCheckoutItem(itemId, updates) {
     setCheckoutItems(prev => prev.map(i => i.id === itemId ? { ...i, ...updates } : i))
+  }
+
+  function addExtraMaterial(itemId) {
+    setExtraMaterials(prev => ({
+      ...prev,
+      [itemId]: [...(prev[itemId] || []), { material_name: '', qty: '', unit: '' }],
+    }))
+  }
+
+  function removeExtraMaterial(itemId, index) {
+    setExtraMaterials(prev => ({
+      ...prev,
+      [itemId]: prev[itemId].filter((_, i) => i !== index),
+    }))
+  }
+
+  function updateExtraMaterial(itemId, index, field, value) {
+    setExtraMaterials(prev => ({
+      ...prev,
+      [itemId]: prev[itemId].map((e, i) => i === index ? { ...e, [field]: value } : e),
+    }))
   }
 
   async function uploadCheckoutPhoto(labourId, file) {
@@ -796,16 +914,17 @@ export default function DailyPlan() {
   async function submitCheckout() {
     setSubmittingCheckout(true)
     try {
+      const token = sessionStorage.getItem('sv_token') || localStorage.getItem('sv_token')
+      const headers = { Authorization: `Bearer ${token}` }
+
       await Promise.allSettled(
         checkoutItems.map(item =>
           api.patch(`/daily-plans/items/${item.id}/checkout`, {
-            actual_qty: item.actual_qty ? parseFloat(item.actual_qty) : null,
-            status: item.checkout_status || 'pending',
-            partial_flat_nos: item.partial_flat_nos
-              ? item.partial_flat_nos.split(',').map(s => s.trim()).filter(Boolean)
-              : [],
+            actual_qty: parseFloat(item.actual_qty) || 0,
+            status: item.status,
+            partial_flat_nos: item.status === 'partial' ? (item.partial_flat_nos || []) : [],
             checkout_notes: item.checkout_notes || '',
-          })
+          }, { headers })
         )
       )
 
@@ -819,13 +938,13 @@ export default function DailyPlan() {
             .map(r => {
               const photoUrl = checkoutPhotos[r.labour_id]
               if (!photoUrl) return Promise.resolve()
-              return api.patch(`/attendance/${r._id || r.id}/checkout`, { check_out_photo: photoUrl })
+              return api.patch(`/attendance/${r._id || r.id}/checkout`, { check_out_photo: photoUrl }, { headers })
             })
         )
       } catch {}
 
-      await api.put(`/daily-plans/${todayPlan.id}`, { status: 'completed' })
-      toast.success('Checkout complete!')
+      await api.put(`/daily-plans/${todayPlan.id}`, { status: 'completed' }, { headers })
+      toast.success('Day completed successfully!')
       setView('list')
       fetchInitialData(siteId)
     } catch (err) {
@@ -1080,30 +1199,99 @@ export default function DailyPlan() {
 
   if (view === 'checkout') {
     const presentLabours = labours.filter(l => !attendance[l.id] || attendance[l.id] !== 'absent')
+    const photoCount = presentLabours.filter(l => checkoutPhotos[l.id]).length
+
+    // ── Step 1: Task Results ──
+    if (checkoutStep === 1) {
+      return (
+        <div className="page-content" style={{ paddingBottom: 120 }}>
+          <div className="card">
+            <div className="flex items-center gap-3">
+              <button onClick={() => setView('list')} className="text-gray-400 hover:text-white p-1 transition-colors">
+                <ArrowLeft size={20} />
+              </button>
+              <div className="flex-1">
+                <h1 className="text-base font-bold text-white">Checkout — Step 1 of 2</h1>
+                <p className="text-xs text-gray-500">{fmtDate(todayPlan?.date)}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-center gap-2">
+            {[1, 2].map(n => (
+              <div key={n} className={`h-2 rounded-full transition-all ${n === 1 ? 'w-8 bg-primary-500' : 'w-6 bg-surface-400'}`} />
+            ))}
+          </div>
+
+          {checkoutItems.length === 0 ? (
+            <div className="card text-center py-6">
+              <p className="text-gray-500 text-sm">No tasks to checkout</p>
+            </div>
+          ) : (
+            checkoutItems.map(item => (
+              <CheckoutItemCard
+                key={item.id}
+                item={item}
+                onUpdate={updateCheckoutItem}
+                extraMaterials={extraMaterials}
+                onAddExtra={addExtraMaterial}
+                onRemoveExtra={removeExtraMaterial}
+                onUpdateExtra={updateExtraMaterial}
+              />
+            ))
+          )}
+
+          <div className="flex gap-3">
+            <button
+              onClick={() => setView('list')}
+              className="py-3 px-5 rounded-xl bg-surface-400 text-gray-300 font-semibold text-sm transition-all active:scale-95"
+            >
+              Back
+            </button>
+            <button
+              onClick={() => {
+                const invalid = checkoutItems.filter(i => i.material_name && !i.actual_qty)
+                if (invalid.length > 0) {
+                  toast.error(`Enter actual qty for: ${invalid[0].step_name || 'task'}`)
+                  return
+                }
+                setCheckoutStep(2)
+              }}
+              className="flex-1 py-3 rounded-xl bg-primary-500 text-white font-semibold text-sm transition-all active:scale-95"
+            >
+              Continue to Photos →
+            </button>
+          </div>
+        </div>
+      )
+    }
+
+    // ── Step 2: Checkout Photos ──
     return (
       <div className="page-content" style={{ paddingBottom: 120 }}>
         <div className="card">
           <div className="flex items-center gap-3">
-            <button onClick={() => setView('list')} className="text-gray-400 hover:text-white p-1 transition-colors">
+            <button onClick={() => setCheckoutStep(1)} className="text-gray-400 hover:text-white p-1 transition-colors">
               <ArrowLeft size={20} />
             </button>
             <div className="flex-1">
-              <h1 className="text-base font-bold text-white">End of Day Checkout</h1>
+              <h1 className="text-base font-bold text-white">Checkout — Step 2 of 2</h1>
               <p className="text-xs text-gray-500">{fmtDate(todayPlan?.date)}</p>
             </div>
           </div>
         </div>
 
-        {checkoutItems.length > 0 && (
-          <>
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide px-1">Task Progress</p>
-            {checkoutItems.map(item => (
-              <CheckoutItemCard key={item.id} item={item} onUpdate={updateCheckoutItem} />
-            ))}
-          </>
-        )}
+        <div className="flex items-center justify-center gap-2">
+          {[1, 2].map(n => (
+            <div key={n} className={`h-2 rounded-full transition-all ${n === 2 ? 'w-8 bg-primary-500' : 'w-6 bg-primary-500/60'}`} />
+          ))}
+        </div>
 
-        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide px-1">Checkout Photos</p>
+        <div className="card">
+          <p className="text-sm text-white font-medium">Photos: {photoCount} / {presentLabours.length}</p>
+          <p className="text-xs text-gray-500 mt-1">Photos are optional but recommended</p>
+        </div>
+
         {presentLabours.length === 0 ? (
           <div className="card text-center py-4">
             <p className="text-gray-500 text-sm">No present labours for checkout photos</p>
@@ -1126,7 +1314,7 @@ export default function DailyPlan() {
           className="w-full py-3 rounded-xl bg-primary-500 text-white font-semibold text-sm flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-40"
         >
           {submittingCheckout && <Loader2 size={15} className="animate-spin" />}
-          Submit Checkout
+          {submittingCheckout ? 'Completing...' : 'Complete Day'}
         </button>
       </div>
     )
