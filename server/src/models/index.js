@@ -15,6 +15,7 @@ const { MachineCategory, Machine, MachineRequest } = require('./MachineModels');
 const { Driver, Vehicle, Trip } = require('./DriverModels');
 const { MaterialRequest, WebsiteContent, WebsiteProject } = require('./WebsiteModels');
 const { WorkOrder, WorkOrderStep, WorkOrderFlat, WorkOrderMaterial, WorkOrderHint } = require('./WorkOrderModels');
+const { DailyPlan, DailyPlanItem } = require('./DailyPlanModels');
 
 // Site associations
 Site.belongsTo(Organisation, { foreignKey: 'organisation_id', as: 'organisation' });
@@ -98,6 +99,11 @@ LabourGroup.belongsTo(User, { foreignKey: 'created_by', as: 'creator' });
 Site.hasMany(LabourGroup, { foreignKey: 'site_id', as: 'labourGroups' });
 LabourGroupMember.belongsTo(Labour, { foreignKey: 'labour_id', as: 'labour' });
 
+// Daily Plan cross-model associations
+DailyPlan.belongsTo(Site, { foreignKey: 'site_id', as: 'site' });
+DailyPlan.belongsTo(User, { foreignKey: 'supervisor_id', as: 'supervisor' });
+Site.hasMany(DailyPlan, { foreignKey: 'site_id', as: 'dailyPlans' });
+
 module.exports = {
   User, Organisation, Site, Labour, Attendance,
   SalaryRecord, AdvancePayment, LabourTransfer, SiteLedger, ClientPayment,
@@ -110,4 +116,5 @@ module.exports = {
   MaterialRequest, WebsiteContent, WebsiteProject,
   WorkOrder, WorkOrderStep, WorkOrderFlat, WorkOrderMaterial, WorkOrderHint,
   LabourGroup, LabourGroupMember,
+  DailyPlan, DailyPlanItem,
 };
