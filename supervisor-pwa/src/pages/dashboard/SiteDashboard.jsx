@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
   ArrowLeft, Building2, Users, ClipboardCheck, FileText,
@@ -7,6 +7,7 @@ import {
 import api from '../../utils/api'
 import { LoadingPage } from '../../components/ui'
 import { useSite } from '../../context/SiteContext'
+import toast from 'react-hot-toast'
 
 function ProgressBar({ progress }) {
   return (
@@ -32,6 +33,44 @@ export default function SiteDashboard() {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
 
+  // Attendance history state
+  const [attHistory, setAttHistory] = useState([])
+  const [attLoading, setAttLoading] = useState(false)
+  const [attFilter, setAttFilter] = useState({
+    from_date: (() => {
+      const d = new Date()
+      d.setDate(d.getDate() - 60)
+      return d.toISOString().split('T')[0]
+    })(),
+    to_date: new Date().toISOString().split('T')[0],
+    labour_id: '',
+  })
+  const [expandedRecord, setExpandedRecord] = useState(null)
+  const [siteLabours, setSiteLabours] = useState([])
+
+  const fetchAttHistory = useCallback(async (filter) => {
+    if (!site_id) return
+    setAttLoading(true)
+    try {
+      const token = sessionStorage.getItem('sv_token') || localStorage.getItem('sv_token')
+      const f = filter || attFilter
+      const params = new URLSearchParams({
+        site_id,
+        from_date: f.from_date,
+        to_date: f.to_date,
+        ...(f.labour_id ? { labour_id: f.labour_id } : {}),
+      })
+      const res = await api.get(`/attendance?${params}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      })
+      setAttHistory(res.data || [])
+    } catch {
+      toast.error('Failed to load history')
+    } finally {
+      setAttLoading(false)
+    }
+  }, [site_id, attFilter])
+
   useEffect(() => {
     if (site_id) {
       selectSite(site_id)
@@ -39,6 +78,19 @@ export default function SiteDashboard() {
         .then(r => setData(r.data))
         .catch(() => {})
         .finally(() => setLoading(false))
+      // Fetch site labours for filter dropdown
+      api.get(`/workorders/site-labours?site_id=${site_id}`)
+        .then(r => setSiteLabours(r.data || []))
+        .catch(() => {})
+      // Load initial attendance history
+      const d = new Date()
+      d.setDate(d.getDate() - 60)
+      const initFilter = {
+        from_date: d.toISOString().split('T')[0],
+        to_date: new Date().toISOString().split('T')[0],
+        labour_id: '',
+      }
+      fetchAttHistory(initFilter)
     }
   }, [site_id])
 
@@ -166,15 +218,204 @@ export default function SiteDashboard() {
         </div>
       </div>
 
-      {/* Mark attendance CTA */}
-      <button
-        onClick={() => navigate('/attendance')}
-        className="btn-primary w-full flex items-center justify-center gap-2 min-h-[48px]"
-      >
-        <ClipboardCheck size={18} />
-        Mark Attendance for This Site
-        <ChevronRight size={16} />
-      </button>
+      {/* Attendance CTA */}
+      <div style={{
+        background: '#1a1a1a', borderRadius: '12px',
+        padding: '16px', marginBottom: '8px', border: '1px solid #222'
+      }}>
+        <div style={{ fontSize: '15px', fontWeight: 'bold', color: '#fff', marginBottom: '4px' }}>
+          Today's Attendance
+        </div>
+        <div style={{ fontSize: '13px', color: '#888', marginBottom: '14px' }}>
+          Plan your day first, then mark attendance
+        </div>
+        <button
+          onClick={() => navigate('/plan')}
+          style={{
+            width: '100%', background: '#FF8C00', border: 'none', borderRadius: '10px',
+            padding: '14px', color: '#000', fontWeight: 'bold', fontSize: '15px',
+            cursor: 'pointer', display: 'flex', alignItems: 'center',
+            justifyContent: 'center', gap: '8px'
+          }}
+        >
+          📋 Go to Daily Plan
+        </button>
+      </div>
+
+      {/* Attendance History */}
+      <div>
+        <div style={{ fontSize: '15px', fontWeight: 'bold', color: '#fff', marginBottom: '14px' }}>
+          Attendance History
+        </div>
+
+        {/* Filters */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '14px' }}>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <input type="date"
+              value={attFilter.from_date}
+              onChange={e => setAttFilter(prev => ({ ...prev, from_date: e.target.value }))}
+              style={{ flex: 1, background: '#1a1a1a', color: '#fff', border: '1px solid #333', borderRadius: '8px', padding: '8px', fontSize: '13px' }}
+            />
+            <input type="date"
+              value={attFilter.to_date}
+              onChange={e => setAttFilter(prev => ({ ...prev, to_date: e.target.value }))}
+              style={{ flex: 1, background: '#1a1a1a', color: '#fff', border: '1px solid #333', borderRadius: '8px', padding: '8px', fontSize: '13px' }}
+            />
+          </div>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <select
+              value={attFilter.labour_id}
+              onChange={e => setAttFilter(prev => ({ ...prev, labour_id: e.target.value }))}
+              style={{ flex: 1, background: '#1a1a1a', color: '#fff', border: '1px solid #333', borderRadius: '8px', padding: '8px', fontSize: '13px' }}
+            >
+              <option value="">All Labourers</option>
+              {siteLabours.map(l => (
+                <option key={l.id} value={l.id}>{l.name}</option>
+              ))}
+            </select>
+            <button
+              onClick={() => fetchAttHistory(attFilter)}
+              style={{
+                background: '#FF8C00', border: 'none', borderRadius: '8px',
+                padding: '8px 16px', color: '#000', fontWeight: 'bold',
+                fontSize: '13px', cursor: 'pointer'
+              }}
+            >
+              Apply
+            </button>
+          </div>
+        </div>
+
+        {/* Records */}
+        {attLoading
+          ? <div style={{ textAlign: 'center', color: '#888', padding: '20px' }}>Loading...</div>
+          : attHistory.length === 0
+            ? <div style={{ textAlign: 'center', color: '#666', padding: '20px', fontSize: '13px' }}>
+                No attendance records found
+              </div>
+            : attHistory.map(record => (
+                <div key={record.id} style={{
+                  background: '#1a1a1a', borderRadius: '10px',
+                  marginBottom: '10px', overflow: 'hidden', border: '1px solid #222'
+                }}>
+                  {/* Header row */}
+                  <div
+                    onClick={() => setExpandedRecord(expandedRecord === record.id ? null : record.id)}
+                    style={{
+                      display: 'flex', justifyContent: 'space-between',
+                      alignItems: 'center', padding: '12px 14px', cursor: 'pointer'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      {record.labour?.photo
+                        ? <img src={record.labour.photo}
+                            style={{ width: '36px', height: '36px', borderRadius: '50%', objectFit: 'cover' }} alt="" />
+                        : <div style={{
+                            width: '36px', height: '36px', borderRadius: '50%', background: '#333',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            color: '#888', fontSize: '14px'
+                          }}>
+                            {record.labour?.name?.charAt(0)}
+                          </div>
+                      }
+                      <div>
+                        <div style={{ color: '#fff', fontSize: '14px', fontWeight: 'bold' }}>
+                          {record.labour?.name}
+                        </div>
+                        <div style={{ color: '#888', fontSize: '12px' }}>
+                          {new Date(record.date).toLocaleDateString('en-IN', {
+                            day: 'numeric', month: 'short', year: 'numeric'
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{
+                        fontSize: '12px', padding: '3px 10px', borderRadius: '20px', fontWeight: 'bold',
+                        background: record.status === 'present' ? '#14532d' : '#78350f',
+                        color: record.status === 'present' ? '#22c55e' : '#f59e0b'
+                      }}>
+                        {record.status === 'present' ? 'Present'
+                          : record.status === 'half_day' ? 'Half Day' : 'Absent'}
+                      </span>
+                      <span style={{ color: '#666', fontSize: '16px' }}>
+                        {expandedRecord === record.id ? '▲' : '▼'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Expanded detail */}
+                  {expandedRecord === record.id && (
+                    <div style={{ borderTop: '1px solid #2a2a2a', padding: '14px' }}>
+                      {/* Check-in / Check-out photos */}
+                      <div style={{ display: 'flex', gap: '12px', marginBottom: '14px' }}>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ color: '#888', fontSize: '11px', marginBottom: '6px' }}>CHECK-IN PHOTO</div>
+                          {record.check_in_photo
+                            ? <img src={record.check_in_photo}
+                                onClick={() => window.open(record.check_in_photo, '_blank')}
+                                style={{ width: '100%', height: '80px', objectFit: 'cover', borderRadius: '8px', cursor: 'pointer' }} alt="" />
+                            : <div style={{ width: '100%', height: '80px', background: '#222', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#555', fontSize: '12px' }}>No photo</div>
+                          }
+                        </div>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ color: '#888', fontSize: '11px', marginBottom: '6px' }}>CHECK-OUT PHOTO</div>
+                          {record.check_out_photo
+                            ? <img src={record.check_out_photo}
+                                onClick={() => window.open(record.check_out_photo, '_blank')}
+                                style={{ width: '100%', height: '80px', objectFit: 'cover', borderRadius: '8px', cursor: 'pointer' }} alt="" />
+                            : <div style={{ width: '100%', height: '80px', background: '#222', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#555', fontSize: '12px' }}>No photo</div>
+                          }
+                        </div>
+                      </div>
+
+                      {/* Tasks from plan_items */}
+                      {record.plan_items?.length > 0 && (
+                        <div style={{ marginBottom: '12px' }}>
+                          <div style={{ color: '#888', fontSize: '11px', marginBottom: '8px' }}>TASKS</div>
+                          {record.plan_items.map((item, i) => (
+                            <div key={i} style={{ background: '#111', borderRadius: '6px', padding: '8px 10px', marginBottom: '6px' }}>
+                              <div style={{ color: '#fff', fontSize: '13px' }}>{item.step_name || 'Task'}</div>
+                              {Array.isArray(item.flat_nos) && item.flat_nos.length > 0 && (
+                                <div style={{ color: '#888', fontSize: '12px', marginTop: '2px' }}>
+                                  Flats: {item.flat_nos.join(', ')}
+                                </div>
+                              )}
+                              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '4px' }}>
+                                <span style={{ fontSize: '11px', color: item.status === 'done' ? '#22c55e' : '#f59e0b' }}>
+                                  {item.status === 'done' ? '✓ Done'
+                                    : item.status === 'carry_forward' ? '↩ Carried Forward' : item.status}
+                                </span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Materials used */}
+                      {record.plan_items?.some(i => i.material_name) && (
+                        <div>
+                          <div style={{ color: '#888', fontSize: '11px', marginBottom: '8px' }}>MATERIALS USED</div>
+                          {record.plan_items.filter(i => i.material_name).map((item, i) => (
+                            <div key={i} style={{
+                              display: 'flex', justifyContent: 'space-between',
+                              background: '#111', borderRadius: '6px',
+                              padding: '8px 10px', marginBottom: '6px'
+                            }}>
+                              <span style={{ color: '#ccc', fontSize: '13px' }}>{item.material_name}</span>
+                              <span style={{ color: '#FF8C00', fontSize: '13px' }}>
+                                {item.actual_qty || item.estimated_qty || '—'} {item.unit || ''}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ))
+        }
+      </div>
     </div>
   )
 }

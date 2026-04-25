@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { ArrowLeft, Plus, X, AlertCircle, Loader2, ClipboardList, Camera, CheckCircle, Users } from 'lucide-react'
 import api from '../../utils/api'
 import toast from 'react-hot-toast'
@@ -66,209 +66,415 @@ function PlanCard({ plan, onContinue, onMarkAttendance }) {
   )
 }
 
-// ─── GroupCard ────────────────────────────────────────────────────────────────
-function GroupCard({ group, index, workOrderSteps, siteMaterials, onUpdate, onRemove, isCarryForward, siteId }) {
-  const [labourGroups, setLabourGroups] = useState([])
-  const [multiMaterials, setMultiMaterials] = useState([])
+// ─── UNITS ────────────────────────────────────────────────────────────────────
+const UNITS = ['Kg', 'Ltr', 'Nos']
 
-  useEffect(() => {
-    if (!siteId) return
-    api.get(`/labour-groups?site_id=${siteId}`).then(res => setLabourGroups(res.data || [])).catch(() => {})
-  }, [siteId])
+// ─── FlatStatusPopup ──────────────────────────────────────────────────────────
+function FlatStatusPopup({ flat, steps, onClose }) {
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)',
+      zIndex: 1000, display: 'flex', alignItems: 'center',
+      justifyContent: 'center', padding: '20px'
+    }}>
+      <div style={{
+        background: '#1a1a1a', borderRadius: '12px',
+        padding: '20px', width: '100%', maxWidth: '340px',
+        border: '1px solid #333'
+      }}>
+        <div style={{
+          display: 'flex', justifyContent: 'space-between',
+          alignItems: 'center', marginBottom: '16px'
+        }}>
+          <span style={{ color: '#FF8C00', fontWeight: 'bold', fontSize: '16px' }}>
+            Flat {flat.flat_number}
+          </span>
+          <button onClick={onClose}
+            style={{ background: 'none', border: 'none', color: '#888', fontSize: '20px', cursor: 'pointer' }}>×</button>
+        </div>
+        {steps.map(step => (
+          <div key={step.id} style={{
+            display: 'flex', justifyContent: 'space-between',
+            alignItems: 'center', padding: '10px 0',
+            borderBottom: '1px solid #2a2a2a'
+          }}>
+            <span style={{ color: '#ccc', fontSize: '14px' }}>{step.step_name}</span>
+            {step.status === 'done'
+              ? <span style={{ color: '#22c55e', fontSize: '13px', fontWeight: 'bold' }}>✓ Done</span>
+              : <span style={{ color: '#888', fontSize: '13px' }}>⬜ Pending</span>
+            }
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
 
-  function handleStepChange(stepId) {
-    const step = workOrderSteps.find(s => s.id === stepId)
-    if (!step) {
-      onUpdate(group.id, { work_order_step_id: '', step_name: '', flat_nos: [] })
-      return
-    }
-    onUpdate(group.id, { work_order_step_id: stepId, step_name: step.step_name })
-
-    const sl = step.step_name.toLowerCase()
-    let matches = []
-    if (sl.includes('primer')) {
-      matches = siteMaterials.filter(m => m.product_name.toLowerCase().includes('primer'))
-    } else if (sl.includes('putty')) {
-      matches = siteMaterials.filter(m => {
-        const n = m.product_name.toLowerCase()
-        return n.includes('putty') || n.includes('fine putty')
-      })
-    } else if (sl.includes('paint') || sl.includes('emulsion')) {
-      matches = siteMaterials.filter(m => {
-        const n = m.product_name.toLowerCase()
-        return n.includes('paint') || n.includes('emulsion')
-      })
-    } else if (sl.includes('rub') || sl.includes('sand')) {
-      matches = siteMaterials.filter(m => {
-        const n = m.product_name.toLowerCase()
-        return n.includes('paper') || n.includes('sand')
-      })
-    }
-
-    if (matches.length === 1) {
-      onUpdate(group.id, { material_name: matches[0].product_name, unit: matches[0].unit })
-    } else if (matches.length > 1) {
-      setMultiMaterials(matches)
-    }
-  }
-
-  const selectedStep = workOrderSteps.find(s => s.id === group.work_order_step_id)
-  const stepFlats = selectedStep ? (selectedStep.flat_nos || []) : []
+// ─── MaterialRow ──────────────────────────────────────────────────────────────
+function MaterialRow({ material, index, siteMaterials, onAddToCart, onChange, onRemove }) {
+  const selectedMat = siteMaterials.find(m => m.product_name === material.material_name)
+  const remaining = selectedMat ? (selectedMat.remaining ?? (parseFloat(selectedMat.total_quantity || 0) - parseFloat(selectedMat.used_quantity || 0))) : null
+  const total = selectedMat ? parseFloat(selectedMat.total_quantity || 0) : 0
+  const isLow = remaining !== null && total > 0 && remaining < total * 0.2
+  const isOut = remaining !== null && remaining <= 0
 
   return (
-    <div className="card" style={{ borderLeft: '3px solid #F97316' }}>
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-2">
-          <span className="text-white font-semibold text-sm">Group {index + 1}</span>
+    <div style={{
+      background: '#1e1e1e', borderRadius: '8px',
+      padding: '12px', marginBottom: '8px', border: '1px solid #2a2a2a'
+    }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+        <span style={{ color: '#888', fontSize: '12px' }}>Material {index + 1}</span>
+        <button onClick={onRemove}
+          style={{ background: 'none', border: 'none', color: '#666', cursor: 'pointer', fontSize: '16px' }}>×</button>
+      </div>
+
+      <select
+        value={material.material_name}
+        onChange={e => {
+          const sel = siteMaterials.find(m => m.product_name === e.target.value)
+          onChange('material_name', e.target.value)
+          if (sel) onChange('unit', sel.unit || 'Nos')
+        }}
+        style={{
+          width: '100%', background: '#111', color: '#fff',
+          border: '1px solid #FF8C00', borderRadius: '8px',
+          padding: '10px', marginBottom: '8px', fontSize: '14px'
+        }}
+      >
+        <option value="">Select material</option>
+        {siteMaterials.map(m => {
+          const rem = m.remaining ?? (parseFloat(m.total_quantity || 0) - parseFloat(m.used_quantity || 0))
+          const tot = parseFloat(m.total_quantity || 0)
+          const flag = rem <= 0 ? ' ❌ Out' : (tot > 0 && rem < tot * 0.2) ? ' ⚠️ Low' : ' ✅'
+          return (
+            <option key={m.id} value={m.product_name}>
+              {m.product_name} — {rem.toFixed ? rem.toFixed(1) : rem} {m.unit || ''}{flag}
+            </option>
+          )
+        })}
+      </select>
+
+      {isOut && (
+        <div style={{
+          background: '#2a0a0a', border: '1px solid #c53030',
+          borderRadius: '6px', padding: '8px', color: '#fc8181',
+          fontSize: '12px', marginBottom: '8px'
+        }}>
+          Out of stock — will be added to cart request
+        </div>
+      )}
+      {isLow && !isOut && (
+        <div style={{
+          background: '#2a1a0a', border: '1px solid #d97706',
+          borderRadius: '6px', padding: '8px', color: '#fbbf24',
+          fontSize: '12px', marginBottom: '8px'
+        }}>
+          ⚠️ Low stock — {remaining !== null ? remaining.toFixed ? remaining.toFixed(1) : remaining : '?'} remaining
+        </div>
+      )}
+
+      <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
+        <input
+          type="number"
+          placeholder="Est. qty"
+          value={material.estimated_qty}
+          onChange={e => onChange('estimated_qty', e.target.value)}
+          style={{
+            flex: 2, background: '#111', color: '#fff',
+            border: '1px solid #333', borderRadius: '8px',
+            padding: '10px', fontSize: '14px'
+          }}
+        />
+        <select
+          value={material.unit}
+          onChange={e => onChange('unit', e.target.value)}
+          style={{
+            flex: 1, background: '#111', color: '#fff',
+            border: '1px solid #333', borderRadius: '8px',
+            padding: '10px', fontSize: '14px'
+          }}
+        >
+          {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
+        </select>
+      </div>
+
+      <button
+        onClick={() => onAddToCart(material)}
+        style={{
+          width: '100%', background: 'none',
+          border: '1px solid #FF8C00', color: '#FF8C00',
+          borderRadius: '8px', padding: '8px', fontSize: '13px',
+          cursor: 'pointer', display: 'flex', alignItems: 'center',
+          justifyContent: 'center', gap: '6px'
+        }}
+      >
+        🛒 Add to Cart
+      </button>
+    </div>
+  )
+}
+
+// ─── GroupCard ────────────────────────────────────────────────────────────────
+function GroupCard({
+  group, index, siteLabours, workOrderSteps,
+  flatProgress, siteMaterials, cartItems,
+  onUpdate, onRemove, onAddToCart, isCarryForward
+}) {
+  const [showFlatPopup, setShowFlatPopup] = useState(null)
+
+  const stepsForFlats = useMemo(() => {
+    if (!group.work_order_step_id) return []
+    const allFlats = []
+    flatProgress.forEach(wo => {
+      wo.flats?.forEach(flat => {
+        const thisStep = flat.steps?.find(s => s.step_id === group.work_order_step_id)
+        if (thisStep) allFlats.push({ flat, stepStatus: thisStep.status })
+      })
+    })
+    return allFlats
+  }, [group.work_order_step_id, flatProgress])
+
+  function toggleFlat(flatNumber, stepStatus) {
+    if (stepStatus === 'done') return
+    const current = group.flat_nos || []
+    const updated = current.includes(flatNumber)
+      ? current.filter(f => f !== flatNumber)
+      : [...current, flatNumber]
+    onUpdate(group.id, { flat_nos: updated })
+  }
+
+  function addMaterial() {
+    const mats = group.materials || []
+    onUpdate(group.id, {
+      materials: [...mats, { id: Date.now().toString(), material_name: '', estimated_qty: '', unit: 'Nos' }]
+    })
+  }
+
+  function updateMaterial(matId, field, value) {
+    const mats = (group.materials || []).map(m => m.id === matId ? { ...m, [field]: value } : m)
+    onUpdate(group.id, { materials: mats })
+  }
+
+  function removeMaterial(matId) {
+    onUpdate(group.id, { materials: (group.materials || []).filter(m => m.id !== matId) })
+  }
+
+  const selectedLabourIds = group.labour_ids || []
+
+  return (
+    <div style={{
+      background: '#111', borderRadius: '12px',
+      border: isCarryForward ? '1px solid #FF8C00' : '1px solid #222',
+      marginBottom: '16px', overflow: 'hidden'
+    }}>
+      {/* Header */}
+      <div style={{
+        display: 'flex', justifyContent: 'space-between',
+        alignItems: 'center', padding: '14px 16px', background: '#1a1a1a'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span style={{ color: '#FF8C00', fontWeight: 'bold', fontSize: '15px' }}>Group {index + 1}</span>
           {isCarryForward && (
-            <span className="text-xs bg-orange-500/20 text-orange-400 px-2 py-0.5 rounded-full">
-              Carried Forward
-            </span>
+            <span style={{
+              background: '#FF8C0022', color: '#FF8C00', fontSize: '11px',
+              padding: '2px 8px', borderRadius: '20px', border: '1px solid #FF8C00'
+            }}>Carried Forward</span>
           )}
         </div>
         {!isCarryForward && (
-          <button onClick={() => onRemove(group.id)} className="text-gray-500 hover:text-red-400 p-1 transition-colors">
-            <X size={16} />
-          </button>
+          <button onClick={() => onRemove(group.id)}
+            style={{ background: 'none', border: 'none', color: '#666', cursor: 'pointer', fontSize: '18px' }}>×</button>
         )}
       </div>
 
-      <div className="mb-3">
-        <label className="label">Labour Group</label>
-        <select
-          className="select"
-          value={group.group_id || ''}
-          onChange={e => {
-            const sel = labourGroups.find(g => g.id === e.target.value)
-            onUpdate(group.id, { group_id: e.target.value, group_name: sel ? sel.name : '' })
-          }}
-        >
-          <option value="">Select group</option>
-          {labourGroups.map(g => (
-            <option key={g.id} value={g.id}>{g.name}</option>
-          ))}
-        </select>
-      </div>
-
-      <div className="mb-3">
-        <label className="label">Task / Step</label>
-        <select
-          className="select"
-          value={group.work_order_step_id || ''}
-          onChange={e => handleStepChange(e.target.value)}
-        >
-          <option value="">Select step</option>
-          {workOrderSteps.filter(s => s.status !== 'completed').map(s => (
-            <option key={s.id} value={s.id}>{s.work_order_name} — {s.step_name}</option>
-          ))}
-        </select>
-      </div>
-
-      {multiMaterials.length > 0 && (
-        <div className="mb-3">
-          <label className="label">Select Material</label>
-          <select
-            className="select"
-            value={group.material_name || ''}
-            onChange={e => {
-              const m = multiMaterials.find(x => x.product_name === e.target.value)
-              onUpdate(group.id, { material_name: e.target.value, unit: m ? m.unit : group.unit })
-              setMultiMaterials([])
-            }}
-          >
-            <option value="">Pick one</option>
-            {multiMaterials.map(m => (
-              <option key={m.id} value={m.product_name}>{m.product_name}</option>
-            ))}
-          </select>
-        </div>
-      )}
-
-      {stepFlats.length > 0 ? (
-        <div className="mb-3">
-          <label className="label">Flats</label>
-          <div className="flex flex-wrap gap-2">
-            {stepFlats.map(flat => {
-              const isSelected = (group.flat_nos || []).includes(flat)
-              return (
-                <button
-                  key={flat}
-                  type="button"
-                  onClick={() => {
-                    const curr = group.flat_nos || []
-                    const next = isSelected ? curr.filter(f => f !== flat) : [...curr, flat]
-                    onUpdate(group.id, { flat_nos: next })
-                  }}
-                  className={`px-3 py-1 rounded-lg text-xs font-medium transition-all ${
-                    isSelected
-                      ? 'bg-primary-500 text-white'
-                      : 'bg-surface-400 text-gray-400 border border-white/10'
-                  }`}
-                >
-                  {flat}
-                </button>
-              )
-            })}
+      <div style={{ padding: '16px' }}>
+        {/* Labour multi-select */}
+        <div style={{ marginBottom: '14px' }}>
+          <label style={{ color: '#888', fontSize: '12px', display: 'block', marginBottom: '8px' }}>
+            Labour ({selectedLabourIds.length} selected)
+          </label>
+          <div style={{ maxHeight: '160px', overflowY: 'auto', border: '1px solid #333', borderRadius: '8px' }}>
+            {siteLabours.length === 0
+              ? <div style={{ padding: '12px', color: '#666', fontSize: '13px', textAlign: 'center' }}>
+                  No labourers found for this site
+                </div>
+              : siteLabours.map(labour => {
+                  const selected = selectedLabourIds.includes(labour.id)
+                  return (
+                    <div
+                      key={labour.id}
+                      onClick={() => {
+                        const updated = selected
+                          ? selectedLabourIds.filter(id => id !== labour.id)
+                          : [...selectedLabourIds, labour.id]
+                        onUpdate(group.id, {
+                          labour_ids: updated,
+                          labour_names: siteLabours.filter(l => updated.includes(l.id)).map(l => l.name)
+                        })
+                      }}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: '10px',
+                        padding: '10px 12px', borderBottom: '1px solid #1e1e1e',
+                        cursor: 'pointer', background: selected ? '#1a1200' : 'transparent'
+                      }}
+                    >
+                      <div style={{
+                        width: '18px', height: '18px', borderRadius: '4px', flexShrink: 0,
+                        background: selected ? '#FF8C00' : 'none',
+                        border: selected ? '2px solid #FF8C00' : '2px solid #444',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center'
+                      }}>
+                        {selected && <span style={{ color: '#000', fontSize: '12px', fontWeight: 'bold' }}>✓</span>}
+                      </div>
+                      {labour.photo
+                        ? <img src={labour.photo} style={{ width: '28px', height: '28px', borderRadius: '50%', objectFit: 'cover' }} alt="" />
+                        : <div style={{
+                            width: '28px', height: '28px', borderRadius: '50%',
+                            background: '#333', display: 'flex', alignItems: 'center',
+                            justifyContent: 'center', color: '#888', fontSize: '12px'
+                          }}>{labour.name?.charAt(0)}</div>
+                      }
+                      <span style={{ color: selected ? '#fff' : '#aaa', fontSize: '14px' }}>{labour.name}</span>
+                    </div>
+                  )
+                })
+            }
           </div>
         </div>
-      ) : (
-        <div className="mb-3">
-          <label className="label">Flat / Area</label>
-          <input
-            className="input"
-            placeholder="Enter flat/area description"
-            value={(group.flat_nos || []).join(', ')}
-            onChange={e => onUpdate(group.id, { flat_nos: e.target.value ? [e.target.value] : [] })}
-          />
-        </div>
-      )}
 
-      <div className="mb-3">
-        <label className="label">Material</label>
-        <input
-          className="input"
-          placeholder="Material name"
-          value={group.material_name || ''}
-          onChange={e => onUpdate(group.id, { material_name: e.target.value })}
-        />
-        {siteMaterials.length > 0 && !group.material_name && (
+        {/* Task/Step selector */}
+        <div style={{ marginBottom: '14px' }}>
+          <label style={{ color: '#888', fontSize: '12px', display: 'block', marginBottom: '8px' }}>Task / Step</label>
           <select
-            className="select mt-2"
-            value=""
+            value={group.work_order_step_id || ''}
             onChange={e => {
-              const m = siteMaterials.find(x => x.product_name === e.target.value)
-              onUpdate(group.id, { material_name: e.target.value, unit: m ? m.unit : group.unit })
+              const sel = workOrderSteps.find(s => s.id === e.target.value)
+              onUpdate(group.id, {
+                work_order_step_id: e.target.value,
+                step_name: sel?.step_name || '',
+                flat_nos: []
+              })
+            }}
+            style={{
+              width: '100%', background: '#111', color: '#fff',
+              border: '1px solid #FF8C00', borderRadius: '8px',
+              padding: '12px', fontSize: '14px'
             }}
           >
-            <option value="">Pick from site stock</option>
-            {siteMaterials.map(m => (
-              <option key={m.id} value={m.product_name}>{m.product_name}</option>
+            <option value="">Select step</option>
+            {workOrderSteps.map(step => (
+              <option key={step.id} value={step.id}>
+                {step.work_order_name ? `${step.work_order_name} — ` : ''}{step.step_name}
+              </option>
             ))}
           </select>
+        </div>
+
+        {/* Flat grid — only show when step selected and flats exist */}
+        {group.work_order_step_id && stepsForFlats.length > 0 && (
+          <div style={{ marginBottom: '14px' }}>
+            <label style={{ color: '#888', fontSize: '12px', display: 'block', marginBottom: '8px' }}>
+              Select Flats (tap ℹ️ to see full progress)
+            </label>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: '8px' }}>
+              {stepsForFlats.map(({ flat, stepStatus }) => {
+                const isDone = stepStatus === 'done'
+                const isSelected = (group.flat_nos || []).includes(flat.flat_number)
+                return (
+                  <div key={flat.id} style={{ position: 'relative' }}>
+                    <div
+                      onClick={() => !isDone && toggleFlat(flat.flat_number, stepStatus)}
+                      style={{
+                        borderRadius: '8px', padding: '10px 6px', textAlign: 'center',
+                        cursor: isDone ? 'not-allowed' : 'pointer',
+                        background: isDone ? '#0a2a0a' : isSelected ? '#2a1a00' : '#1a1a1a',
+                        border: isDone ? '1px solid #166534' : isSelected ? '1px solid #FF8C00' : '1px solid #333',
+                        opacity: isDone ? 0.7 : 1
+                      }}
+                    >
+                      <div style={{
+                        fontSize: '13px', fontWeight: 'bold',
+                        color: isDone ? '#22c55e' : isSelected ? '#FF8C00' : '#ccc',
+                        marginBottom: '2px'
+                      }}>{flat.flat_number}</div>
+                      <div style={{ fontSize: '10px', color: isDone ? '#22c55e' : '#666' }}>
+                        {isDone ? '✓ Done' : '⬜ Pending'}
+                      </div>
+                    </div>
+                    <button
+                      onClick={e => { e.stopPropagation(); setShowFlatPopup({ flat, steps: flat.steps || [] }) }}
+                      style={{
+                        position: 'absolute', top: '-6px', right: '-6px',
+                        width: '18px', height: '18px', background: '#333',
+                        border: 'none', borderRadius: '50%', color: '#888',
+                        fontSize: '10px', cursor: 'pointer', display: 'flex',
+                        alignItems: 'center', justifyContent: 'center', padding: 0
+                      }}
+                    >ℹ</button>
+                  </div>
+                )
+              })}
+            </div>
+            {group.flat_nos?.length > 0 && (
+              <div style={{ marginTop: '8px', fontSize: '12px', color: '#FF8C00' }}>
+                {group.flat_nos.length} flat(s) selected for today
+              </div>
+            )}
+          </div>
         )}
+
+        {/* No flats found — free-text input */}
+        {group.work_order_step_id && stepsForFlats.length === 0 && (
+          <div style={{ marginBottom: '14px' }}>
+            <input
+              placeholder="Enter flat/area description"
+              value={group.flat_description || ''}
+              onChange={e => onUpdate(group.id, { flat_description: e.target.value })}
+              style={{
+                width: '100%', background: '#111', color: '#fff',
+                border: '1px solid #333', borderRadius: '8px',
+                padding: '12px', fontSize: '14px', boxSizing: 'border-box'
+              }}
+            />
+          </div>
+        )}
+
+        {/* Materials section */}
+        <div>
+          <label style={{ color: '#888', fontSize: '12px', display: 'block', marginBottom: '8px' }}>Materials</label>
+          {(group.materials || []).map((mat, idx) => (
+            <MaterialRow
+              key={mat.id}
+              material={mat}
+              index={idx}
+              siteMaterials={siteMaterials}
+              cartItems={cartItems}
+              onChange={(field, value) => updateMaterial(mat.id, field, value)}
+              onRemove={() => removeMaterial(mat.id)}
+              onAddToCart={onAddToCart}
+            />
+          ))}
+          <button
+            onClick={addMaterial}
+            style={{
+              width: '100%', background: 'none', border: '1px dashed #444',
+              color: '#888', borderRadius: '8px', padding: '10px',
+              fontSize: '13px', cursor: 'pointer'
+            }}
+          >
+            + Add Material
+          </button>
+        </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-2">
-        <div>
-          <label className="label">Estimated Qty</label>
-          <input
-            type="number"
-            className="input"
-            placeholder="0"
-            value={group.estimated_qty || ''}
-            onChange={e => onUpdate(group.id, { estimated_qty: e.target.value })}
-          />
-        </div>
-        <div>
-          <label className="label">Unit</label>
-          <input
-            className="input"
-            placeholder="bags / ltr / m²"
-            value={group.unit || ''}
-            onChange={e => onUpdate(group.id, { unit: e.target.value })}
-          />
-        </div>
-      </div>
+      {showFlatPopup && (
+        <FlatStatusPopup
+          flat={showFlatPopup.flat}
+          steps={showFlatPopup.steps}
+          onClose={() => setShowFlatPopup(null)}
+        />
+      )}
     </div>
   )
 }
@@ -611,6 +817,9 @@ export default function DailyPlan() {
   const [planNotes, setPlanNotes] = useState('')
   const [workOrderSteps, setWorkOrderSteps] = useState([])
   const [siteMaterials, setSiteMaterials] = useState([])
+  const [siteLabours, setSiteLabours] = useState([])
+  const [flatProgress, setFlatProgress] = useState([])
+  const [cartItems, setCartItems] = useState([])
   const [saving, setSaving] = useState(false)
   const [loading, setLoading] = useState(true)
 
@@ -634,12 +843,14 @@ export default function DailyPlan() {
   async function fetchInitialData(sid) {
     if (!sid) return
     try {
-      const [planRes, historyRes, cfRes, woRes, matRes] = await Promise.allSettled([
+      const [planRes, historyRes, cfRes, woRes, matRes, laboursRes, flatRes] = await Promise.allSettled([
         api.get(`/daily-plans?site_id=${sid}&date=${TODAY}`),
         api.get(`/daily-plans/history?site_id=${sid}`),
         api.get(`/daily-plans/carry-forward?site_id=${sid}`),
         api.get(`/workorders?site_id=${sid}`),
         api.get(`/workorders/site-materials?site_id=${sid}`),
+        api.get(`/workorders/site-labours?site_id=${sid}`),
+        api.get(`/workorders/flat-progress?site_id=${sid}`),
       ])
       if (planRes.status === 'fulfilled') {
         const d = planRes.value.data
@@ -659,6 +870,8 @@ export default function DailyPlan() {
         setWorkOrderSteps(flatSteps)
       }
       if (matRes.status === 'fulfilled') setSiteMaterials(matRes.value.data || [])
+      if (laboursRes.status === 'fulfilled') setSiteLabours(laboursRes.value.data || [])
+      if (flatRes.status === 'fulfilled') setFlatProgress(flatRes.value.data?.work_orders || [])
     } catch {
       toast.error('Failed to load plan data')
     }
@@ -726,13 +939,18 @@ export default function DailyPlan() {
       const token = sessionStorage.getItem('sv_token') || localStorage.getItem('sv_token')
       const items = groups.map(g => ({
         group_id: g.group_id || null,
-        group_name: g.group_name || '',
+        group_name: g.labour_names?.join(', ') || g.group_name || '',
+        labour_ids: g.labour_ids || [],
         work_order_step_id: g.work_order_step_id || null,
         step_name: g.step_name || '',
         flat_nos: g.flat_nos || [],
-        material_name: g.material_name || '',
-        estimated_qty: g.estimated_qty ? parseFloat(g.estimated_qty) : null,
-        unit: g.unit || '',
+        flat_description: g.flat_description || '',
+        materials: g.materials || [],
+        material_name: g.materials?.[0]?.material_name || g.material_name || '',
+        estimated_qty: g.materials?.[0]?.estimated_qty
+          ? parseFloat(g.materials[0].estimated_qty)
+          : g.estimated_qty ? parseFloat(g.estimated_qty) : null,
+        unit: g.materials?.[0]?.unit || g.unit || '',
       }))
 
       let plan
@@ -1358,12 +1576,28 @@ export default function DailyPlan() {
           key={group.id}
           group={group}
           index={index}
+          siteLabours={siteLabours}
           workOrderSteps={workOrderSteps}
+          flatProgress={flatProgress}
           siteMaterials={siteMaterials}
+          cartItems={cartItems}
           onUpdate={updateGroup}
           onRemove={removeGroup}
+          onAddToCart={(material) => {
+            const cartItem = {
+              work_order_material_id: material.id || Date.now().toString(),
+              material_name: material.material_name,
+              unit: material.unit,
+              quantity: material.estimated_qty || '',
+              work_order_id: group.work_order_step_id || null,
+            }
+            setCartItems(prev => {
+              const exists = prev.find(c => c.material_name === cartItem.material_name)
+              return exists ? prev : [...prev, cartItem]
+            })
+            toast.success(`${material.material_name} added to cart`)
+          }}
           isCarryForward={!!group.isCarryForward}
-          siteId={siteId}
         />
       ))}
 
@@ -1373,9 +1607,13 @@ export default function DailyPlan() {
           id: Date.now().toString(),
           group_id: '',
           group_name: '',
+          labour_ids: [],
+          labour_names: [],
           work_order_step_id: '',
           step_name: '',
           flat_nos: [],
+          flat_description: '',
+          materials: [],
           material_name: '',
           estimated_qty: '',
           unit: '',

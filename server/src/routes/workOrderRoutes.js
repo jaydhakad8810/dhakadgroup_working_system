@@ -1,8 +1,8 @@
 const router = require('express').Router();
 const { Op } = require('sequelize');
-const { auth, adminOnly } = require('../middleware/auth');
+const { auth, adminOnly, supervisorOrAdmin } = require('../middleware/auth');
 const { WorkOrder, WorkOrderStep, WorkOrderFlat, WorkOrderMaterial, WorkOrderHint } = require('../models/WorkOrderModels');
-const { Site, User } = require('../models');
+const { Site, User, Labour } = require('../models');
 const PDFDocument = require('pdfkit');
 const XLSX = require('xlsx');
 
@@ -159,6 +159,58 @@ router.get('/site-materials', async (req, res) => {
     res.json(materials)
   } catch (e) { res.status(500).json({ message: e.message }) }
 })
+
+// ── GET /flat-progress?site_id=X — flat/step status for all WOs at a site
+router.get('/flat-progress', supervisorOrAdmin, async (req, res) => {
+  try {
+    const { site_id } = req.query;
+    if (!site_id) return res.status(400).json({ message: 'site_id is required' });
+
+    const workOrders = await WorkOrder.findAll({
+      where: { site_id },
+      attributes: ['id', 'title', 'status'],
+      include: [
+        { model: WorkOrderFlat, as: 'flats', attributes: ['id', 'flat_no', 'wing', 'step_progress'] },
+        { model: WorkOrderStep, as: 'steps', attributes: ['id', 'step_name', 'sequence_order', 'status'], order: [['sequence_order', 'ASC']] },
+      ],
+    });
+
+    const result = workOrders.map(wo => ({
+      id: wo.id,
+      name: wo.title,
+      status: wo.status,
+      flats: (wo.flats || []).map(flat => ({
+        id: flat.id,
+        flat_number: flat.wing ? `${flat.wing}-${flat.flat_no}` : String(flat.flat_no),
+        steps: (wo.steps || []).map(step => ({
+          id: `${flat.id}_${step.id}`,
+          step_id: step.id,
+          step_name: step.step_name,
+          status: (flat.step_progress || {})[step.id] || 'pending',
+          completed_at: null,
+        })),
+      })),
+    }));
+
+    res.json({ work_orders: result });
+  } catch (e) { res.status(500).json({ message: e.message }); }
+});
+
+// ── GET /site-labours?site_id=X — all labourers assigned to a site
+router.get('/site-labours', supervisorOrAdmin, async (req, res) => {
+  try {
+    const { site_id } = req.query;
+    if (!site_id) return res.status(400).json({ message: 'site_id is required' });
+
+    const labours = await Labour.findAll({
+      where: { assigned_site_id: site_id, is_active: true },
+      attributes: ['id', 'name', 'photo', 'daily_wage'],
+      order: [['name', 'ASC']],
+    });
+
+    res.json(labours);
+  } catch (e) { res.status(500).json({ message: e.message }); }
+});
 
 // ── GET /:id — full detail
 router.get('/:id', async (req, res) => {
