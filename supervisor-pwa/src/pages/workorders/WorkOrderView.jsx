@@ -248,6 +248,9 @@ function WorkOrderCard({ wo, cartProps }) {
             }`}>{wo.status}</span>
           </div>
           <p className="text-white font-semibold text-sm truncate">{wo.title}</p>
+          {(wo.site?.name || wo.site_name) && (
+            <p className="text-xs text-primary-400/70 mt-0.5">{wo.site?.name || wo.site_name}</p>
+          )}
           <p className="text-xs text-gray-400 mt-0.5">{wo.start_date} → {wo.end_date}</p>
         </div>
         <div className="flex items-center gap-2 ml-3">
