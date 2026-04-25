@@ -210,7 +210,7 @@ router.get('/site-labours', supervisorOrAdmin, async (req, res) => {
     if (!site_id) return res.status(400).json({ message: 'site_id is required' });
 
     const labours = await Labour.findAll({
-      where: { assigned_site_id: site_id, is_active: true },
+      where: { assigned_site_id: site_id },
       attributes: ['id', 'name', 'photo', 'daily_wage', 'employee_id', 'phone'],
       order: [['name', 'ASC']],
     });

@@ -701,6 +701,7 @@ function TaskCompleteStep({ groups, groupTasks, attendanceRecords, attendanceDat
 }
 
 
+
 // ─── MarkAttendance ──────────────────────────────────────────────────────────
 export default function MarkAttendance() {
   const navigate = useNavigate()
@@ -708,27 +709,36 @@ export default function MarkAttendance() {
   const today = new Date().toISOString().split('T')[0]
 
   const [tab, setTab] = useState('today')
-  const [siteId, setSiteId] = useState('')
+
+  // Site management
+  const [supervisorSites, setSupervisorSites] = useState([])
+  const [selectedSite, setSelectedSite] = useState(null)
+
+  // Today tab
   const [todayPlan, setTodayPlan] = useState(null)
   const [planLoading, setPlanLoading] = useState(true)
 
   // History tab
   const [attHistory, setAttHistory] = useState([])
   const [attLoading, setAttLoading] = useState(false)
+  const [attLoaded, setAttLoaded] = useState(false)
   const [expandedRecord, setExpandedRecord] = useState(null)
-  const [fromDate, setFromDate] = useState(() => {
-    const d = new Date(); d.setDate(d.getDate() - 30)
-    return d.toISOString().split('T')[0]
+  const [siteLabours, setSiteLabours] = useState([])
+  const [attFilter, setAttFilter] = useState({
+    from_date: (() => { const d = new Date(); d.setDate(d.getDate() - 60); return d.toISOString().split('T')[0] })(),
+    to_date: new Date().toISOString().split('T')[0],
+    labour_id: '',
   })
-  const [toDate, setToDate] = useState(new Date().toISOString().split('T')[0])
 
   useEffect(() => {
-    api.get('/sites').then(res => {
-      const site = (res.data || [])[0]
-      if (site) {
-        setSiteId(site.id)
-        loadTodayPlan(site.id)
-        loadHistory(site.id, fromDate, toDate)
+    api.get('/auth/me').then(res => {
+      const sites = res.data?.sites || []
+      setSupervisorSites(sites)
+      if (sites.length >= 1) {
+        const s = sites[0]
+        setSelectedSite(s)
+        loadTodayPlan(s.id)
+        loadSiteLabours(s.id)
       } else {
         setPlanLoading(false)
       }
@@ -744,18 +754,49 @@ export default function MarkAttendance() {
     setPlanLoading(false)
   }
 
-  async function loadHistory(sid, from, to) {
-    if (!sid) return
+  async function loadSiteLabours(sid) {
+    try {
+      const res = await api.get(`/workorders/site-labours?site_id=${sid}`)
+      setSiteLabours(res.data || [])
+    } catch {}
+  }
+
+  async function fetchHistory(filter, sid) {
+    const siteId = sid || selectedSite?.id
+    if (!siteId) return
     setAttLoading(true)
     try {
-      const res = await api.get(`/attendance?site_id=${sid}&from_date=${from}&to_date=${to}`)
+      const params = new URLSearchParams({
+        site_id: siteId,
+        from_date: filter.from_date,
+        to_date: filter.to_date,
+      })
+      if (filter.labour_id) params.append('labour_id', filter.labour_id)
+      const res = await api.get(`/attendance?${params}`)
       setAttHistory(res.data || [])
+      setAttLoaded(true)
     } catch {}
     setAttLoading(false)
   }
 
+  function onTabChange(t) {
+    setTab(t)
+    if (t === 'history' && !attLoaded && selectedSite) {
+      fetchHistory(attFilter, selectedSite.id)
+    }
+  }
+
   function applyFilter() {
-    loadHistory(siteId, fromDate, toDate)
+    fetchHistory(attFilter)
+  }
+
+  function onSiteChange(site) {
+    setSelectedSite(site)
+    loadTodayPlan(site.id)
+    loadSiteLabours(site.id)
+    setAttLoaded(false)
+    setAttHistory([])
+    if (tab === 'history') fetchHistory(attFilter, site.id)
   }
 
   const planItems = todayPlan?.items || []
@@ -764,16 +805,35 @@ export default function MarkAttendance() {
 
   return (
     <div className="page-container space-y-4">
+      {/* Site selector for multi-site supervisors */}
+      {supervisorSites.length > 1 && (
+        <div className="card">
+          <label className="label">Site</label>
+          <select
+            className="select text-white"
+            value={selectedSite?.id || ''}
+            onChange={e => {
+              const s = supervisorSites.find(x => x.id === e.target.value)
+              if (s) onSiteChange(s)
+            }}
+          >
+            {supervisorSites.map(s => (
+              <option key={s.id} value={s.id}>{s.name}</option>
+            ))}
+          </select>
+        </div>
+      )}
+
       {/* Tabs */}
       <div className="flex gap-2 bg-surface-300 rounded-xl p-1">
         <button
-          onClick={() => setTab('today')}
+          onClick={() => onTabChange('today')}
           className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${tab === 'today' ? 'bg-primary-500 text-white' : 'text-gray-400'}`}
         >
           Today
         </button>
         <button
-          onClick={() => setTab('history')}
+          onClick={() => onTabChange('history')}
           className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${tab === 'history' ? 'bg-primary-500 text-white' : 'text-gray-400'}`}
         >
           History
@@ -790,12 +850,13 @@ export default function MarkAttendance() {
           ) : todayPlan ? (
             <>
               <div className="card">
-                <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center justify-between mb-1">
                   <p className="text-white font-semibold">Today's Plan</p>
-                  <span className={`text-xs px-2 py-0.5 rounded-full ${todayPlan.status === 'submitted' ? 'bg-green-500/20 text-green-400' : 'bg-yellow-500/20 text-yellow-400'}`}>
+                  <span className={`text-xs px-2 py-0.5 rounded-full ${todayPlan.status === 'submitted' ? 'bg-blue-500/20 text-blue-400' : todayPlan.status === 'completed' ? 'bg-green-500/20 text-green-400' : 'bg-yellow-500/20 text-yellow-400'}`}>
                     {todayPlan.status}
                   </span>
                 </div>
+                {selectedSite && <p className="text-xs text-primary-400/70 mb-3">{selectedSite.name}</p>}
                 <div className="grid grid-cols-3 gap-2 mb-4">
                   <div className="bg-surface-300 rounded-xl p-3 text-center">
                     <p className="text-lg font-bold text-white">{planItems.length}</p>
@@ -822,21 +883,21 @@ export default function MarkAttendance() {
                 <div className="card">
                   <p className="text-gray-400 text-xs mb-3 uppercase tracking-wide">Task Summary</p>
                   <div className="space-y-2">
-                    {planItems.slice(0, 5).map(item => (
+                    {planItems.slice(0, 6).map(item => (
                       <div key={item.id} className="flex items-center justify-between py-2 border-b border-white/5">
                         <div className="flex-1 min-w-0">
                           <p className="text-white text-sm truncate">{item.step_name || item.group_name || 'Task'}</p>
                           {item.flat_nos?.length > 0 && (
-                            <p className="text-gray-500 text-xs">{item.flat_nos.slice(0, 3).join(', ')}{item.flat_nos.length > 3 ? ` +${item.flat_nos.length - 3} more` : ''}</p>
+                            <p className="text-gray-500 text-xs">{item.flat_nos.slice(0,3).join(', ')}{item.flat_nos.length > 3 ? ` +${item.flat_nos.length-3} more` : ''}</p>
                           )}
                         </div>
-                        <span className={`text-xs px-2 py-0.5 rounded-full ml-2 ${item.status === 'done' ? 'bg-green-500/20 text-green-400' : item.status === 'carry_forward' ? 'bg-orange-500/20 text-orange-400' : 'bg-gray-500/20 text-gray-400'}`}>
+                        <span className={`text-xs px-2 py-0.5 rounded-full ml-2 shrink-0 ${item.status === 'done' ? 'bg-green-500/20 text-green-400' : item.status === 'carry_forward' ? 'bg-orange-500/20 text-orange-400' : 'bg-gray-500/20 text-gray-400'}`}>
                           {item.status || 'pending'}
                         </span>
                       </div>
                     ))}
-                    {planItems.length > 5 && (
-                      <p className="text-gray-500 text-xs text-center pt-1">+{planItems.length - 5} more tasks</p>
+                    {planItems.length > 6 && (
+                      <p className="text-gray-500 text-xs text-center pt-1">+{planItems.length - 6} more tasks</p>
                     )}
                   </div>
                 </div>
@@ -847,7 +908,7 @@ export default function MarkAttendance() {
               <ClipboardCheck size={40} className="text-gray-600 mx-auto" />
               <div>
                 <p className="text-white font-semibold mb-1">No plan for today</p>
-                <p className="text-gray-500 text-sm">Create a daily plan to track today's work</p>
+                <p className="text-gray-500 text-sm">Create a daily plan first to manage attendance</p>
               </div>
               <button
                 onClick={() => navigate('/plan')}
@@ -865,17 +926,31 @@ export default function MarkAttendance() {
       {tab === 'history' && (
         <div className="space-y-4">
           <div className="card space-y-3">
-            <p className="text-gray-400 text-xs uppercase tracking-wide">Filter by Date</p>
+            <p className="text-gray-400 text-xs uppercase tracking-wide">Filter</p>
             <div className="flex gap-2">
               <div className="flex-1">
                 <label className="label">From</label>
-                <input type="date" className="input" value={fromDate} onChange={e => setFromDate(e.target.value)} />
+                <input type="date" className="input" value={attFilter.from_date}
+                  onChange={e => setAttFilter(f => ({ ...f, from_date: e.target.value }))} />
               </div>
               <div className="flex-1">
                 <label className="label">To</label>
-                <input type="date" className="input" value={toDate} onChange={e => setToDate(e.target.value)} />
+                <input type="date" className="input" value={attFilter.to_date}
+                  onChange={e => setAttFilter(f => ({ ...f, to_date: e.target.value }))} />
               </div>
             </div>
+            {siteLabours.length > 0 && (
+              <div>
+                <label className="label">Labour</label>
+                <select className="select text-white" value={attFilter.labour_id}
+                  onChange={e => setAttFilter(f => ({ ...f, labour_id: e.target.value }))}>
+                  <option value="">All Labourers</option>
+                  {siteLabours.map(l => (
+                    <option key={l.id} value={l.id}>{l.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
             <button
               onClick={applyFilter}
               className="w-full py-2.5 rounded-xl bg-primary-500/20 text-primary-400 text-sm font-medium border border-primary-500/30 active:scale-95 transition-all"
@@ -888,6 +963,10 @@ export default function MarkAttendance() {
             <div className="card text-center py-8">
               <p className="text-gray-400 text-sm">Loading history...</p>
             </div>
+          ) : !attLoaded ? (
+            <div className="card text-center py-8">
+              <p className="text-gray-400 text-sm">Apply filter to load records</p>
+            </div>
           ) : attHistory.length === 0 ? (
             <div className="card text-center py-8">
               <p className="text-gray-400 text-sm">No attendance records found</p>
@@ -895,35 +974,85 @@ export default function MarkAttendance() {
           ) : (
             <div className="space-y-3">
               {attHistory.map(record => {
+                const records = record.records || []
+                const filtered = attFilter.labour_id
+                  ? records.filter(r => String(r.labour_id) === String(attFilter.labour_id))
+                  : records
                 const isExpanded = expandedRecord === record.id
-                const presentCount = (record.records || []).filter(r => r.status === 'present').length
-                const halfCount = (record.records || []).filter(r => r.status === 'half_day').length
-                const absentCount = (record.records || []).filter(r => r.status === 'absent').length
-                const totalCount = (record.records || []).length
+                const presentCount = filtered.filter(r => r.status === 'present').length
+                const halfCount = filtered.filter(r => r.status === 'half_day').length
+                const absentCount = filtered.filter(r => r.status === 'absent').length
+                const planItems = record.plan_items || []
                 return (
-                  <div key={record.id} className="card cursor-pointer" onClick={() => setExpandedRecord(isExpanded ? null : record.id)}>
+                  <div key={record.id} className="card cursor-pointer"
+                    onClick={() => setExpandedRecord(isExpanded ? null : record.id)}>
                     <div className="flex items-center justify-between mb-2">
                       <p className="text-white font-semibold text-sm">{record.date}</p>
                       <div className="flex items-center gap-2">
-                        <span className="text-xs text-gray-400">{totalCount} workers</span>
+                        <span className="text-xs text-gray-400">{filtered.length} workers</span>
                         <ChevronRight size={14} className={`text-gray-500 transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
                       </div>
                     </div>
                     <div className="flex gap-3">
-                      <span className="text-xs text-green-400">{presentCount} Present</span>
+                      {presentCount > 0 && <span className="text-xs text-green-400">{presentCount} Present</span>}
                       {halfCount > 0 && <span className="text-xs text-yellow-400">{halfCount} Half</span>}
                       {absentCount > 0 && <span className="text-xs text-red-400">{absentCount} Absent</span>}
                     </div>
-                    {isExpanded && (record.records || []).length > 0 && (
-                      <div className="mt-3 pt-3 border-t border-white/10 space-y-2">
-                        {record.records.map(r => (
-                          <div key={r.id} className="flex items-center justify-between">
-                            <p className="text-gray-300 text-sm">{r.labour_name || r.name || '—'}</p>
-                            <span className={`text-xs px-2 py-0.5 rounded-full ${r.status === 'present' ? 'bg-green-500/20 text-green-400' : r.status === 'half_day' ? 'bg-yellow-500/20 text-yellow-400' : 'bg-red-500/20 text-red-400'}`}>
-                              {r.status}
-                            </span>
+                    {isExpanded && (
+                      <div className="mt-3 pt-3 border-t border-white/10 space-y-3">
+                        {filtered.map(r => (
+                          <div key={r.id} className="space-y-2">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                {r.photo
+                                  ? <img src={r.photo} className="w-8 h-8 rounded-full object-cover" alt="" />
+                                  : <div className="w-8 h-8 rounded-full bg-primary-500/20 flex items-center justify-center text-primary-400 text-xs font-bold">
+                                      {(r.labour_name || r.name || '?')[0]}
+                                    </div>
+                                }
+                                <p className="text-gray-300 text-sm font-medium">{r.labour_name || r.name || '—'}</p>
+                              </div>
+                              <span className={`text-xs px-2 py-0.5 rounded-full ${r.status === 'present' ? 'bg-green-500/20 text-green-400' : r.status === 'half_day' ? 'bg-yellow-500/20 text-yellow-400' : 'bg-red-500/20 text-red-400'}`}>
+                                {r.status}
+                              </span>
+                            </div>
+                            {(r.checkin_photo || r.checkout_photo) && (
+                              <div className="flex gap-2 ml-10">
+                                {r.checkin_photo && (
+                                  <a href={r.checkin_photo} target="_blank" rel="noreferrer">
+                                    <img src={r.checkin_photo} className="w-10 h-10 rounded-lg object-cover border border-green-500/30" alt="check-in" />
+                                  </a>
+                                )}
+                                {r.checkout_photo && (
+                                  <a href={r.checkout_photo} target="_blank" rel="noreferrer">
+                                    <img src={r.checkout_photo} className="w-10 h-10 rounded-lg object-cover border border-blue-500/30" alt="check-out" />
+                                  </a>
+                                )}
+                              </div>
+                            )}
                           </div>
                         ))}
+                        {planItems.length > 0 && (
+                          <div className="mt-2 pt-2 border-t border-white/5">
+                            <p className="text-gray-500 text-xs uppercase tracking-wide mb-2">Tasks</p>
+                            {planItems.map(item => (
+                              <div key={item.id} className="flex items-center justify-between py-1.5">
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-gray-300 text-xs truncate">{item.step_name || item.group_name}</p>
+                                  {item.flat_nos?.length > 0 && (
+                                    <p className="text-gray-600 text-xs">{item.flat_nos.slice(0,4).join(', ')}</p>
+                                  )}
+                                  {item.material_name && (
+                                    <p className="text-gray-600 text-xs">{item.material_name} {item.actual_qty ? `— ${item.actual_qty} ${item.unit}` : ''}</p>
+                                  )}
+                                </div>
+                                <span className={`text-xs ml-2 shrink-0 ${item.status === 'done' ? 'text-green-400' : item.status === 'carry_forward' ? 'text-orange-400' : 'text-gray-500'}`}>
+                                  {item.status === 'done' ? '✓' : item.status === 'carry_forward' ? '→' : '○'}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>

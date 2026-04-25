@@ -70,7 +70,8 @@ function PlanCard({ plan, onContinue, onMarkAttendance }) {
 const UNITS = ['Kg', 'Ltr', 'Nos']
 
 // ─── FlatStatusPopup ──────────────────────────────────────────────────────────
-function FlatStatusPopup({ flat, allSteps, onClose }) {
+function FlatStatusPopup({ flat, onClose }) {
+  const flatLabel = flat.wing ? `${flat.wing}-${flat.flat_no}` : String(flat.flat_no)
   return (
     <div style={{
       position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)',
@@ -87,38 +88,32 @@ function FlatStatusPopup({ flat, allSteps, onClose }) {
           alignItems: 'center', marginBottom: '16px'
         }}>
           <span style={{ color: '#FF8C00', fontWeight: 'bold', fontSize: '16px' }}>
-            Flat {flat.flat_label}
+            Flat {flatLabel}
           </span>
           <button onClick={onClose}
             style={{ background: 'none', border: 'none', color: '#888', fontSize: '20px', cursor: 'pointer' }}>×</button>
         </div>
-        {(allSteps || []).map(step => {
-          const stepStatus = (flat.step_progress || {})[step.id] || (flat.step_progress || {})[String(step.id)] || 'pending'
-          return (
-            <div key={step.id} style={{
-              display: 'flex', justifyContent: 'space-between',
-              alignItems: 'center', padding: '10px 0',
-              borderBottom: '1px solid #2a2a2a'
-            }}>
-              <span style={{ color: '#ccc', fontSize: '14px' }}>{step.step_name}</span>
-              {stepStatus === 'done'
-                ? <span style={{ color: '#22c55e', fontSize: '13px', fontWeight: 'bold' }}>✓ Done</span>
-                : <span style={{ color: '#888', fontSize: '13px' }}>⬜ Pending</span>
-              }
-            </div>
-          )
-        })}
+        {(flat.allSteps || []).map((step, i) => (
+          <div key={i} style={{
+            display: 'flex', justifyContent: 'space-between',
+            alignItems: 'center', padding: '10px 0',
+            borderBottom: '1px solid #2a2a2a'
+          }}>
+            <span style={{ color: '#ccc', fontSize: '14px' }}>{step.step_name}</span>
+            {step.status === 'done'
+              ? <span style={{ color: '#22c55e', fontSize: '13px', fontWeight: 'bold' }}>✓ Done</span>
+              : <span style={{ color: '#888', fontSize: '13px' }}>⬜ Pending</span>
+            }
+          </div>
+        ))}
       </div>
     </div>
   )
 }
 
 // ─── MaterialRow ──────────────────────────────────────────────────────────────
-function MaterialRow({ material, index, siteMaterials, stepId, onChange, onRemove }) {
-  const filteredMaterials = stepId
-    ? siteMaterials.filter(m => !m.step_id || String(m.step_id) === String(stepId))
-    : siteMaterials
-  const selectedMat = filteredMaterials.find(m => m.product_name === material.material_name)
+function MaterialRow({ material, index, siteMaterials, onChange, onRemove }) {
+  const selectedMat = siteMaterials.find(m => m.product_name === material.material_name)
   const remaining = selectedMat ? (selectedMat.remaining_quantity ?? (parseFloat(selectedMat.total_quantity || 0) - parseFloat(selectedMat.used_quantity || 0))) : null
   const total = selectedMat ? parseFloat(selectedMat.total_quantity || 0) : 0
   const isLow = remaining !== null && total > 0 && remaining < total * 0.2
@@ -138,7 +133,7 @@ function MaterialRow({ material, index, siteMaterials, stepId, onChange, onRemov
       <select
         value={material.material_name}
         onChange={e => {
-          const sel = filteredMaterials.find(m => m.product_name === e.target.value)
+          const sel = siteMaterials.find(m => m.product_name === e.target.value)
           onChange('material_name', e.target.value)
           if (sel) onChange('unit', sel.unit || 'Nos')
         }}
@@ -149,13 +144,11 @@ function MaterialRow({ material, index, siteMaterials, stepId, onChange, onRemov
         }}
       >
         <option value="">Select material</option>
-        {filteredMaterials.map(m => {
+        {siteMaterials.map(m => {
           const rem = m.remaining_quantity ?? (parseFloat(m.total_quantity || 0) - parseFloat(m.used_quantity || 0))
-          const tot = parseFloat(m.total_quantity || 0)
-          const flag = rem <= 0 ? ' ❌ Out' : (tot > 0 && rem < tot * 0.2) ? ' ⚠️ Low' : ' ✅'
           return (
             <option key={m.id} value={m.product_name}>
-              {m.product_name} — {rem.toFixed ? rem.toFixed(1) : rem} {m.unit || ''}{flag}
+              {m.product_name} — {m.company_name} ({rem >= 0 ? rem.toFixed(1) : 0} {m.unit})
             </option>
           )
         })}
@@ -218,19 +211,30 @@ function GroupCard({
 
   const stepsForFlats = useMemo(() => {
     if (!group.work_order_step_id) return []
-    const allFlats = []
+    const result = []
     flatProgress.forEach(wo => {
-      const hasStep = (wo.steps || []).some(s => String(s.id) === String(group.work_order_step_id))
-      if (!hasStep) return
-      wo.flats?.forEach(flat => {
-        const sp = flat.step_progress || {}
-        const stepStatus = sp[group.work_order_step_id] || sp[String(group.work_order_step_id)] || 'pending'
-        const flatLabel = flat.wing ? `${flat.wing}-${flat.flat_no}` : String(flat.flat_no)
-        allFlats.push({ flat: { ...flat, flat_label: flatLabel }, stepStatus, allSteps: wo.steps || [] })
+      ;(wo.flats || []).forEach(flat => {
+        const stepStatus = flat.step_progress?.[group.work_order_step_id] || 'pending'
+        result.push({
+          id: flat.id,
+          flat_no: flat.flat_no,
+          wing: flat.wing,
+          stepStatus,
+          allSteps: (wo.steps || []).map(s => ({
+            step_name: s.step_name,
+            status: flat.step_progress?.[s.id] || 'pending',
+          })),
+        })
       })
     })
-    return allFlats
+    return result
   }, [group.work_order_step_id, flatProgress])
+
+  const stepMaterials = useMemo(() => {
+    if (!group.work_order_step_id) return siteMaterials
+    const filtered = siteMaterials.filter(m => m.step_id === group.work_order_step_id)
+    return filtered.length > 0 ? filtered : siteMaterials
+  }, [group.work_order_step_id, siteMaterials])
 
   function toggleFlat(flatNumber, stepStatus) {
     if (stepStatus === 'done') return
@@ -362,7 +366,7 @@ function GroupCard({
             <option value="">Select step</option>
             {workOrderSteps.map(step => (
               <option key={step.id} value={step.id}>
-                {step.work_order_name ? `${step.work_order_name} — ` : ''}{step.step_name}
+                {step.work_order_title} — {step.step_name}
               </option>
             ))}
           </select>
@@ -375,13 +379,14 @@ function GroupCard({
               Select Flats (tap ℹ️ to see full progress)
             </label>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: '8px' }}>
-              {stepsForFlats.map(({ flat, stepStatus, allSteps }) => {
-                const isDone = stepStatus === 'done'
-                const isSelected = (group.flat_nos || []).includes(flat.flat_label)
+              {stepsForFlats.map(flat => {
+                const isDone = flat.stepStatus === 'done'
+                const flatLabel = flat.wing ? `${flat.wing}-${flat.flat_no}` : String(flat.flat_no)
+                const isSelected = (group.flat_nos || []).includes(flatLabel)
                 return (
                   <div key={flat.id} style={{ position: 'relative' }}>
                     <div
-                      onClick={() => !isDone && toggleFlat(flat.flat_label, stepStatus)}
+                      onClick={() => !isDone && toggleFlat(flatLabel, flat.stepStatus)}
                       style={{
                         borderRadius: '8px', padding: '10px 6px', textAlign: 'center',
                         cursor: isDone ? 'not-allowed' : 'pointer',
@@ -394,13 +399,13 @@ function GroupCard({
                         fontSize: '13px', fontWeight: 'bold',
                         color: isDone ? '#22c55e' : isSelected ? '#FF8C00' : '#ccc',
                         marginBottom: '2px'
-                      }}>{flat.flat_label}</div>
+                      }}>{flatLabel}</div>
                       <div style={{ fontSize: '10px', color: isDone ? '#22c55e' : '#666' }}>
                         {isDone ? '✓ Done' : '⬜ Pending'}
                       </div>
                     </div>
                     <button
-                      onClick={e => { e.stopPropagation(); setShowFlatPopup({ flat, allSteps }) }}
+                      onClick={e => { e.stopPropagation(); setShowFlatPopup(flat) }}
                       style={{
                         position: 'absolute', top: '-6px', right: '-6px',
                         width: '18px', height: '18px', background: '#333',
@@ -445,8 +450,7 @@ function GroupCard({
               key={mat.id}
               material={mat}
               index={idx}
-              siteMaterials={siteMaterials}
-              stepId={group.work_order_step_id}
+              siteMaterials={stepMaterials}
               onChange={(field, value) => updateMaterial(mat.id, field, value)}
               onRemove={() => removeMaterial(mat.id)}
             />
@@ -466,8 +470,7 @@ function GroupCard({
 
       {showFlatPopup && (
         <FlatStatusPopup
-          flat={showFlatPopup.flat}
-          allSteps={showFlatPopup.allSteps}
+          flat={showFlatPopup}
           onClose={() => setShowFlatPopup(null)}
         />
       )}
@@ -803,7 +806,9 @@ function CheckoutPhotoCard({ labour, photoUrl, onPhotoCapture, uploading }) {
 
 // ─── DailyPlan (main) ─────────────────────────────────────────────────────────
 export default function DailyPlan() {
-  const [view, setView] = useState('list')
+  const [view, setView] = useState('site_select')
+  const [selectedSite, setSelectedSite] = useState(null)
+  const [supervisorSites, setSupervisorSites] = useState([])
   const [siteId, setSiteId] = useState('')
   const [todayPlan, setTodayPlan] = useState(null)
   const [planHistory, setPlanHistory] = useState([])
@@ -857,13 +862,20 @@ export default function DailyPlan() {
       if (laboursRes.status === 'fulfilled') setSiteLabours(laboursRes.value.data || [])
       if (flatRes.status === 'fulfilled') {
         const wos = flatRes.value.data?.work_orders || []
-        const flatSteps = wos.flatMap(wo =>
-          (wo.steps || []).map(step => ({
-            ...step,
-            work_order_name: wo.title,
-          }))
-        )
-        setWorkOrderSteps(flatSteps)
+        const allSteps = []
+        wos.forEach(wo => {
+          ;(wo.steps || []).forEach(s => {
+            allSteps.push({
+              id: s.id,
+              step_name: s.step_name,
+              sequence_order: s.sequence_order,
+              status: s.status,
+              work_order_id: wo.id,
+              work_order_title: wo.title,
+            })
+          })
+        })
+        setWorkOrderSteps(allSteps)
         setFlatProgress(wos)
       }
     } catch {
@@ -873,12 +885,18 @@ export default function DailyPlan() {
   }
 
   useEffect(() => {
-    api.get('/sites')
+    api.get('/auth/me')
       .then(res => {
-        const s = (res.data || [])[0]
-        if (s) {
+        const sites = res.data?.sites || []
+        setSupervisorSites(sites)
+        if (sites.length === 1) {
+          const s = sites[0]
+          setSelectedSite(s)
           setSiteId(s.id)
+          setView('list')
           fetchInitialData(s.id)
+        } else if (sites.length > 1) {
+          setLoading(false)
         } else {
           setLoading(false)
         }
@@ -958,7 +976,7 @@ export default function DailyPlan() {
       } else {
         const res = await api.post(
           '/daily-plans',
-          { site_id: siteId, date: planDate, notes: planNotes, items },
+          { site_id: selectedSite?.id || siteId, date: planDate, notes: planNotes, items },
           { headers: { Authorization: `Bearer ${token}` } }
         )
         plan = res.data
@@ -977,7 +995,7 @@ export default function DailyPlan() {
 
       setTodayPlan({ ...plan, status: submitStatus })
       setView('list')
-      fetchInitialData(siteId)
+      fetchInitialData(selectedSite?.id || siteId)
     } catch (err) {
       toast.error(err.response?.data?.error || 'Failed to save plan')
     } finally {
@@ -987,7 +1005,7 @@ export default function DailyPlan() {
 
   async function loadLaboursForAttendance() {
     try {
-      const res = await api.get(`/labour?site_id=${siteId}&is_active=true`)
+      const res = await api.get(`/labour?site_id=${selectedSite?.id || siteId}&is_active=true`)
       const fetched = res.data || []
       setLabours(fetched)
       const defaults = {}
@@ -1043,7 +1061,7 @@ export default function DailyPlan() {
 
       toast.success('Attendance submitted successfully')
       setView('list')
-      fetchInitialData(siteId)
+      fetchInitialData(selectedSite?.id || siteId)
     } catch (err) {
       toast.error(err.response?.data?.error || 'Failed to submit attendance')
     } finally {
@@ -1158,7 +1176,7 @@ export default function DailyPlan() {
       await api.put(`/daily-plans/${todayPlan.id}`, { status: 'completed' }, { headers })
       toast.success('Day completed successfully!')
       setView('list')
-      fetchInitialData(siteId)
+      fetchInitialData(selectedSite?.id || siteId)
     } catch (err) {
       toast.error(err.response?.data?.error || 'Checkout failed')
     } finally {
@@ -1170,6 +1188,43 @@ export default function DailyPlan() {
     return (
       <div className="flex items-center justify-center py-20">
         <Loader2 size={32} className="animate-spin text-primary-500" />
+      </div>
+    )
+  }
+
+  if (view === 'site_select') {
+    return (
+      <div className="page-content space-y-4">
+        <div className="card">
+          <h1 className="text-lg font-bold text-white">Select Site</h1>
+          <p className="text-sm text-gray-400 mt-1">Choose which site to plan for today</p>
+        </div>
+        {supervisorSites.length === 0 ? (
+          <div className="card text-center py-8">
+            <p className="text-gray-400 text-sm">No sites assigned to your account</p>
+            <p className="text-gray-500 text-xs mt-1">Contact admin to assign sites</p>
+          </div>
+        ) : (
+          supervisorSites.map(site => (
+            <button
+              key={site.id}
+              onClick={() => {
+                setSelectedSite(site)
+                setSiteId(site.id)
+                setView('list')
+                fetchInitialData(site.id)
+              }}
+              className="w-full card flex items-center justify-between active:scale-95 transition-all border border-transparent active:border-primary-500/40"
+              style={{ textAlign: 'left' }}
+            >
+              <div>
+                <p className="text-white font-bold text-base">{site.name}</p>
+                <p className="text-gray-500 text-xs mt-0.5">Tap to open plans</p>
+              </div>
+              <span style={{ color: '#FF8C00', fontSize: '20px' }}>→</span>
+            </button>
+          ))
+        )}
       </div>
     )
   }
@@ -1325,11 +1380,23 @@ export default function DailyPlan() {
     return (
       <div className="page-content" style={{ paddingBottom: 100 }}>
         <div className="card">
-          <h1 className="text-lg font-bold text-white flex items-center gap-2">
-            <ClipboardList size={18} className="text-primary-400" />
-            Daily Plans
-          </h1>
-          <p className="text-xs text-gray-400 mt-1">Plan your site's tasks for the day</p>
+          <div className="flex items-start justify-between">
+            <div>
+              <h1 className="text-lg font-bold text-white flex items-center gap-2">
+                <ClipboardList size={18} className="text-primary-400" />
+                {selectedSite ? `Plans — ${selectedSite.name}` : 'Daily Plans'}
+              </h1>
+              <p className="text-xs text-gray-400 mt-1">Plan your site's tasks for the day</p>
+            </div>
+            {supervisorSites.length > 1 && (
+              <button
+                onClick={() => setView('site_select')}
+                className="text-primary-400 text-xs border border-primary-500/30 px-2 py-1 rounded-lg active:scale-95 transition-all"
+              >
+                ← Change Site
+              </button>
+            )}
+          </div>
         </div>
 
         {todayPlan && todayPlan.status === 'in_progress' ? (
@@ -1540,7 +1607,7 @@ export default function DailyPlan() {
             <ArrowLeft size={20} />
           </button>
           <div>
-            <h1 className="text-base font-bold text-white">Plan for {fmtDate(planDate)}</h1>
+            <h1 className="text-base font-bold text-white">Plan for {selectedSite?.name || ''} — {fmtDate(planDate)}</h1>
             <p className="text-xs text-gray-500">Add task groups for your team</p>
           </div>
         </div>
