@@ -70,7 +70,7 @@ function PlanCard({ plan, onContinue, onMarkAttendance }) {
 const UNITS = ['Kg', 'Ltr', 'Nos']
 
 // ─── FlatStatusPopup ──────────────────────────────────────────────────────────
-function FlatStatusPopup({ flat, steps, onClose }) {
+function FlatStatusPopup({ flat, allSteps, onClose }) {
   return (
     <div style={{
       position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)',
@@ -87,33 +87,39 @@ function FlatStatusPopup({ flat, steps, onClose }) {
           alignItems: 'center', marginBottom: '16px'
         }}>
           <span style={{ color: '#FF8C00', fontWeight: 'bold', fontSize: '16px' }}>
-            Flat {flat.flat_number}
+            Flat {flat.flat_label}
           </span>
           <button onClick={onClose}
             style={{ background: 'none', border: 'none', color: '#888', fontSize: '20px', cursor: 'pointer' }}>×</button>
         </div>
-        {steps.map(step => (
-          <div key={step.id} style={{
-            display: 'flex', justifyContent: 'space-between',
-            alignItems: 'center', padding: '10px 0',
-            borderBottom: '1px solid #2a2a2a'
-          }}>
-            <span style={{ color: '#ccc', fontSize: '14px' }}>{step.step_name}</span>
-            {step.status === 'done'
-              ? <span style={{ color: '#22c55e', fontSize: '13px', fontWeight: 'bold' }}>✓ Done</span>
-              : <span style={{ color: '#888', fontSize: '13px' }}>⬜ Pending</span>
-            }
-          </div>
-        ))}
+        {(allSteps || []).map(step => {
+          const stepStatus = (flat.step_progress || {})[step.id] || (flat.step_progress || {})[String(step.id)] || 'pending'
+          return (
+            <div key={step.id} style={{
+              display: 'flex', justifyContent: 'space-between',
+              alignItems: 'center', padding: '10px 0',
+              borderBottom: '1px solid #2a2a2a'
+            }}>
+              <span style={{ color: '#ccc', fontSize: '14px' }}>{step.step_name}</span>
+              {stepStatus === 'done'
+                ? <span style={{ color: '#22c55e', fontSize: '13px', fontWeight: 'bold' }}>✓ Done</span>
+                : <span style={{ color: '#888', fontSize: '13px' }}>⬜ Pending</span>
+              }
+            </div>
+          )
+        })}
       </div>
     </div>
   )
 }
 
 // ─── MaterialRow ──────────────────────────────────────────────────────────────
-function MaterialRow({ material, index, siteMaterials, onAddToCart, onChange, onRemove }) {
-  const selectedMat = siteMaterials.find(m => m.product_name === material.material_name)
-  const remaining = selectedMat ? (selectedMat.remaining ?? (parseFloat(selectedMat.total_quantity || 0) - parseFloat(selectedMat.used_quantity || 0))) : null
+function MaterialRow({ material, index, siteMaterials, stepId, onChange, onRemove }) {
+  const filteredMaterials = stepId
+    ? siteMaterials.filter(m => !m.step_id || String(m.step_id) === String(stepId))
+    : siteMaterials
+  const selectedMat = filteredMaterials.find(m => m.product_name === material.material_name)
+  const remaining = selectedMat ? (selectedMat.remaining_quantity ?? (parseFloat(selectedMat.total_quantity || 0) - parseFloat(selectedMat.used_quantity || 0))) : null
   const total = selectedMat ? parseFloat(selectedMat.total_quantity || 0) : 0
   const isLow = remaining !== null && total > 0 && remaining < total * 0.2
   const isOut = remaining !== null && remaining <= 0
@@ -132,7 +138,7 @@ function MaterialRow({ material, index, siteMaterials, onAddToCart, onChange, on
       <select
         value={material.material_name}
         onChange={e => {
-          const sel = siteMaterials.find(m => m.product_name === e.target.value)
+          const sel = filteredMaterials.find(m => m.product_name === e.target.value)
           onChange('material_name', e.target.value)
           if (sel) onChange('unit', sel.unit || 'Nos')
         }}
@@ -143,8 +149,8 @@ function MaterialRow({ material, index, siteMaterials, onAddToCart, onChange, on
         }}
       >
         <option value="">Select material</option>
-        {siteMaterials.map(m => {
-          const rem = m.remaining ?? (parseFloat(m.total_quantity || 0) - parseFloat(m.used_quantity || 0))
+        {filteredMaterials.map(m => {
+          const rem = m.remaining_quantity ?? (parseFloat(m.total_quantity || 0) - parseFloat(m.used_quantity || 0))
           const tot = parseFloat(m.total_quantity || 0)
           const flag = rem <= 0 ? ' ❌ Out' : (tot > 0 && rem < tot * 0.2) ? ' ⚠️ Low' : ' ✅'
           return (
@@ -161,7 +167,7 @@ function MaterialRow({ material, index, siteMaterials, onAddToCart, onChange, on
           borderRadius: '6px', padding: '8px', color: '#fc8181',
           fontSize: '12px', marginBottom: '8px'
         }}>
-          Out of stock — will be added to cart request
+          Out of stock
         </div>
       )}
       {isLow && !isOut && (
@@ -198,19 +204,6 @@ function MaterialRow({ material, index, siteMaterials, onAddToCart, onChange, on
           {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
         </select>
       </div>
-
-      <button
-        onClick={() => onAddToCart(material)}
-        style={{
-          width: '100%', background: 'none',
-          border: '1px solid #FF8C00', color: '#FF8C00',
-          borderRadius: '8px', padding: '8px', fontSize: '13px',
-          cursor: 'pointer', display: 'flex', alignItems: 'center',
-          justifyContent: 'center', gap: '6px'
-        }}
-      >
-        🛒 Add to Cart
-      </button>
     </div>
   )
 }
@@ -218,8 +211,8 @@ function MaterialRow({ material, index, siteMaterials, onAddToCart, onChange, on
 // ─── GroupCard ────────────────────────────────────────────────────────────────
 function GroupCard({
   group, index, siteLabours, workOrderSteps,
-  flatProgress, siteMaterials, cartItems,
-  onUpdate, onRemove, onAddToCart, isCarryForward
+  flatProgress, siteMaterials,
+  onUpdate, onRemove, isCarryForward
 }) {
   const [showFlatPopup, setShowFlatPopup] = useState(null)
 
@@ -227,9 +220,13 @@ function GroupCard({
     if (!group.work_order_step_id) return []
     const allFlats = []
     flatProgress.forEach(wo => {
+      const hasStep = (wo.steps || []).some(s => String(s.id) === String(group.work_order_step_id))
+      if (!hasStep) return
       wo.flats?.forEach(flat => {
-        const thisStep = flat.steps?.find(s => s.step_id === group.work_order_step_id)
-        if (thisStep) allFlats.push({ flat, stepStatus: thisStep.status })
+        const sp = flat.step_progress || {}
+        const stepStatus = sp[group.work_order_step_id] || sp[String(group.work_order_step_id)] || 'pending'
+        const flatLabel = flat.wing ? `${flat.wing}-${flat.flat_no}` : String(flat.flat_no)
+        allFlats.push({ flat: { ...flat, flat_label: flatLabel }, stepStatus, allSteps: wo.steps || [] })
       })
     })
     return allFlats
@@ -378,13 +375,13 @@ function GroupCard({
               Select Flats (tap ℹ️ to see full progress)
             </label>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: '8px' }}>
-              {stepsForFlats.map(({ flat, stepStatus }) => {
+              {stepsForFlats.map(({ flat, stepStatus, allSteps }) => {
                 const isDone = stepStatus === 'done'
-                const isSelected = (group.flat_nos || []).includes(flat.flat_number)
+                const isSelected = (group.flat_nos || []).includes(flat.flat_label)
                 return (
                   <div key={flat.id} style={{ position: 'relative' }}>
                     <div
-                      onClick={() => !isDone && toggleFlat(flat.flat_number, stepStatus)}
+                      onClick={() => !isDone && toggleFlat(flat.flat_label, stepStatus)}
                       style={{
                         borderRadius: '8px', padding: '10px 6px', textAlign: 'center',
                         cursor: isDone ? 'not-allowed' : 'pointer',
@@ -397,13 +394,13 @@ function GroupCard({
                         fontSize: '13px', fontWeight: 'bold',
                         color: isDone ? '#22c55e' : isSelected ? '#FF8C00' : '#ccc',
                         marginBottom: '2px'
-                      }}>{flat.flat_number}</div>
+                      }}>{flat.flat_label}</div>
                       <div style={{ fontSize: '10px', color: isDone ? '#22c55e' : '#666' }}>
                         {isDone ? '✓ Done' : '⬜ Pending'}
                       </div>
                     </div>
                     <button
-                      onClick={e => { e.stopPropagation(); setShowFlatPopup({ flat, steps: flat.steps || [] }) }}
+                      onClick={e => { e.stopPropagation(); setShowFlatPopup({ flat, allSteps }) }}
                       style={{
                         position: 'absolute', top: '-6px', right: '-6px',
                         width: '18px', height: '18px', background: '#333',
@@ -449,10 +446,9 @@ function GroupCard({
               material={mat}
               index={idx}
               siteMaterials={siteMaterials}
-              cartItems={cartItems}
+              stepId={group.work_order_step_id}
               onChange={(field, value) => updateMaterial(mat.id, field, value)}
               onRemove={() => removeMaterial(mat.id)}
-              onAddToCart={onAddToCart}
             />
           ))}
           <button
@@ -471,7 +467,7 @@ function GroupCard({
       {showFlatPopup && (
         <FlatStatusPopup
           flat={showFlatPopup.flat}
-          steps={showFlatPopup.steps}
+          allSteps={showFlatPopup.allSteps}
           onClose={() => setShowFlatPopup(null)}
         />
       )}
@@ -819,7 +815,6 @@ export default function DailyPlan() {
   const [siteMaterials, setSiteMaterials] = useState([])
   const [siteLabours, setSiteLabours] = useState([])
   const [flatProgress, setFlatProgress] = useState([])
-  const [cartItems, setCartItems] = useState([])
   const [saving, setSaving] = useState(false)
   const [loading, setLoading] = useState(true)
 
@@ -858,20 +853,19 @@ export default function DailyPlan() {
       }
       if (historyRes.status === 'fulfilled') setPlanHistory(historyRes.value.data || [])
       if (cfRes.status === 'fulfilled') setCarryForwardItems(cfRes.value.data || [])
-      if (woRes.status === 'fulfilled') {
-        const wos = woRes.value.data || []
+      if (matRes.status === 'fulfilled') setSiteMaterials(matRes.value.data || [])
+      if (laboursRes.status === 'fulfilled') setSiteLabours(laboursRes.value.data || [])
+      if (flatRes.status === 'fulfilled') {
+        const wos = flatRes.value.data?.work_orders || []
         const flatSteps = wos.flatMap(wo =>
           (wo.steps || []).map(step => ({
             ...step,
             work_order_name: wo.title,
-            flat_nos: (wo.flats || []).map(f => f.wing ? `${f.wing}-${f.flat_no}` : String(f.flat_no)),
           }))
         )
         setWorkOrderSteps(flatSteps)
+        setFlatProgress(wos)
       }
-      if (matRes.status === 'fulfilled') setSiteMaterials(matRes.value.data || [])
-      if (laboursRes.status === 'fulfilled') setSiteLabours(laboursRes.value.data || [])
-      if (flatRes.status === 'fulfilled') setFlatProgress(flatRes.value.data?.work_orders || [])
     } catch {
       toast.error('Failed to load plan data')
     }
@@ -1580,23 +1574,8 @@ export default function DailyPlan() {
           workOrderSteps={workOrderSteps}
           flatProgress={flatProgress}
           siteMaterials={siteMaterials}
-          cartItems={cartItems}
           onUpdate={updateGroup}
           onRemove={removeGroup}
-          onAddToCart={(material) => {
-            const cartItem = {
-              work_order_material_id: material.id || Date.now().toString(),
-              material_name: material.material_name,
-              unit: material.unit,
-              quantity: material.estimated_qty || '',
-              work_order_id: group.work_order_step_id || null,
-            }
-            setCartItems(prev => {
-              const exists = prev.find(c => c.material_name === cartItem.material_name)
-              return exists ? prev : [...prev, cartItem]
-            })
-            toast.success(`${material.material_name} added to cart`)
-          }}
           isCarryForward={!!group.isCarryForward}
         />
       ))}
