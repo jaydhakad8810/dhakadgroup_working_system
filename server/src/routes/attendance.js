@@ -1,5 +1,5 @@
 const router = require('express').Router();
-const { Attendance, Labour, Site, LabourTransfer, Notification, User } = require('../models');
+const { Attendance, Labour, Site, LabourTransfer, Notification, User, DailyPlan, DailyPlanItem } = require('../models');
 const { auth, supervisorOrAdmin } = require('../middleware/auth');
 const { Op } = require('sequelize');
 const PDFDocument = require('pdfkit');
@@ -185,13 +185,28 @@ router.use(auth);
 
 router.get('/', async (req, res) => {
   try {
-    const { site_id, labour_id, date, from, to, search, supervisor_id } = req.query;
+    const { site_id, labour_id, date, from, to, from_date, to_date, search, supervisor_id } = req.query;
     const where = {};
     if (site_id && site_id !== 'undefined') where.site_id = site_id;
     if (labour_id) where.labour_id = labour_id;
-    if (date) where.date = date;
-    if (from && to) where.date = { [Op.between]: [from, to] };
     if (supervisor_id) where.marked_by = supervisor_id;
+
+    if (date) {
+      where.date = date;
+    } else {
+      const dateFrom = from_date || from;
+      const dateTo = to_date || to;
+      if (dateFrom && dateTo) where.date = { [Op.between]: [dateFrom, dateTo] };
+      else if (dateFrom) where.date = { [Op.gte]: dateFrom };
+      else if (dateTo) where.date = { [Op.lte]: dateTo };
+      else {
+        // Default: last 60 days
+        const d = new Date();
+        d.setDate(d.getDate() - 60);
+        where.date = { [Op.gte]: d.toISOString().split('T')[0] };
+      }
+    }
+
     const include = [
       { model: Labour, as: 'labour', attributes: ['id', 'name', 'photo', 'daily_wage', 'labour_type'],
         ...(search ? { where: { name: { [Op.iLike]: `%${search}%` } } } : {}) },
@@ -202,7 +217,34 @@ router.get('/', async (req, res) => {
       where, include,
       order: [['date', 'DESC'], ['createdAt', 'DESC']]
     });
-    res.json(attendance);
+
+    // Attach plan_items for each site+date combination
+    let planItemsMap = {};
+    try {
+      const uniqueDates = [...new Set(attendance.map(r => r.date))];
+      const uniqueSites = [...new Set(attendance.filter(r => r.site_id).map(r => r.site_id))];
+      if (uniqueDates.length > 0 && uniqueSites.length > 0) {
+        const plans = await DailyPlan.findAll({
+          where: {
+            site_id: { [Op.in]: uniqueSites },
+            date: { [Op.in]: uniqueDates },
+          },
+          include: [{ model: DailyPlanItem, as: 'items' }],
+        });
+        plans.forEach(plan => {
+          planItemsMap[`${plan.site_id}|${plan.date}`] = plan.items || [];
+        });
+      }
+    } catch (planErr) {
+      console.error('Plan items fetch error (non-fatal):', planErr.message);
+    }
+
+    const result = attendance.map(r => ({
+      ...r.toJSON(),
+      plan_items: planItemsMap[`${r.site_id}|${r.date}`] || [],
+    }));
+
+    res.json(result);
   } catch (e) { res.status(500).json({ message: e.message }); }
 });
 

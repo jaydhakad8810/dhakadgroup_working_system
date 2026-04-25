@@ -156,6 +156,48 @@ router.patch('/items/:item_id/checkout', supervisorOrAdmin, async (req, res) => 
         }
       }
 
+      // Check low stock and notify supervisor
+      if (item.material_name && actual_qty) {
+        try {
+          const siteId = item.plan && item.plan.site_id;
+          if (siteId) {
+            const siteGodowns = await Godown.findAll({ where: { site_id: siteId } });
+            const godownIds = siteGodowns.map(g => g.id);
+            if (godownIds.length > 0) {
+              const cat = await MaterialCategory.findOne({ where: { name: item.material_name } });
+              if (cat) {
+                const stockRecord = await GodownStock.findOne({
+                  where: { godown_id: { [Op.in]: godownIds }, category_id: cat.id },
+                });
+                if (stockRecord) {
+                  const remaining = parseFloat(stockRecord.quantity);
+                  const threshold = parseFloat(stockRecord.min_threshold) || 0;
+                  const isLow = threshold > 0 ? remaining <= threshold : remaining <= parseFloat(actual_qty) * 2;
+                  if (isLow) {
+                    await Notification.create({
+                      title: `Low Stock Alert — ${item.material_name}`,
+                      message: `${item.material_name} is running low. Only ${remaining} ${cat.unit || ''} remaining in godown.`,
+                      type: 'low_stock',
+                      target_role: 'supervisor',
+                      target_user_id: req.user.id,
+                      is_read: false,
+                      sent_by: req.user.id,
+                      metadata: {
+                        material_name: item.material_name,
+                        remaining_qty: remaining,
+                        unit: cat.unit,
+                      },
+                    });
+                  }
+                }
+              }
+            }
+          }
+        } catch (err) {
+          console.error('Low stock notification error:', err.message);
+        }
+      }
+
       // Trigger ledger recalculation — fire-and-forget
       try {
         const siteId = item.plan && item.plan.site_id;
