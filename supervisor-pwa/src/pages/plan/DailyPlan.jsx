@@ -113,10 +113,9 @@ function FlatStatusPopup({ flat, onClose }) {
 
 // ─── MaterialRow ──────────────────────────────────────────────────────────────
 function MaterialRow({ material, index, siteMaterials, onChange, onRemove }) {
-  const selectedMat = siteMaterials.find(m => m.product_name === material.material_name)
-  const remaining = selectedMat ? (selectedMat.remaining_quantity ?? (parseFloat(selectedMat.total_quantity || 0) - parseFloat(selectedMat.used_quantity || 0))) : null
-  const total = selectedMat ? parseFloat(selectedMat.total_quantity || 0) : 0
-  const isLow = remaining !== null && total > 0 && remaining < total * 0.2
+  const selectedMat = siteMaterials.find(m => m.material_name === material.material_name)
+  const remaining = selectedMat ? parseFloat(selectedMat.quantity || 0) : null
+  const isLow = remaining !== null && remaining > 0 && remaining < 5
   const isOut = remaining !== null && remaining <= 0
 
   return (
@@ -133,7 +132,7 @@ function MaterialRow({ material, index, siteMaterials, onChange, onRemove }) {
       <select
         value={material.material_name}
         onChange={e => {
-          const sel = siteMaterials.find(m => m.product_name === e.target.value)
+          const sel = siteMaterials.find(m => m.material_name === e.target.value)
           onChange('material_name', e.target.value)
           if (sel) onChange('unit', sel.unit || 'Nos')
         }}
@@ -144,14 +143,12 @@ function MaterialRow({ material, index, siteMaterials, onChange, onRemove }) {
         }}
       >
         <option value="">Select material</option>
-        {siteMaterials.map(m => {
-          const rem = m.remaining_quantity ?? (parseFloat(m.total_quantity || 0) - parseFloat(m.used_quantity || 0))
-          return (
-            <option key={m.id} value={m.product_name}>
-              {m.product_name} — {m.company_name} ({rem >= 0 ? rem.toFixed(1) : 0} {m.unit})
-            </option>
-          )
-        })}
+        {siteMaterials.map(m => (
+          <option key={m.id} value={m.material_name}>
+            {m.material_name} — {m.quantity} {m.unit}
+            {m.quantity <= 0 ? ' ❌ Out' : m.quantity < 5 ? ' ⚠️ Low' : ' ✅'}
+          </option>
+        ))}
       </select>
 
       {isOut && (
@@ -848,7 +845,7 @@ export default function DailyPlan() {
         api.get(`/daily-plans/history?site_id=${sid}`),
         api.get(`/daily-plans/carry-forward?site_id=${sid}`),
         api.get(`/workorders?site_id=${sid}`),
-        api.get(`/workorders/site-materials?site_id=${sid}`),
+        api.get(`/godown/site-stock?site_id=${sid}`),
         api.get(`/workorders/site-labours?site_id=${sid}`),
         api.get(`/workorders/flat-progress?site_id=${sid}`),
       ])
