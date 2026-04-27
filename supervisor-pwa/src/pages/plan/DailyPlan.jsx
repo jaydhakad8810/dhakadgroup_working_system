@@ -130,11 +130,12 @@ function MaterialRow({ material, index, siteMaterials, onChange, onRemove }) {
       </div>
 
       <select
-        value={material.material_name}
+        value={material.material_name || ''}
         onChange={e => {
           const sel = siteMaterials.find(m => m.material_name === e.target.value)
-          onChange('material_name', e.target.value)
-          if (sel) onChange('unit', sel.unit || 'Nos')
+          const patch = { material_name: e.target.value }
+          if (sel) patch.unit = sel.unit || 'Nos'
+          onChange(patch)
         }}
         style={{
           width: '100%', background: '#111', color: '#fff',
@@ -175,7 +176,7 @@ function MaterialRow({ material, index, siteMaterials, onChange, onRemove }) {
           type="number"
           placeholder="Est. qty"
           value={material.estimated_qty}
-          onChange={e => onChange('estimated_qty', e.target.value)}
+          onChange={e => onChange({ estimated_qty: e.target.value })}
           style={{
             flex: 2, background: '#111', color: '#fff',
             border: '1px solid #333', borderRadius: '8px',
@@ -184,7 +185,7 @@ function MaterialRow({ material, index, siteMaterials, onChange, onRemove }) {
         />
         <select
           value={material.unit}
-          onChange={e => onChange('unit', e.target.value)}
+          onChange={e => onChange({ unit: e.target.value })}
           style={{
             flex: 1, background: '#111', color: '#fff',
             border: '1px solid #333', borderRadius: '8px',
@@ -249,8 +250,8 @@ function GroupCard({
     })
   }
 
-  function updateMaterial(matId, field, value) {
-    const mats = (group.materials || []).map(m => m.id === matId ? { ...m, [field]: value } : m)
+  function updateMaterial(matId, patch) {
+    const mats = (group.materials || []).map(m => m.id === matId ? { ...m, ...patch } : m)
     onUpdate(group.id, { materials: mats })
   }
 
@@ -448,7 +449,7 @@ function GroupCard({
               material={mat}
               index={idx}
               siteMaterials={stepMaterials}
-              onChange={(field, value) => updateMaterial(mat.id, field, value)}
+              onChange={patch => updateMaterial(mat.id, patch)}
               onRemove={() => removeMaterial(mat.id)}
             />
           ))}
@@ -837,7 +838,8 @@ export default function DailyPlan() {
   const [submittingCheckout, setSubmittingCheckout] = useState(false)
   const [extraMaterials, setExtraMaterials] = useState({})
 
-  async function fetchInitialData(sid) {
+  async function fetchInitialData(siteIdParam) {
+    const sid = siteIdParam || selectedSite?.id
     if (!sid) return
     try {
       const [planRes, historyRes, cfRes, woRes, matRes, laboursRes, flatRes] = await Promise.allSettled([
