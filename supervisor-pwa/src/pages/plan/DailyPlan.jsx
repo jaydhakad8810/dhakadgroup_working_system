@@ -838,45 +838,41 @@ export default function DailyPlan() {
   const [submittingCheckout, setSubmittingCheckout] = useState(false)
   const [extraMaterials, setExtraMaterials] = useState({})
 
-  async function fetchInitialData(siteIdParam) {
-    const sid = siteIdParam || selectedSite?.id
-    if (!sid) return
+  async function fetchInitialData(siteId) {
+    if (!siteId) return
+    const token = sessionStorage.getItem('sv_token') || localStorage.getItem('sv_token')
+    const headers = { Authorization: `Bearer ${token}` }
     try {
-      const [planRes, historyRes, cfRes, woRes, matRes, laboursRes, flatRes] = await Promise.allSettled([
-        api.get(`/daily-plans?site_id=${sid}&date=${TODAY}`),
-        api.get(`/daily-plans/history?site_id=${sid}`),
-        api.get(`/daily-plans/carry-forward?site_id=${sid}`),
-        api.get(`/workorders?site_id=${sid}`),
-        api.get(`/godown/site-stock?site_id=${sid}`),
-        api.get(`/workorders/site-labours?site_id=${sid}`),
-        api.get(`/workorders/flat-progress?site_id=${sid}`),
+      const [laboursRes, flatRes, materialsRes, historyRes, cfRes, planRes] = await Promise.all([
+        api.get(`/workorders/site-labours?site_id=${siteId}`, { headers }),
+        api.get(`/workorders/flat-progress?site_id=${siteId}`, { headers }),
+        api.get(`/godown/site-stock?site_id=${siteId}`, { headers }),
+        api.get(`/daily-plans/history?site_id=${siteId}`, { headers }),
+        api.get(`/daily-plans/carry-forward?site_id=${siteId}`, { headers }),
+        api.get(`/daily-plans?site_id=${siteId}&date=${TODAY}`, { headers }),
       ])
-      if (planRes.status === 'fulfilled') {
-        const d = planRes.value.data
-        setTodayPlan(d.exists ? d.plan : null)
-      }
-      if (historyRes.status === 'fulfilled') setPlanHistory(historyRes.value.data || [])
-      if (cfRes.status === 'fulfilled') setCarryForwardItems(cfRes.value.data || [])
-      if (matRes.status === 'fulfilled') setSiteMaterials(matRes.value.data || [])
-      if (laboursRes.status === 'fulfilled') setSiteLabours(laboursRes.value.data || [])
-      if (flatRes.status === 'fulfilled') {
-        const wos = flatRes.value.data?.work_orders || []
-        const allSteps = []
-        wos.forEach(wo => {
-          ;(wo.steps || []).forEach(s => {
-            allSteps.push({
-              id: s.id,
-              step_name: s.step_name,
-              sequence_order: s.sequence_order,
-              status: s.status,
-              work_order_id: wo.id,
-              work_order_title: wo.title,
-            })
+      setSiteLabours(laboursRes.data || [])
+      const wos = flatRes.data?.work_orders || []
+      const allSteps = []
+      wos.forEach(wo => {
+        ;(wo.steps || []).forEach(s => {
+          allSteps.push({
+            id: s.id,
+            step_name: s.step_name,
+            sequence_order: s.sequence_order,
+            status: s.status,
+            work_order_id: wo.id,
+            work_order_title: wo.title,
           })
         })
-        setWorkOrderSteps(allSteps)
-        setFlatProgress(wos)
-      }
+      })
+      setWorkOrderSteps(allSteps)
+      setFlatProgress(wos)
+      setSiteMaterials(materialsRes.data || [])
+      setPlanHistory(historyRes.data || [])
+      setCarryForwardItems(cfRes.data || [])
+      const d = planRes.data
+      setTodayPlan(d?.exists ? d.plan : null)
     } catch {
       toast.error('Failed to load plan data')
     }
@@ -994,7 +990,7 @@ export default function DailyPlan() {
 
       setTodayPlan({ ...plan, status: submitStatus })
       setView('list')
-      fetchInitialData(selectedSite?.id || siteId)
+      fetchInitialData(selectedSite?.id)
     } catch (err) {
       toast.error(err.response?.data?.error || 'Failed to save plan')
     } finally {
@@ -1060,7 +1056,7 @@ export default function DailyPlan() {
 
       toast.success('Attendance submitted successfully')
       setView('list')
-      fetchInitialData(selectedSite?.id || siteId)
+      fetchInitialData(selectedSite?.id)
     } catch (err) {
       toast.error(err.response?.data?.error || 'Failed to submit attendance')
     } finally {
@@ -1175,7 +1171,7 @@ export default function DailyPlan() {
       await api.put(`/daily-plans/${todayPlan.id}`, { status: 'completed' }, { headers })
       toast.success('Day completed successfully!')
       setView('list')
-      fetchInitialData(selectedSite?.id || siteId)
+      fetchInitialData(selectedSite?.id)
     } catch (err) {
       toast.error(err.response?.data?.error || 'Checkout failed')
     } finally {
