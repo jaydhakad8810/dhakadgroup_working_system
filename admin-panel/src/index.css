@@ -100,3 +100,14 @@
     .btn-gold, .btn-outline, .btn-ghost { @apply px-3 py-2 text-sm; }
   }
 }
+
+  [data-theme="light"] .fixed.inset-0 > div:not(:first-child),
+  [data-theme="light"] [class*="bg-\[#111\]"],
+  [data-theme="light"] [class*="bg-\[#1a1a1a\]"],
+  [data-theme="light"] [class*="bg-\[#0a0a0a\]"] {
+    background: var(--bg2) !important;
+    color: var(--text) !important;
+  }
+  [data-theme="light"] .bg-dark-900 { background: #ffffff !important; color: #111111 !important; }
+  [data-theme="light"] .border-dark-700 { border-color: rgba(0,0,0,0.12) !important; }
+  [data-theme="light"] .bg-dark-800 { background: #f5f5f0 !important; }
