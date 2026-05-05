@@ -13,7 +13,10 @@ router.get('/', async (req, res) => {
 
 router.post('/', adminOnly, async (req, res) => {
   try {
-    const org = await Organisation.create(req.body);
+    const body = { ...req.body };
+    if (typeof body.owners === 'string') body.owners = JSON.parse(body.owners);
+    if (typeof body.service_types === 'string') body.service_types = JSON.parse(body.service_types);
+    const org = await Organisation.create(body);
     res.status(201).json(org);
   } catch (e) { res.status(500).json({ message: e.message }); }
 });
@@ -30,7 +33,10 @@ router.put('/:id', adminOnly, async (req, res) => {
   try {
     const org = await Organisation.findByPk(req.params.id);
     if (!org) return res.status(404).json({ message: 'Not found' });
-    await org.update(req.body);
+    const body = { ...req.body };
+    if (typeof body.owners === 'string') body.owners = JSON.parse(body.owners);
+    if (typeof body.service_types === 'string') body.service_types = JSON.parse(body.service_types);
+    await org.update(body);
     res.json(org);
   } catch (e) { res.status(500).json({ message: e.message }); }
 });
