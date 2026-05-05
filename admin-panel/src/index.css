@@ -52,6 +52,22 @@
   [data-theme="light"] .border-white\/20 {
     border-color: rgba(0,0,0,0.1) !important;
   }
+  [data-theme="light"] input,
+  [data-theme="light"] textarea,
+  [data-theme="light"] select { background:#ffffff !important; color:#111111 !important; border-color:rgba(0,0,0,0.15) !important; }
+  [data-theme="light"] .text-gray-100,
+  [data-theme="light"] .text-gray-200,
+  [data-theme="light"] .text-white { color:#111111 !important; }
+  [data-theme="light"] .text-gray-300 { color:#333333 !important; }
+  [data-theme="light"] .text-gray-400,
+  [data-theme="light"] .text-gray-500 { color:#555555 !important; }
+  [data-theme="light"] .bg-white\/5,
+  [data-theme="light"] .bg-white\/10 { background:rgba(0,0,0,0.04) !important; }
+  [data-theme="light"] p,
+  [data-theme="light"] span,
+  [data-theme="light"] h1,[data-theme="light"] h2,[data-theme="light"] h3,[data-theme="light"] h4,
+  [data-theme="light"] label,
+  [data-theme="light"] td,[data-theme="light"] th { color:var(--text); }
 
 }
 
