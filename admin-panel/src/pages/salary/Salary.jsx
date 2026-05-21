@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import toast from 'react-hot-toast'
 import api from '../../utils/api'
 import { PageHeader, LoadingPage, StatusBadge, Modal } from '../../components/ui'
-import { RefreshCw, CheckCircle, Calendar, TrendingDown, DollarSign, ChevronDown, ChevronUp, Clock } from 'lucide-react'
+import { RefreshCw, CheckCircle, Calendar, TrendingDown, DollarSign, ChevronDown, ChevronUp, Clock, Search } from 'lucide-react'
 
 // ─── SalaryBreakdownRow ─────────────────────────────────────────────────────
 function SalaryBreakdownRow({ record, months, onPay }) {
@@ -156,6 +156,7 @@ export default function Salary() {
   const [wageRequests, setWageRequests] = useState([])
   const [rejectModal, setRejectModal] = useState(null)
   const [rejectReason, setRejectReason] = useState('')
+  const [searchName, setSearchName] = useState('')
 
   const load = async () => {
     setLoading(true)
@@ -224,6 +225,11 @@ export default function Salary() {
 
   const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
   const displayRecords = mode === 'monthly' ? records : rangeResults
+  const filteredRecords = displayRecords.filter(r => {
+    if (!searchName) return true
+    const name = (r.labour?.name || r.labour_name || '').toLowerCase()
+    return name.includes(searchName.toLowerCase())
+  })
   const totalNet = displayRecords.reduce((s, r) => s + parseFloat(r.net_salary || 0), 0)
   const totalGross = displayRecords.reduce((s, r) => s + parseFloat(r.gross_salary || 0), 0)
   const totalAdvance = displayRecords.reduce((s, r) => s + parseFloat(r.advance_deduction || 0), 0)
@@ -273,6 +279,18 @@ export default function Salary() {
             <div><label className="label">To</label><input type="date" className="input w-44" value={toDate} onChange={e => setToDate(e.target.value)}/></div>
             <button onClick={generateWeekly} disabled={generating} className="btn-gold"><Calendar size={16}/>{generating?'Generating...':'Generate Range'}</button>
           </>)}
+          <div>
+            <label className="label">Search</label>
+            <div style={{position:'relative'}}>
+              <Search size={16} style={{position:'absolute',left:'10px',top:'50%',transform:'translateY(-50%)',color:'var(--muted)',pointerEvents:'none'}}/>
+              <input
+                placeholder="Search labour name..."
+                value={searchName}
+                onChange={e => setSearchName(e.target.value)}
+                style={{paddingLeft:'32px',background:'var(--bg3)',border:'1px solid var(--border)',borderRadius:'8px',padding:'8px 8px 8px 32px',color:'var(--text)',fontSize:'14px',width:'200px'}}
+              />
+            </div>
+          </div>
         </div>
         {displayRecords.length > 0 && (
           <div className="grid grid-cols-4 gap-4">
@@ -292,9 +310,9 @@ export default function Salary() {
               </tr>
             </thead>
             <tbody>
-              {mode === 'monthly' ? displayRecords.map((r, i) => (
+              {mode === 'monthly' ? filteredRecords.map((r, i) => (
                 <SalaryBreakdownRow key={r.id || i} record={r} months={months} onPay={() => setPayModal(r.id)} />
-              )) : displayRecords.map((r, i) => (
+              )) : filteredRecords.map((r, i) => (
                 <tr key={r.id || i}>
                   <td className="font-medium">{r.labour?.name || r.labour_name}</td>
                   <td style={{ color: 'var(--muted)' }}>{r.site?.name || '—'}</td>
@@ -306,7 +324,7 @@ export default function Salary() {
                   <td><span className={r.paid ? 'badge-green' : 'badge-red'}>{r.paid ? 'Paid' : 'Unpaid'}</span></td>
                 </tr>
               ))}
-              {!displayRecords.length && <tr><td colSpan={9} className="text-center py-8" style={{ color: 'var(--muted)' }}>No records. Generate salary first.</td></tr>}
+              {!filteredRecords.length && <tr><td colSpan={9} className="text-center py-8" style={{ color: 'var(--muted)' }}>{!displayRecords.length ? 'No records. Generate salary first.' : 'No records matching search.'}</td></tr>}
             </tbody>
           </table>
         </div>
