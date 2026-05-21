@@ -102,6 +102,12 @@ export default function Notifications() {
   const [reqForm, setReqForm] = useState({ urgency: 'normal', supplier_notes: '' })
   const [savingReq, setSavingReq] = useState(false)
 
+  // Wage request review state
+  const [reviewingWage, setReviewingWage] = useState(null)
+  const [rejectReason, setRejectReason] = useState('')
+  const [reviewing, setReviewing] = useState(false)
+  const [wageReviewed, setWageReviewed] = useState({})
+
   const load = async () => {
     setLoading(true)
     try {
@@ -267,6 +273,21 @@ export default function Notifications() {
   const markAllRead = async () => { try { await api.patch('/notifications/mark-all-read'); toast.success('All read'); load() } catch {} }
   const deleteNotif = async (id) => { try { await api.delete('/notifications/' + id); load() } catch { toast.error('Failed') } }
 
+  async function reviewWageRequest(requestId, action, reason, notifId) {
+    setReviewing(true)
+    try {
+      await api.patch(`/labour/wage-requests/${requestId}/review`, { action, rejection_reason: reason || '' })
+      toast.success(action === 'approve' ? 'Wage request approved' : 'Wage request rejected')
+      setReviewingWage(null)
+      setRejectReason('')
+      setWageReviewed(p => ({ ...p, [notifId]: { status: action === 'approve' ? 'approved' : 'rejected', rejection_reason: reason || '' } }))
+      load()
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed')
+    }
+    setReviewing(false)
+  }
+
   const typeColors = {
     info: 'bg-blue-500/15 text-blue-400 border-blue-500/20',
     success: 'bg-green-500/15 text-green-400 border-green-500/20',
@@ -318,6 +339,67 @@ export default function Notifications() {
                 ? <MaterialRequestCard notif={n} onCheckStock={openCheckModal} />
                 : <p className="text-gray-400 text-sm mt-0.5">{n.message}</p>
               }
+              {n.type === 'wage_request' && (() => {
+                const meta = (n.metadata && typeof n.metadata === 'object') ? n.metadata : (() => { try { return JSON.parse(n.metadata || '{}') } catch { return {} } })()
+                const localReview = wageReviewed[n.id]
+                return (
+                  <div style={{marginTop:'10px',padding:'10px',background:'var(--bg3)',borderRadius:'8px',border:'1px solid var(--border)'}}>
+                    <div style={{fontSize:'13px',color:'var(--text)',marginBottom:'8px'}}>
+                      <strong>{meta.supervisor_name}</strong> requests wage change for <strong>{meta.labour_name}</strong>
+                      <br/>
+                      <span style={{color:'var(--muted)'}}>₹{meta.current_wage}/day → ₹{meta.requested_wage}/day</span>
+                      {meta.reason && <div style={{marginTop:'4px',color:'var(--muted)',fontStyle:'italic',fontSize:'12px'}}>Reason: {meta.reason}</div>}
+                    </div>
+
+                    {reviewingWage === n.id && (
+                      <div style={{marginBottom:'8px'}}>
+                        <input
+                          placeholder="Rejection reason (required)"
+                          value={rejectReason}
+                          onChange={e => setRejectReason(e.target.value)}
+                          style={{width:'100%',background:'var(--bg2)',color:'var(--text)',border:'1px solid var(--border)',borderRadius:'6px',padding:'6px 10px',fontSize:'13px',boxSizing:'border-box'}}
+                        />
+                        <div style={{display:'flex',gap:'6px',marginTop:'6px'}}>
+                          <button
+                            disabled={!rejectReason.trim() || reviewing}
+                            onClick={() => reviewWageRequest(meta.request_id,'reject',rejectReason,n.id)}
+                            style={{flex:1,background:'#dc2626',color:'white',border:'none',borderRadius:'6px',padding:'6px',fontSize:'13px',cursor:'pointer',opacity:(!rejectReason.trim()||reviewing)?0.5:1}}>
+                            {reviewing ? 'Rejecting...' : 'Confirm Reject'}
+                          </button>
+                          <button
+                            onClick={() => { setReviewingWage(null); setRejectReason('') }}
+                            style={{flex:1,background:'var(--bg4)',color:'var(--text)',border:'1px solid var(--border)',borderRadius:'6px',padding:'6px',fontSize:'13px',cursor:'pointer'}}>
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {reviewingWage !== n.id && !localReview && (
+                      <div style={{display:'flex',gap:'8px'}}>
+                        <button
+                          disabled={reviewing}
+                          onClick={() => reviewWageRequest(meta.request_id,'approve','',n.id)}
+                          style={{flex:1,background:'#16a34a',color:'white',border:'none',borderRadius:'6px',padding:'8px',fontSize:'13px',fontWeight:'bold',cursor:'pointer'}}>
+                          ✓ Approve
+                        </button>
+                        <button
+                          onClick={() => setReviewingWage(n.id)}
+                          style={{flex:1,background:'none',color:'#dc2626',border:'1px solid #dc2626',borderRadius:'6px',padding:'8px',fontSize:'13px',fontWeight:'bold',cursor:'pointer'}}>
+                          ✗ Reject
+                        </button>
+                      </div>
+                    )}
+
+                    {localReview && (
+                      <div style={{fontSize:'12px',color:localReview.status==='approved'?'#22c55e':'#dc2626',fontWeight:'bold'}}>
+                        {localReview.status==='approved' ? '✓ Approved' : '✗ Rejected'}
+                        {localReview.rejection_reason && ` — ${localReview.rejection_reason}`}
+                      </div>
+                    )}
+                  </div>
+                )
+              })()}
               <div className="flex items-center gap-3 mt-2 flex-wrap">
                 <span className={'text-xs px-2 py-0.5 rounded-full border ' + (typeColors[n.type] || typeColors.info)}>{n.type}</span>
                 {n.target_role && <span className="text-xs text-gray-500">→ {n.target_role}</span>}
