@@ -39,17 +39,20 @@ export default function LabourDetail() {
   const [wageHistoryModal, setWageHistoryModal] = useState(false)
   const [updateWageModal, setUpdateWageModal] = useState(false)
   const [wageForm, setWageForm] = useState({ new_wage: '', effective_date: new Date().toISOString().split('T')[0], reason: '' })
+  const [siteHistory, setSiteHistory] = useState([])
+  const [activeTab, setActiveTab] = useState('info')
   const f = (k, v) => setForm(p => ({ ...p, [k]: v }))
 
   const load = async () => {
     try {
-      const [l, adv, s, wh] = await Promise.all([
+      const [l, adv, s, wh, sh] = await Promise.all([
         api.get(`/labour/${id}`),
         api.get(`/labour/${id}/advances`),
         api.get('/sites'),
-        api.get(`/labour/wage-history/${id}`).catch(() => ({ data: [] }))
+        api.get(`/labour/wage-history/${id}`).catch(() => ({ data: [] })),
+        api.get(`/labour/site-history/${id}`).catch(() => ({ data: [] }))
       ])
-      setLabour(l.data); setAdvances(adv.data); setForm(l.data); setSites(s.data); setWageHistory(wh.data || [])
+      setLabour(l.data); setAdvances(adv.data); setForm(l.data); setSites(s.data); setWageHistory(wh.data || []); setSiteHistory(sh.data || [])
     } catch { toast.error('Failed') }
     setLoading(false)
   }
@@ -93,7 +96,45 @@ export default function LabourDetail() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="flex gap-2 border-b border-dark-700 pb-0">
+        {[['info','Info'],['site-history','Site History']].map(([key, label]) => (
+          <button key={key} onClick={() => setActiveTab(key)} className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === key ? 'border-gold-500 text-gold-400' : 'border-transparent text-gray-400 hover:text-white'}`}>{label}</button>
+        ))}
+      </div>
+
+      {activeTab === 'site-history' && (
+        <div className="card">
+          <h3 className="text-white font-semibold mb-4">Site History</h3>
+          {siteHistory.length === 0
+            ? <p className="text-gray-400 text-sm text-center py-8">No site history recorded</p>
+            : (
+              <div className="relative pl-7">
+                <div className="absolute left-2.5 top-2 bottom-2 w-0.5" style={{background:'var(--border)'}} />
+                {siteHistory.map((item, i) => (
+                  <div key={i} className="relative mb-4">
+                    <div className={`absolute -left-5 top-1.5 w-3 h-3 rounded-full border-2 ${item.type === 'transfer' ? 'bg-orange-500 border-orange-500' : 'bg-green-500 border-green-500'}`} />
+                    <div className="p-3 rounded-xl border" style={{background:'var(--bg3)',borderColor:'var(--border)'}}>
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-white font-medium text-sm">{item.site_name || 'Unknown Site'}</p>
+                        <span className={`text-xs px-2 py-0.5 rounded-full flex-shrink-0 ${item.type === 'transfer' ? 'bg-orange-500/10 text-orange-400 border border-orange-500/20' : 'bg-green-500/10 text-green-400 border border-green-500/20'}`}>
+                          {item.type === 'transfer' ? 'Transfer' : 'Assignment'}
+                        </span>
+                      </div>
+                      <p className="text-xs mt-1" style={{color:'var(--muted)'}}>
+                        {item.date}{item.end_date ? ` → ${item.end_date}` : ' → Present'}
+                        {item.duration_days ? ` · ${item.duration_days} day${item.duration_days !== 1 ? 's' : ''}` : ''}
+                      </p>
+                      {item.reason && <p className="text-xs mt-0.5 truncate" style={{color:'var(--muted)'}}>"{item.reason}"</p>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )
+          }
+        </div>
+      )}
+
+      {activeTab === 'info' && <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-4">
           <div className="card space-y-0">
             <h3 className="text-white font-semibold mb-3">Labour Info</h3>
@@ -145,7 +186,7 @@ export default function LabourDetail() {
             {!advances.length && <p className="text-gray-500 text-sm text-center py-4">No advances</p>}
           </div>
         </div>
-      </div>
+      </div>}
 
       {/* Advance Modal */}
       <Modal open={advModal} onClose={() => setAdvModal(false)} title="Give Advance" size="sm">

@@ -10,6 +10,7 @@ export default function LabourDetail() {
   const [labour, setLabour] = useState(null)
   const [advances, setAdvances] = useState([])
   const [transfers, setTransfers] = useState([])
+  const [siteHistory, setSiteHistory] = useState([])
   const [loading, setLoading] = useState(true)
   const [advModal, setAdvModal] = useState(false)
   const [advForm, setAdvForm] = useState({ amount: '', payment_mode: 'cash' })
@@ -18,13 +19,14 @@ export default function LabourDetail() {
 
   const load = async () => {
     try {
-      const [l, a, t, wh] = await Promise.all([
+      const [l, a, t, wh, sh] = await Promise.all([
         api.get(`/labour/${id}`),
         api.get(`/labour/${id}/advances`),
         api.get(`/attendance/transfers/${id}`).catch(() => ({ data: [] })),
-        api.get(`/labour/wage-history/${id}`).catch(() => ({ data: [] }))
+        api.get(`/labour/wage-history/${id}`).catch(() => ({ data: [] })),
+        api.get(`/labour/site-history/${id}`).catch(() => ({ data: [] }))
       ])
-      setLabour(l.data); setAdvances(a.data); setTransfers(t.data || []); setWageHistory(wh.data || [])
+      setLabour(l.data); setAdvances(a.data); setTransfers(t.data || []); setWageHistory(wh.data || []); setSiteHistory(sh.data || [])
     } catch {}
     setLoading(false)
   }
@@ -145,6 +147,34 @@ export default function LabourDetail() {
                 <span className="text-orange-400 text-xs bg-orange-500/10 border border-orange-500/20 px-2 py-0.5 rounded-full">
                   Transferred
                 </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Site History */}
+      {siteHistory.length > 0 && (
+        <div className="card">
+          <h3 className="text-white font-semibold mb-3">Site History</h3>
+          <div className="relative pl-6">
+            <div className="absolute left-2 top-1 bottom-1 w-0.5 bg-surface-400" />
+            {siteHistory.map((item, i) => (
+              <div key={i} className="relative mb-3">
+                <div className={`absolute -left-4 top-1.5 w-2.5 h-2.5 rounded-full ${item.type === 'transfer' ? 'bg-orange-500' : 'bg-green-500'}`} />
+                <div className="p-2.5 bg-surface-400 rounded-xl">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-white text-sm font-medium">{item.site_name || 'Unknown'}</p>
+                    <span className={`text-xs px-2 py-0.5 rounded-full flex-shrink-0 ${item.type === 'transfer' ? 'text-orange-400 bg-orange-500/10 border border-orange-500/20' : 'text-green-400 bg-green-500/10 border border-green-500/20'}`}>
+                      {item.type === 'transfer' ? 'Transfer' : 'Assigned'}
+                    </span>
+                  </div>
+                  <p className="text-gray-500 text-xs mt-1">
+                    {item.date}{item.end_date ? ` → ${item.end_date}` : ' → Present'}
+                    {item.duration_days ? ` · ${item.duration_days}d` : ''}
+                  </p>
+                  {item.reason && <p className="text-gray-600 text-xs truncate mt-0.5">"{item.reason}"</p>}
+                </div>
               </div>
             ))}
           </div>

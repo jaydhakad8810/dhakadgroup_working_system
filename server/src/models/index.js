@@ -16,7 +16,7 @@ const { Driver, Vehicle, Trip } = require('./DriverModels');
 const { MaterialRequest, WebsiteContent, WebsiteProject } = require('./WebsiteModels');
 const { WorkOrder, WorkOrderStep, WorkOrderFlat, WorkOrderMaterial, WorkOrderHint } = require('./WorkOrderModels');
 const { DailyPlan, DailyPlanItem } = require('./DailyPlanModels');
-const { LabourWageHistory, WageChangeRequest } = require('./LabourWageModels');
+const { LabourWageHistory, WageChangeRequest, LabourSiteHistory } = require('./LabourWageModels');
 
 // Site associations
 Site.belongsTo(Organisation, { foreignKey: 'organisation_id', as: 'organisation' });
@@ -112,6 +112,13 @@ WageChangeRequest.belongsTo(Labour, { foreignKey: 'labour_id', as: 'labour' });
 WageChangeRequest.belongsTo(User, { foreignKey: 'supervisor_id', as: 'supervisor' });
 WageChangeRequest.belongsTo(User, { foreignKey: 'reviewed_by', as: 'reviewer' });
 
+// Labour site history associations
+LabourSiteHistory.belongsTo(Labour, { foreignKey: 'labour_id', as: 'labour' });
+LabourSiteHistory.belongsTo(Site, { foreignKey: 'site_id', as: 'site' });
+
+// Labour transfer from-site association
+LabourTransfer.belongsTo(Site, { foreignKey: 'from_site_id', as: 'fromSite' });
+
 module.exports = {
   User, Organisation, Site, Labour, Attendance,
   SalaryRecord, AdvancePayment, LabourTransfer, SiteLedger, ClientPayment,
@@ -125,5 +132,5 @@ module.exports = {
   WorkOrder, WorkOrderStep, WorkOrderFlat, WorkOrderMaterial, WorkOrderHint,
   LabourGroup, LabourGroupMember,
   DailyPlan, DailyPlanItem,
-  LabourWageHistory, WageChangeRequest,
+  LabourWageHistory, WageChangeRequest, LabourSiteHistory,
 };

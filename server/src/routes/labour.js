@@ -1,5 +1,5 @@
 const router = require('express').Router();
-const { Labour, Site, User, Attendance, AdvancePayment, SiteLedger, SalaryRecord, Notification, LabourWageHistory, WageChangeRequest } = require('../models');
+const { Labour, Site, User, Attendance, AdvancePayment, SiteLedger, SalaryRecord, Notification, LabourWageHistory, WageChangeRequest, LabourSiteHistory, LabourTransfer } = require('../models');
 const { auth, adminOnly, supervisorOrAdmin } = require('../middleware/auth');
 const { Op } = require('sequelize');
 
@@ -223,6 +223,43 @@ router.patch('/wage-requests/:id/review', adminOnly, async (req, res) => {
   } catch (e) { res.status(500).json({ message: e.message }); }
 });
 
+router.get('/site-history/:labour_id', supervisorOrAdmin, async (req, res) => {
+  try {
+    const [siteHistory, transfers] = await Promise.all([
+      LabourSiteHistory.findAll({
+        where: { labour_id: req.params.labour_id },
+        include: [{ model: Site, as: 'site', attributes: ['id', 'name'], required: false }],
+        order: [['start_date', 'DESC']]
+      }),
+      LabourTransfer.findAll({
+        where: { labour_id: req.params.labour_id },
+        include: [{ model: Site, as: 'toSite', attributes: ['id', 'name'], required: false }],
+        order: [['transfer_date', 'DESC']]
+      })
+    ]);
+    const timeline = [
+      ...siteHistory.map(s => ({
+        type: 'assignment',
+        date: s.start_date,
+        end_date: s.end_date,
+        site_name: s.site?.name || s.site_name,
+        site_id: s.site_id,
+        reason: s.reason,
+      })),
+      ...transfers.map(t => ({
+        type: 'transfer',
+        date: t.transfer_date,
+        end_date: null,
+        site_name: t.toSite?.name || String(t.to_site_id),
+        site_id: t.to_site_id,
+        reason: t.reason,
+        duration_days: t.duration_days,
+      })),
+    ].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+    res.json(timeline);
+  } catch (e) { res.status(500).json({ message: e.message }); }
+});
+
 router.get('/:id', async (req, res) => {
   try {
     const labour = await Labour.findByPk(req.params.id, {
@@ -237,7 +274,40 @@ router.put('/:id', supervisorOrAdmin, async (req, res) => {
   try {
     const labour = await Labour.findByPk(req.params.id);
     if (!labour) return res.status(404).json({ message: 'Not found' });
+
+    const TRACKED_FIELDS = ['name', 'phone', 'address', 'state', 'religion', 'skill_type', 'date_of_joining', 'bank_name', 'bank_account', 'bank_ifsc', 'upi_app'];
+    const oldSiteId = labour.assigned_site_id;
+    const oldValues = {};
+    TRACKED_FIELDS.forEach(f => { oldValues[f] = labour[f]; });
+
     await labour.update(req.body);
+
+    if (req.user.role === 'supervisor') {
+      const changed = TRACKED_FIELDS.filter(f => req.body[f] !== undefined && String(req.body[f] || '') !== String(oldValues[f] || ''));
+      if (changed.length > 0) {
+        await Notification.create({
+          title: `Labour Info Updated — ${labour.name}`,
+          message: `${req.user.name} updated ${changed.join(', ')} for ${labour.name}`,
+          type: 'info',
+          target_role: 'admin',
+          sent_by: req.user.id,
+        }).catch(() => {});
+      }
+    }
+
+    if (req.body.assigned_site_id !== undefined && String(req.body.assigned_site_id || '') !== String(oldSiteId || '')) {
+      const today = new Date().toISOString().split('T')[0];
+      if (oldSiteId) {
+        const last = await LabourSiteHistory.findOne({ where: { labour_id: labour.id, site_id: oldSiteId, end_date: null }, order: [['start_date', 'DESC']] });
+        if (last) await last.update({ end_date: today });
+      }
+      if (req.body.assigned_site_id) {
+        let siteName = null;
+        try { const s = await Site.findByPk(req.body.assigned_site_id); siteName = s?.name || null; } catch (_) {}
+        await LabourSiteHistory.create({ labour_id: labour.id, site_id: req.body.assigned_site_id, site_name: siteName, start_date: today, recorded_by: req.user.id });
+      }
+    }
+
     res.json(labour);
   } catch (e) { res.status(500).json({ message: e.message }); }
 });
