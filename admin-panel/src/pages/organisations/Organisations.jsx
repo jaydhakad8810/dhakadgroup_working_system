@@ -6,15 +6,17 @@ import { Plus, Trash2, Edit, FileText, Building2, Phone, Mail, MapPin, User, Upl
 import { DocUpload } from '../../components/ui/PhotoUpload'
 
 const SERVICE_TYPE_OPTIONS = [
-  'Civil Construction', 'Electrical', 'Plumbing', 'Interior', 'Painting',
-  'Fabrication', 'Flooring', 'Waterproofing', 'Landscaping', 'Other',
+  'Painting Services',
+  'Gypsum',
+  'Wall Coating',
+  'Waterproofing',
 ]
 const GST_TYPE_OPTIONS = ['Regular', 'Composition', 'Unregistered', 'Other']
 const ROLE_OPTIONS = ['Owner', 'Partner', 'Director', 'Manager', 'Authorised Signatory']
 
 const DEFAULT_FORM = {
   name: '', gst_number: '', contact_number: '', email: '', address: '', document_url: '',
-  owners: [], service_types: [], gst_type: '', gst_type_other: '',
+  owners: [], service_types: [], service_other: '', gst_type: '', gst_type_other: '',
   udyam_number: '', pan_number: '',
   bank_name: '', account_type: 'Current', account_number: '', ifsc_code: '', branch: '', bank_passbook_url: '',
 }
@@ -85,6 +87,10 @@ export default function Organisations() {
       const gstType = form.gst_type === 'Other' ? form.gst_type_other : form.gst_type
       payload.gst_type = gstType
       delete payload.gst_type_other
+      const svcTypes = (Array.isArray(form.service_types) ? form.service_types : [])
+        .map(s => s === 'Other' ? (form.service_other || 'Other') : s).filter(Boolean)
+      payload.service_types = svcTypes
+      delete payload.service_other
       if (editing) { await api.put('/organisations/'+editing, payload); toast.success('Updated') }
       else { await api.post('/organisations', payload); toast.success('Created') }
       setModal(false); setEditing(null); setForm(DEFAULT_FORM); load()
@@ -93,7 +99,9 @@ export default function Organisations() {
   }
 
   const openEdit = (org) => {
-    const serviceArr = Array.isArray(org.service_types) ? org.service_types : []
+    const rawSvcs = Array.isArray(org.service_types) ? org.service_types : []
+    const customSvc = rawSvcs.find(s => !SERVICE_TYPE_OPTIONS.includes(s))
+    const normalizedSvcs = rawSvcs.map(s => SERVICE_TYPE_OPTIONS.includes(s) ? s : 'Other')
     const knownGstTypes = GST_TYPE_OPTIONS.filter(x => x !== 'Other')
     const gstTypeOther = org.gst_type && !knownGstTypes.includes(org.gst_type) ? org.gst_type : ''
     const gstType = gstTypeOther ? 'Other' : (org.gst_type || '')
@@ -101,7 +109,8 @@ export default function Organisations() {
     setForm({
       ...DEFAULT_FORM, ...org,
       owners: Array.isArray(org.owners) ? org.owners : [],
-      service_types: serviceArr,
+      service_types: normalizedSvcs,
+      service_other: customSvc || '',
       gst_type: gstType,
       gst_type_other: gstTypeOther,
     })
@@ -216,7 +225,15 @@ export default function Organisations() {
                   {svc}
                 </button>
               ))}
+              <button type="button"
+                onClick={() => toggleService('Other')}
+                className={'text-xs px-3 py-1.5 rounded-lg border transition-all '+(serviceArr.includes('Other') ? 'bg-gold-500/20 border-gold-500/50 text-gold-400' : 'border-white/10 text-gray-400 hover:border-white/30')}>
+                Other
+              </button>
             </div>
+            {serviceArr.includes('Other') && (
+              <input className="input mt-2" placeholder="Specify service type…" value={form.service_other||''} onChange={e=>sf('service_other',e.target.value)}/>
+            )}
           </div>
 
           {/* GST */}

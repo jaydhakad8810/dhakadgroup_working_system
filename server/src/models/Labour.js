@@ -9,7 +9,7 @@ const Labour = sequelize.define('Labour', {
   photo: { type: DataTypes.TEXT, allowNull: true },
   daily_wage: { type: DataTypes.DECIMAL(10, 2), allowNull: false },
   labour_type: { type: DataTypes.ENUM('skilled', 'unskilled'), defaultValue: 'unskilled' },
-  skill_type: { type: DataTypes.STRING(80), allowNull: true },
+  skill_type: { type: DataTypes.STRING(100), allowNull: true },
   address: { type: DataTypes.TEXT, allowNull: true },
   emergency_contact: { type: DataTypes.STRING(15), allowNull: true },
   aadhar_number: { type: DataTypes.STRING(15), allowNull: true },
@@ -26,6 +26,11 @@ const Labour = sequelize.define('Labour', {
   supervisor_id: { type: DataTypes.UUID, allowNull: true },
   is_active: { type: DataTypes.BOOLEAN, defaultValue: true },
   added_by: { type: DataTypes.UUID, allowNull: true },
+  date_of_joining: { type: DataTypes.DATEONLY, allowNull: true },
+  state: { type: DataTypes.STRING(100), allowNull: true },
+  religion: { type: DataTypes.STRING(50), allowNull: true },
+  bank_branch: { type: DataTypes.STRING(100), allowNull: true },
+  upi_app: { type: DataTypes.STRING(50), allowNull: true },
 }, { tableName: 'labour', paranoid: true, deletedAt: 'deleted_at' });
 
 module.exports = Labour;
