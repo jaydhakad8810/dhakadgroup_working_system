@@ -25,4 +25,15 @@ const WageChangeRequest = sequelize.define('WageChangeRequest', {
   reviewed_at: { type: DataTypes.DATE, allowNull: true },
 }, { tableName: 'wage_change_requests' })
 
-module.exports = { LabourWageHistory, WageChangeRequest }
+const LabourSiteHistory = sequelize.define('LabourSiteHistory', {
+  id: { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
+  labour_id: { type: DataTypes.UUID, allowNull: false },
+  site_id: { type: DataTypes.UUID, allowNull: true },
+  site_name: { type: DataTypes.STRING(200), allowNull: true },
+  start_date: { type: DataTypes.DATEONLY, allowNull: false },
+  end_date: { type: DataTypes.DATEONLY, allowNull: true },
+  reason: { type: DataTypes.TEXT, allowNull: true },
+  recorded_by: { type: DataTypes.UUID, allowNull: true },
+}, { tableName: 'labour_site_history' })
+
+module.exports = { LabourWageHistory, WageChangeRequest, LabourSiteHistory }
