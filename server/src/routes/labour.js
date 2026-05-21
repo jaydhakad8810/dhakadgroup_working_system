@@ -160,6 +160,14 @@ router.post('/wage-request', supervisorOrAdmin, async (req, res) => {
       type: 'wage_request',
       target_role: 'admin',
       sent_by: req.user.id,
+      metadata: {
+        request_id: request.id,
+        supervisor_name: req.user.name,
+        labour_name: labour.name,
+        current_wage: parseFloat(labour.daily_wage),
+        requested_wage: parseFloat(requested_wage),
+        reason,
+      },
     }).catch(() => {});
     res.status(201).json(request);
   } catch (e) { res.status(500).json({ message: e.message }); }
