@@ -14,15 +14,17 @@ export default function LabourDetail() {
   const [advModal, setAdvModal] = useState(false)
   const [advForm, setAdvForm] = useState({ amount: '', payment_mode: 'cash' })
   const [saving, setSaving] = useState(false)
+  const [wageHistory, setWageHistory] = useState([])
 
   const load = async () => {
     try {
-      const [l, a, t] = await Promise.all([
+      const [l, a, t, wh] = await Promise.all([
         api.get(`/labour/${id}`),
         api.get(`/labour/${id}/advances`),
-        api.get(`/attendance/transfers/${id}`).catch(() => ({ data: [] }))
+        api.get(`/attendance/transfers/${id}`).catch(() => ({ data: [] })),
+        api.get(`/labour/wage-history/${id}`).catch(() => ({ data: [] }))
       ])
-      setLabour(l.data); setAdvances(a.data); setTransfers(t.data || [])
+      setLabour(l.data); setAdvances(a.data); setTransfers(t.data || []); setWageHistory(wh.data || [])
     } catch {}
     setLoading(false)
   }
@@ -100,6 +102,28 @@ export default function LabourDetail() {
           {advances.length === 0 && <p className="text-gray-500 text-sm text-center py-4">No advances given</p>}
         </div>
       </div>
+
+      {/* Wage History */}
+      {wageHistory.length > 0 && (
+        <div className="card">
+          <h3 className="text-white font-semibold mb-3">Wage History</h3>
+          <div className="space-y-2">
+            {wageHistory.map((wh, i) => (
+              <div key={i} className="flex items-center justify-between p-2.5 bg-surface-400 rounded-xl">
+                <div>
+                  <p className="text-gray-400 text-xs font-medium">{wh.effective_date}</p>
+                  <p className="text-gray-500 text-xs">{wh.change_type === 'approved_request' ? 'Approved Request' : 'Direct'}</p>
+                  {wh.reason && <p className="text-gray-600 text-xs truncate max-w-[180px]">"{wh.reason}"</p>}
+                </div>
+                <div className="text-right">
+                  {wh.old_wage && <p className="text-red-400 text-xs line-through">₹{parseFloat(wh.old_wage).toLocaleString('en-IN')}/day</p>}
+                  <p className="text-primary-400 font-bold text-sm">₹{parseFloat(wh.new_wage).toLocaleString('en-IN')}/day</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Transfer History */}
       {transfers.length > 0 && (

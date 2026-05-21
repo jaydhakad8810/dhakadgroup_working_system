@@ -35,12 +35,21 @@ export default function LabourDetail() {
   const [form, setForm] = useState({})
   const [sites, setSites] = useState([])
   const [saving, setSaving] = useState(false)
+  const [wageHistory, setWageHistory] = useState([])
+  const [wageHistoryModal, setWageHistoryModal] = useState(false)
+  const [updateWageModal, setUpdateWageModal] = useState(false)
+  const [wageForm, setWageForm] = useState({ new_wage: '', effective_date: new Date().toISOString().split('T')[0], reason: '' })
   const f = (k, v) => setForm(p => ({ ...p, [k]: v }))
 
   const load = async () => {
     try {
-      const [l, adv, s] = await Promise.all([api.get(`/labour/${id}`), api.get(`/labour/${id}/advances`), api.get('/sites')])
-      setLabour(l.data); setAdvances(adv.data); setForm(l.data); setSites(s.data)
+      const [l, adv, s, wh] = await Promise.all([
+        api.get(`/labour/${id}`),
+        api.get(`/labour/${id}/advances`),
+        api.get('/sites'),
+        api.get(`/labour/wage-history/${id}`).catch(() => ({ data: [] }))
+      ])
+      setLabour(l.data); setAdvances(adv.data); setForm(l.data); setSites(s.data); setWageHistory(wh.data || [])
     } catch { toast.error('Failed') }
     setLoading(false)
   }
@@ -77,7 +86,11 @@ export default function LabourDetail() {
             <div className="flex gap-2 mt-1"><StatusBadge status={labour.labour_type} /><span className={labour.is_active ? 'badge-green' : 'badge-red'}>{labour.is_active ? 'Active' : 'Inactive'}</span></div>
           </div>
         </div>
-        <button onClick={() => setEditModal(true)} className="btn-outline">Edit</button>
+        <div className="flex gap-2 flex-wrap">
+          <button onClick={() => setEditModal(true)} className="btn-outline">Edit</button>
+          <button onClick={() => { setWageForm({ new_wage: '', effective_date: new Date().toISOString().split('T')[0], reason: '' }); setUpdateWageModal(true) }} className="btn-gold py-1.5 text-sm">Update Wage</button>
+          <button onClick={() => setWageHistoryModal(true)} className="btn-ghost py-1.5 text-sm">Wage History ({wageHistory.length})</button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -235,6 +248,43 @@ export default function LabourDetail() {
           </div>
 
           <div className="flex gap-3 justify-end"><button type="button" onClick={() => setEditModal(false)} className="btn-ghost">Cancel</button><button type="submit" disabled={saving} className="btn-gold">{saving ? 'Saving...' : 'Save'}</button></div>
+        </form>
+      </Modal>
+
+      <Modal open={wageHistoryModal} onClose={() => setWageHistoryModal(false)} title="Wage History" size="md">
+        <div className="space-y-2 max-h-96 overflow-y-auto">
+          {wageHistory.length === 0
+            ? <p className="text-gray-400 text-center py-6">No wage changes recorded</p>
+            : wageHistory.map((wh, i) => (
+              <div key={i} className="flex items-center justify-between p-3 rounded-xl border" style={{background:'var(--bg3)',borderColor:'var(--border)'}}>
+                <div>
+                  <p className="text-white text-sm font-medium">{wh.effective_date}</p>
+                  <p className="text-xs mt-0.5" style={{color:'var(--muted)'}}>{wh.changedBy?.name || 'Admin'} · <span className={wh.change_type==='approved_request'?'text-blue-400':'text-gold-400'}>{wh.change_type==='approved_request'?'Approved Request':'Direct'}</span></p>
+                  {wh.reason && <p className="text-xs mt-0.5" style={{color:'var(--muted)'}}>"{wh.reason}"</p>}
+                </div>
+                <div className="text-right">
+                  {wh.old_wage && <p className="text-red-400 text-xs line-through">₹{parseFloat(wh.old_wage).toLocaleString('en-IN')}/day</p>}
+                  <p className="text-green-400 font-bold">₹{parseFloat(wh.new_wage).toLocaleString('en-IN')}/day</p>
+                </div>
+              </div>
+            ))
+          }
+        </div>
+      </Modal>
+
+      <Modal open={updateWageModal} onClose={() => setUpdateWageModal(false)} title="Update Wage" size="sm">
+        <form onSubmit={async e => {
+          e.preventDefault(); setSaving(true)
+          try {
+            await api.patch(`/labour/update-wage/${id}`, wageForm)
+            toast.success('Wage updated'); setUpdateWageModal(false); load()
+          } catch { toast.error('Failed') }
+          setSaving(false)
+        }} className="space-y-4">
+          <div><label className="label">New Daily Wage (₹) *</label><input type="number" className="input" required value={wageForm.new_wage} onChange={e=>setWageForm(p=>({...p,new_wage:e.target.value}))}/></div>
+          <div><label className="label">Effective Date</label><input type="date" className="input" value={wageForm.effective_date} onChange={e=>setWageForm(p=>({...p,effective_date:e.target.value}))}/></div>
+          <div><label className="label">Reason *</label><input className="input" required value={wageForm.reason} onChange={e=>setWageForm(p=>({...p,reason:e.target.value}))}/></div>
+          <div className="flex gap-3 justify-end"><button type="button" onClick={()=>setUpdateWageModal(false)} className="btn-ghost">Cancel</button><button type="submit" disabled={saving} className="btn-gold">{saving?'Saving...':'Update Wage'}</button></div>
         </form>
       </Modal>
     </div>
