@@ -1,7 +1,37 @@
 const router = require('express').Router();
-const { SalaryRecord, Labour, Attendance, AdvancePayment, Site, SiteLedger, Notification } = require('../models');
+const { SalaryRecord, Labour, Attendance, AdvancePayment, Site, SiteLedger, Notification, LabourWageHistory } = require('../models');
 const { auth, supervisorOrAdmin } = require('../middleware/auth');
 const { Op, literal } = require('sequelize');
+
+async function calculateSalaryWithWageHistory(labourId, attendanceRecords, currentWage) {
+  const wageHistory = await LabourWageHistory.findAll({
+    where: { labour_id: labourId },
+    order: [['effective_date', 'ASC']]
+  });
+  function getWageForDate(date) {
+    if (!wageHistory.length) return currentWage;
+    let w = currentWage;
+    for (const wh of wageHistory) {
+      if (wh.effective_date <= date) w = parseFloat(wh.new_wage);
+      else break;
+    }
+    return w;
+  }
+  const periods = [];
+  let curWage = null, curDays = 0, curStart = null, curEnd = null, totalGross = 0;
+  for (const att of attendanceRecords) {
+    const mult = att.status === 'present' ? (parseFloat(att.day_multiplier) || 1) : att.status === 'half_day' ? 0.5 : 0;
+    if (!mult) continue;
+    const wage = getWageForDate(att.date);
+    if (wage !== curWage) {
+      if (curWage !== null && curDays > 0) periods.push({ wage: curWage, days: parseFloat(curDays.toFixed(2)), from: curStart, to: curEnd, subtotal: parseFloat((curWage * curDays).toFixed(2)) });
+      curWage = wage; curDays = mult; curStart = att.date; curEnd = att.date;
+    } else { curDays += mult; curEnd = att.date; }
+    totalGross += wage * mult;
+  }
+  if (curWage !== null && curDays > 0) periods.push({ wage: curWage, days: parseFloat(curDays.toFixed(2)), from: curStart, to: curEnd, subtotal: parseFloat((curWage * curDays).toFixed(2)) });
+  return { totalGross: parseFloat(totalGross.toFixed(2)), periods };
+}
 
 router.use(auth);
 
@@ -26,7 +56,7 @@ router.post('/generate', supervisorOrAdmin, async (req, res) => {
       else if (a.status === 'half_day') total_days += 0.5;
     });
 
-    const gross_salary = total_days * parseFloat(labour.daily_wage);
+    const { totalGross: gross_salary } = await calculateSalaryWithWageHistory(labour_id, attendance, parseFloat(labour.daily_wage));
     const advances = await AdvancePayment.findAll({ where: { labour_id, deducted: true, deducted_month: month, deducted_year: year } });
     const advance_deduction = advances.reduce((sum, a) => sum + parseFloat(a.amount), 0);
     const net_salary = Math.max(0, gross_salary - advance_deduction);
@@ -67,7 +97,7 @@ router.post('/generate-range', supervisorOrAdmin, async (req, res) => {
         else if (a.status === 'half_day') total_days += 0.5;
       });
 
-      const gross_salary = total_days * parseFloat(labour.daily_wage);
+      const { totalGross: gross_salary } = await calculateSalaryWithWageHistory(labour.id, attendance, parseFloat(labour.daily_wage));
       const advances = await AdvancePayment.findAll({ where: { labour_id: labour.id, deducted: true, createdAt: { [Op.between]: [from_date + ' 00:00:00', to_date + ' 23:59:59'] } } });
       const advance_deduction = advances.reduce((sum, a) => sum + parseFloat(a.amount), 0);
       const net_salary = Math.max(0, gross_salary - advance_deduction);
@@ -108,7 +138,7 @@ router.post('/generate-bulk', supervisorOrAdmin, async (req, res) => {
         if (a.status === 'present') total_days += (parseFloat(a.day_multiplier) || 1);
         else if (a.status === 'half_day') total_days += 0.5;
       });
-      const gross_salary = total_days * parseFloat(labour.daily_wage);
+      const { totalGross: gross_salary } = await calculateSalaryWithWageHistory(labour.id, attendance, parseFloat(labour.daily_wage));
       const advances = await AdvancePayment.findAll({ where: { labour_id: labour.id, deducted: true, deducted_month: month, deducted_year: year } });
       const advance_deduction = advances.reduce((sum, a) => sum + parseFloat(a.amount), 0);
       const net_salary = Math.max(0, gross_salary - advance_deduction);
@@ -155,39 +185,52 @@ router.get('/labour/:id/summary', async (req, res) => {
       where: { labour_id: req.params.id, date: { [Op.between]: [from, to] } },
       order: [['date', 'ASC']]
     });
-    let totalDaysPresent = 0;
-    let effectiveDays = 0;
-    let totalSalary = 0;
+    const wageHistoryArr = await LabourWageHistory.findAll({
+      where: { labour_id: req.params.id },
+      order: [['effective_date', 'ASC']]
+    });
+    const currentWage = parseFloat(labour.daily_wage) || 0;
+    function getWage(date) {
+      if (!wageHistoryArr.length) return currentWage;
+      let w = currentWage;
+      for (const wh of wageHistoryArr) {
+        if (wh.effective_date <= date) w = parseFloat(wh.new_wage);
+        else break;
+      }
+      return w;
+    }
+    let totalDaysPresent = 0, effectiveDays = 0;
     const breakdown = attendance.map(a => {
       const multiplier = parseFloat(a.day_multiplier) || 1.0;
-      const dailyWage = parseFloat(labour.daily_wage) || 0;
+      const dailyWage = getWage(a.date);
       let daySalary = 0;
       if (a.status === 'present') {
         totalDaysPresent++;
         effectiveDays += multiplier;
         daySalary = dailyWage * multiplier;
-        totalSalary += daySalary;
       } else if (a.status === 'half_day') {
         effectiveDays += 0.5;
         daySalary = dailyWage * 0.5;
-        totalSalary += daySalary;
       }
       return {
         date: a.date,
         status: a.status,
         hours_worked: a.hours_worked,
+        daily_wage: dailyWage,
         day_multiplier: a.status === 'present' ? multiplier : (a.status === 'half_day' ? 0.5 : 0),
         day_salary: daySalary
       };
     });
+    const { totalGross, periods } = await calculateSalaryWithWageHistory(req.params.id, attendance, currentWage);
     res.json({
       labour_id: labour.id,
       name: labour.name,
-      daily_wage: parseFloat(labour.daily_wage),
+      daily_wage: currentWage,
       period: { from, to },
       total_days_present: totalDaysPresent,
       effective_days: Math.round(effectiveDays * 100) / 100,
-      total_salary: Math.round(totalSalary * 100) / 100,
+      total_salary: totalGross,
+      totalGross, periods,
       breakdown
     });
   } catch (e) { res.status(500).json({ message: e.message }); }

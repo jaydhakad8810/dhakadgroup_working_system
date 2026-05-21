@@ -1,5 +1,5 @@
 const router = require('express').Router();
-const { Labour, Site, User, Attendance, AdvancePayment, SiteLedger, SalaryRecord, Notification } = require('../models');
+const { Labour, Site, User, Attendance, AdvancePayment, SiteLedger, SalaryRecord, Notification, LabourWageHistory, WageChangeRequest } = require('../models');
 const { auth, adminOnly, supervisorOrAdmin } = require('../middleware/auth');
 const { Op } = require('sequelize');
 
@@ -103,6 +103,123 @@ router.post('/', supervisorOrAdmin, async (req, res) => {
   try {
     const labour = await Labour.create({ ...req.body, added_by: req.user.id });
     res.status(201).json(labour);
+  } catch (e) { res.status(500).json({ message: e.message }); }
+});
+
+// ── Wage history routes (must be before /:id) ──────────────────────────────
+
+router.get('/wage-history/:labour_id', supervisorOrAdmin, async (req, res) => {
+  try {
+    const history = await LabourWageHistory.findAll({
+      where: { labour_id: req.params.labour_id },
+      include: [{ model: User, as: 'changedBy', attributes: ['id', 'name'] }],
+      order: [['effective_date', 'DESC']]
+    });
+    res.json(history);
+  } catch (e) { res.status(500).json({ message: e.message }); }
+});
+
+router.patch('/update-wage/:labour_id', adminOnly, async (req, res) => {
+  try {
+    const { new_wage, effective_date, reason } = req.body;
+    if (!new_wage) return res.status(400).json({ message: 'new_wage required' });
+    const labour = await Labour.findByPk(req.params.labour_id);
+    if (!labour) return res.status(404).json({ message: 'Labour not found' });
+    const today = new Date().toISOString().split('T')[0];
+    const wageRecord = await LabourWageHistory.create({
+      labour_id: labour.id,
+      old_wage: labour.daily_wage,
+      new_wage: parseFloat(new_wage),
+      effective_date: effective_date || today,
+      changed_by: req.user.id,
+      change_type: 'direct',
+      reason: reason || null,
+    });
+    await labour.update({ daily_wage: parseFloat(new_wage) });
+    res.json({ labour, wageRecord });
+  } catch (e) { res.status(500).json({ message: e.message }); }
+});
+
+router.post('/wage-request', supervisorOrAdmin, async (req, res) => {
+  try {
+    const { labour_id, requested_wage, reason } = req.body;
+    if (!labour_id || !requested_wage || !reason) return res.status(400).json({ message: 'labour_id, requested_wage and reason required' });
+    const labour = await Labour.findByPk(labour_id);
+    if (!labour) return res.status(404).json({ message: 'Labour not found' });
+    const request = await WageChangeRequest.create({
+      labour_id,
+      supervisor_id: req.user.id,
+      current_wage: labour.daily_wage,
+      requested_wage: parseFloat(requested_wage),
+      reason,
+      status: 'pending',
+    });
+    await Notification.create({
+      title: `Wage Change Request — ${labour.name}`,
+      message: `${req.user.name} requested wage change from ₹${labour.daily_wage} to ₹${requested_wage} for ${labour.name}`,
+      type: 'wage_request',
+      target_role: 'admin',
+      sent_by: req.user.id,
+    }).catch(() => {});
+    res.status(201).json(request);
+  } catch (e) { res.status(500).json({ message: e.message }); }
+});
+
+router.get('/wage-requests', adminOnly, async (req, res) => {
+  try {
+    const status = req.query.status || 'pending';
+    const where = status === 'all' ? {} : { status };
+    const requests = await WageChangeRequest.findAll({
+      where,
+      include: [
+        { model: Labour, as: 'labour', attributes: ['id', 'name', 'daily_wage'] },
+        { model: User, as: 'supervisor', attributes: ['id', 'name'] },
+        { model: User, as: 'reviewer', attributes: ['id', 'name'] },
+      ],
+      order: [['createdAt', 'DESC']]
+    });
+    res.json(requests);
+  } catch (e) { res.status(500).json({ message: e.message }); }
+});
+
+router.patch('/wage-requests/:id/review', adminOnly, async (req, res) => {
+  try {
+    const { action, rejection_reason } = req.body;
+    if (!['approve', 'reject'].includes(action)) return res.status(400).json({ message: 'action must be approve or reject' });
+    const request = await WageChangeRequest.findByPk(req.params.id, {
+      include: [{ model: Labour, as: 'labour' }]
+    });
+    if (!request) return res.status(404).json({ message: 'Request not found' });
+    if (request.status !== 'pending') return res.status(400).json({ message: 'Request already reviewed' });
+    const today = new Date().toISOString().split('T')[0];
+    if (action === 'approve') {
+      await LabourWageHistory.create({
+        labour_id: request.labour_id,
+        old_wage: request.current_wage,
+        new_wage: request.requested_wage,
+        effective_date: today,
+        changed_by: req.user.id,
+        change_type: 'approved_request',
+        reason: 'Approved wage request from supervisor',
+      });
+      await request.labour.update({ daily_wage: request.requested_wage });
+      await request.update({ status: 'approved', reviewed_by: req.user.id, reviewed_at: new Date() });
+      await Notification.create({
+        user_id: request.supervisor_id,
+        title: `Wage Request Approved — ${request.labour.name}`,
+        message: `Your request to change ${request.labour.name} wage to ₹${request.requested_wage} has been approved`,
+        type: 'wage_approved',
+      }).catch(() => {});
+    } else {
+      await request.update({ status: 'rejected', rejection_reason: rejection_reason || '', reviewed_by: req.user.id, reviewed_at: new Date() });
+      await Notification.create({
+        user_id: request.supervisor_id,
+        title: `Wage Request Rejected — ${request.labour.name}`,
+        message: `Your request to change ${request.labour.name} wage was rejected. Reason: ${rejection_reason || 'No reason given'}`,
+        type: 'wage_rejected',
+      }).catch(() => {});
+    }
+    res.json(request);
   } catch (e) { res.status(500).json({ message: e.message }); }
 });
 

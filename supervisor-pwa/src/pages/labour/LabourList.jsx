@@ -6,6 +6,52 @@ import { LoadingPage, EmptyState, StatusBadge } from '../../components/ui'
 import { useAuth } from '../../context/AuthContext'
 import toast from 'react-hot-toast'
 
+function WageRequestModal({ labour, onClose, onSuccess }) {
+  const [newWage, setNewWage] = useState('')
+  const [reason, setReason] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    if (!newWage || !reason.trim()) return toast.error('All fields required')
+    setSubmitting(true)
+    try {
+      await api.post('/labour/wage-request', { labour_id: labour.id, requested_wage: parseFloat(newWage), reason })
+      toast.success('Request submitted — pending admin approval')
+      onSuccess()
+    } catch { toast.error('Failed to submit request') }
+    setSubmitting(false)
+  }
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60" onClick={onClose}>
+      <div className="w-full max-w-md bg-surface-500 rounded-t-2xl p-6 space-y-4" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between">
+          <h3 className="text-white font-bold text-lg">Request Wage Change</h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-white"><X size={20}/></button>
+        </div>
+        <div className="p-3 bg-surface-400 rounded-xl">
+          <p className="text-gray-500 text-xs">Labour</p>
+          <p className="text-white font-semibold">{labour.name}</p>
+          <p className="text-primary-400 font-mono mt-0.5">Current: ₹{parseFloat(labour.daily_wage).toLocaleString('en-IN')}/day</p>
+        </div>
+        <form onSubmit={handleSubmit} className="space-y-3">
+          <div>
+            <label className="label">Requested Wage (₹/day) *</label>
+            <input type="number" className="input" required placeholder="Enter new daily wage" value={newWage} onChange={e=>setNewWage(e.target.value)}/>
+          </div>
+          <div>
+            <label className="label">Reason *</label>
+            <textarea className="input" rows={3} required placeholder="Explain the reason for wage change..." value={reason} onChange={e=>setReason(e.target.value)}/>
+          </div>
+          <div className="flex gap-3 pt-1">
+            <button type="button" onClick={onClose} className="btn-secondary flex-1">Cancel</button>
+            <button type="submit" disabled={submitting} className="btn-primary flex-1">{submitting?'Submitting...':'Submit Request'}</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
 export default function LabourList() {
   const [tab, setTab] = useState('myteam')
   const [labour, setLabour] = useState([])
@@ -24,6 +70,8 @@ export default function LabourList() {
   const [addModal, setAddModal] = useState(null) // labour record
   const [selectedSite, setSelectedSite] = useState('')
   const [adding, setAdding] = useState(false)
+
+  const [wageModal, setWageModal] = useState(null)
 
   // Transfer modal state
   const [transferModal, setTransferModal] = useState(null) // labour record
@@ -192,6 +240,13 @@ export default function LabourList() {
                         {l.phone && <p className="text-gray-600 text-xs">{l.phone}</p>}
                       </button>
                       <button
+                        onClick={() => setWageModal(l)}
+                        title="Request wage change"
+                        className="flex-shrink-0 w-9 h-9 rounded-xl bg-blue-500/20 flex items-center justify-center text-blue-400 active:scale-95 transition-transform text-xs font-bold"
+                      >
+                        ₹
+                      </button>
+                      <button
                         onClick={() => openTransfer(l)}
                         title="Transfer to another site"
                         className="flex-shrink-0 w-9 h-9 rounded-xl bg-orange-500/20 flex items-center justify-center text-orange-400 active:scale-95 transition-transform"
@@ -319,6 +374,14 @@ export default function LabourList() {
             </div>
           </div>
         </div>
+      )}
+
+      {wageModal && (
+        <WageRequestModal
+          labour={wageModal}
+          onClose={() => setWageModal(null)}
+          onSuccess={() => setWageModal(null)}
+        />
       )}
 
       {/* Add to team bottom-sheet modal */}
