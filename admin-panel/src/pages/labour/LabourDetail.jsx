@@ -6,6 +6,24 @@ import toast from 'react-hot-toast'
 import { LoadingPage, StatusBadge, InfoRow, Modal } from '../../components/ui'
 import { PhotoUpload, DocUpload } from '../../components/ui/PhotoUpload'
 
+const INDIA_STATES = [
+  'Andhra Pradesh','Arunachal Pradesh','Assam','Bihar',
+  'Chhattisgarh','Goa','Gujarat','Haryana','Himachal Pradesh',
+  'Jharkhand','Karnataka','Kerala','Madhya Pradesh','Maharashtra',
+  'Manipur','Meghalaya','Mizoram','Nagaland','Odisha','Punjab',
+  'Rajasthan','Sikkim','Tamil Nadu','Telangana','Tripura',
+  'Uttar Pradesh','Uttarakhand','West Bengal',
+  'Andaman and Nicobar Islands','Chandigarh',
+  'Dadra and Nagar Haveli and Daman and Diu','Delhi',
+  'Jammu and Kashmir','Ladakh','Lakshadweep','Puducherry',
+]
+const SKILL_TYPES = ['Painter','Helper','Full Skill','Gypsum','Semi Polish','Texture','Other']
+const UPI_APPS = ['Google Pay','PhonePe','Paytm','Other']
+const RELIGION_OPTIONS = ['Hindu','Muslim','Christian','Other']
+const FIXED_SKILLS = SKILL_TYPES.filter(x => x !== 'Other')
+const FIXED_UPIS = UPI_APPS.filter(x => x !== 'Other')
+const FIXED_RELIGIONS = RELIGION_OPTIONS.filter(x => x !== 'Other')
+
 export default function LabourDetail() {
   const { id } = useParams()
   const [labour, setLabour] = useState(null)
@@ -142,13 +160,21 @@ export default function LabourDetail() {
           <div className="grid grid-cols-2 gap-4">
             <div><label className="label">Name</label><input className="input" value={form.name || ''} onChange={e => f('name', e.target.value)} /></div>
             <div><label className="label">Phone</label><input className="input" value={form.phone || ''} onChange={e => f('phone', e.target.value)} /></div>
+            <div><label className="label">Date of Joining</label><input type="date" className="input" value={form.date_of_joining||''} onChange={e=>f('date_of_joining',e.target.value)}/></div>
             <div><label className="label">Daily Wage (₹)</label><input type="number" className="input" value={form.daily_wage || ''} onChange={e => f('daily_wage', e.target.value)} /></div>
             <div><label className="label">Type</label>
               <select className="select" value={form.labour_type || 'unskilled'} onChange={e => f('labour_type', e.target.value)}>
                 <option value="unskilled">Unskilled</option><option value="skilled">Skilled</option>
               </select>
             </div>
-            <div><label className="label">Skill Type</label><input className="input" value={form.skill_type || ''} onChange={e => f('skill_type', e.target.value)} /></div>
+            <div>
+              <label className="label">Skill Type</label>
+              <select className="select" value={FIXED_SKILLS.includes(form.skill_type||'') ? form.skill_type : (form.skill_type ? 'Other' : '')} onChange={e => { if(e.target.value==='Other') f('skill_type',''); else f('skill_type',e.target.value) }}>
+                <option value="">Select…</option>
+                {SKILL_TYPES.map(s=><option key={s} value={s}>{s}</option>)}
+              </select>
+              {form.skill_type!==''&&!FIXED_SKILLS.includes(form.skill_type||'') && <input className="input mt-2" placeholder="Specify skill type…" value={form.skill_type||''} onChange={e=>f('skill_type',e.target.value)}/>}
+            </div>
             <div><label className="label">Assign Site</label>
               <select className="select" value={form.assigned_site_id || ''} onChange={e => f('assigned_site_id', e.target.value)}>
                 <option value="">None</option>{sites.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
@@ -160,6 +186,15 @@ export default function LabourDetail() {
             <div><label className="label">Bank Account</label><input className="input" value={form.bank_account || ''} onChange={e => f('bank_account', e.target.value)} /></div>
             <div><label className="label">Bank IFSC</label><input className="input" value={form.bank_ifsc || ''} onChange={e => f('bank_ifsc', e.target.value)} /></div>
             <div><label className="label">Bank Name</label><input className="input" value={form.bank_name || ''} onChange={e => f('bank_name', e.target.value)} /></div>
+            <div><label className="label">Branch Name</label><input className="input" value={form.bank_branch||''} onChange={e=>f('bank_branch',e.target.value)}/></div>
+            <div>
+              <label className="label">UPI App</label>
+              <select className="select" value={FIXED_UPIS.includes(form.upi_app||'') ? form.upi_app : (form.upi_app ? 'Other' : '')} onChange={e => { if(e.target.value==='Other') f('upi_app',''); else f('upi_app',e.target.value) }}>
+                <option value="">Select…</option>
+                {UPI_APPS.map(u=><option key={u} value={u}>{u}</option>)}
+              </select>
+              {form.upi_app!==''&&!FIXED_UPIS.includes(form.upi_app||'') && <input className="input mt-2" placeholder="Specify UPI app…" value={form.upi_app||''} onChange={e=>f('upi_app',e.target.value)}/>}
+            </div>
             <div className="col-span-2">
               <label className="label">Bank Passbook Photo</label>
               <DocUpload value={form.bank_passbook_photo} onChange={v => f('bank_passbook_photo', v)} folder="dgsystem/labour-docs" label="Upload passbook photo" />
@@ -168,6 +203,21 @@ export default function LabourDetail() {
               )}
             </div>
             <div className="col-span-2"><label className="label">Address</label><textarea className="input" rows={2} value={form.address || ''} onChange={e => f('address', e.target.value)} /></div>
+            <div>
+              <label className="label">State</label>
+              <select className="select" value={form.state||''} onChange={e=>f('state',e.target.value)}>
+                <option value="">Select state…</option>
+                {INDIA_STATES.map(s=><option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="label">Religion</label>
+              <select className="select" value={FIXED_RELIGIONS.includes(form.religion||'') ? form.religion : (form.religion ? 'Other' : '')} onChange={e => { if(e.target.value==='Other') f('religion',''); else f('religion',e.target.value) }}>
+                <option value="">Select…</option>
+                {RELIGION_OPTIONS.map(r=><option key={r} value={r}>{r}</option>)}
+              </select>
+              {form.religion!==''&&!FIXED_RELIGIONS.includes(form.religion||'') && <input className="input mt-2" placeholder="Specify religion…" value={form.religion||''} onChange={e=>f('religion',e.target.value)}/>}
+            </div>
           </div>
 
           {/* Doc uploads */}
