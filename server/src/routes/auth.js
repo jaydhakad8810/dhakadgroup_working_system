@@ -73,7 +73,16 @@ router.post('/resend-otp', async (req, res) => {
   } catch (e) { res.status(500).json({ message: e.message }); }
 });
 
-router.get('/me', auth, async (req, res) => { res.json({ user: req.user }); });
+router.get('/me', auth, async (req, res) => {
+  try {
+    const { Site } = require('../models');
+    const sites = await Site.findAll({
+      where: { supervisor_id: req.user.id },
+      attributes: ['id', 'name'],
+    });
+    res.json({ user: req.user, sites });
+  } catch (e) { res.status(500).json({ message: e.message }); }
+});
 
 router.post('/change-password', auth, async (req, res) => {
   try {

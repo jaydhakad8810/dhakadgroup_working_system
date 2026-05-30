@@ -130,6 +130,7 @@ export default function Attendance() {
   const present = Object.values(attendance).filter(v => v === 'present').length
   const half = Object.values(attendance).filter(v => v === 'half_day').length
   const absent = Object.values(attendance).filter(v => v === 'absent').length
+  const recordsToShow = search ? records.filter(r => (r.labour?.name || '').toLowerCase().includes(search.toLowerCase())) : records
 
   return (
     <div className="space-y-6">
@@ -230,7 +231,7 @@ export default function Attendance() {
               </tr>
             </thead>
             <tbody>
-              {records.slice(0, 200).map(r => (
+              {recordsToShow.slice(0, 200).map(r => (
                 <tr key={r.id}>
                   <td>
                     <div className="flex items-center gap-2">
@@ -275,8 +276,8 @@ export default function Attendance() {
                   </td>
                 </tr>
               ))}
-              {!records.length && (
-                <tr><td colSpan={11} className="text-center py-8" style={{ color: 'var(--muted)' }}>No records</td></tr>
+              {!recordsToShow.length && (
+                <tr><td colSpan={11} className="text-center py-8" style={{ color: 'var(--muted)' }}>{!records.length ? 'No records' : 'No records matching search.'}</td></tr>
               )}
             </tbody>
           </table>

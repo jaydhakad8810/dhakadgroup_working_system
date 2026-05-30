@@ -148,7 +148,6 @@ export default function Sites() {
               <select className="select" value={form.contract_type} onChange={e => f('contract_type', e.target.value)}>
                 <option value="material_labour">Material Rate + Labour Rate</option>
                 <option value="labour_only">Only Labour Rate</option>
-                <option value="material_only">Only Material Rate</option>
               </select>
             </div>
             <div><label className="label">Status</label>

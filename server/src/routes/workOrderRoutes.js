@@ -1,8 +1,8 @@
 const router = require('express').Router();
 const { Op } = require('sequelize');
-const { auth, adminOnly } = require('../middleware/auth');
+const { auth, adminOnly, supervisorOrAdmin } = require('../middleware/auth');
 const { WorkOrder, WorkOrderStep, WorkOrderFlat, WorkOrderMaterial, WorkOrderHint } = require('../models/WorkOrderModels');
-const { Site, User } = require('../models');
+const { Site, User, Labour } = require('../models');
 const PDFDocument = require('pdfkit');
 const XLSX = require('xlsx');
 
@@ -39,6 +39,7 @@ router.get('/', async (req, res) => {
     const flatsMap = flatCounts.reduce((m, s) => { if (!m[s.work_order_id]) m[s.work_order_id] = []; m[s.work_order_id].push(s.toJSON()); return m; }, {});
     const result = workOrders.map(w => ({
       ...w.toJSON(),
+      site_name:      w.site?.name || null,
       steps:          stepsMap[w.id] || [],
       materials:      matsMap[w.id]  || [],
       step_count:     (stepsMap[w.id] || []).length,
@@ -136,29 +137,87 @@ router.get('/site-materials', async (req, res) => {
     const { site_id } = req.query
     if (!site_id) return res.status(400).json({ message: 'site_id required' })
     const wos = await WorkOrder.findAll({
-      where: { site_id, status: 'active' },
+      where: { site_id },
       attributes: ['id', 'title', 'type'],
       include: [{
         model: WorkOrderMaterial,
         as: 'materials',
-        attributes: ['id', 'product_name', 'company_name', 'unit', 'total_quantity', 'used_quantity']
+        attributes: ['id', 'step_id', 'product_name', 'company_name', 'unit', 'total_quantity', 'used_quantity'],
+        include: [{ model: WorkOrderStep, as: 'step', attributes: ['id', 'step_name'] }],
       }]
     })
     const materials = wos.flatMap(wo =>
       (wo.materials || []).map(m => ({
         id: m.id,
+        step_id: m.step_id,
+        step_name: m.step?.step_name || null,
         product_name: m.product_name,
         company_name: m.company_name,
         unit: m.unit,
         total_quantity: m.total_quantity,
         used_quantity: m.used_quantity,
-        remaining: parseFloat(m.total_quantity || 0) - parseFloat(m.used_quantity || 0),
+        remaining_quantity: Math.max(0, parseFloat(m.total_quantity || 0) - parseFloat(m.used_quantity || 0)),
         work_order_title: wo.title
       }))
     )
     res.json(materials)
   } catch (e) { res.status(500).json({ message: e.message }) }
 })
+
+// ── GET /flat-progress?site_id=X — flat/step status for all WOs at a site
+router.get('/flat-progress', supervisorOrAdmin, async (req, res) => {
+  try {
+    const { site_id } = req.query;
+    if (!site_id) return res.status(400).json({ message: 'site_id is required' });
+
+    const workOrders = await WorkOrder.findAll({
+      where: { site_id },
+      attributes: ['id', 'title', 'status', 'site_id'],
+      include: [
+        { model: WorkOrderFlat, as: 'flats', attributes: ['id', 'flat_no', 'wing', 'floor_no', 'step_progress'] },
+        { model: WorkOrderStep, as: 'steps', attributes: ['id', 'step_name', 'sequence_order', 'status'], order: [['sequence_order', 'ASC']] },
+      ],
+    });
+
+    const result = workOrders.map(wo => ({
+      id: wo.id,
+      title: wo.title,
+      status: wo.status,
+      site_id: wo.site_id,
+      steps: (wo.steps || []).map(step => ({
+        id: step.id,
+        step_name: step.step_name,
+        sequence_order: step.sequence_order,
+        status: step.status,
+      })),
+      flats: (wo.flats || []).map(flat => ({
+        id: flat.id,
+        flat_no: flat.flat_no,
+        wing: flat.wing,
+        floor_no: flat.floor_no,
+        step_progress: flat.step_progress || {},
+      })),
+    }));
+
+    res.json({ work_orders: result });
+  } catch (e) { res.status(500).json({ message: e.message }); }
+});
+
+// ── GET /site-labours?site_id=X — all labourers assigned to a site
+router.get('/site-labours', supervisorOrAdmin, async (req, res) => {
+  try {
+    const { site_id } = req.query;
+    if (!site_id) return res.status(400).json({ message: 'site_id is required' });
+
+    const labours = await Labour.findAll({
+      where: { assigned_site_id: site_id },
+      attributes: ['id', 'name', 'photo', 'daily_wage', 'employee_id', 'phone'],
+      order: [['name', 'ASC']],
+    });
+
+    res.json(labours);
+  } catch (e) { res.status(500).json({ message: e.message }); }
+});
 
 // ── GET /:id — full detail
 router.get('/:id', async (req, res) => {

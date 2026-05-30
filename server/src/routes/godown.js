@@ -204,25 +204,25 @@ router.post('/transfer', supervisorOrAdmin, async (req, res) => {
 });
 
 
-// ── GET /site-stock?site_id=X — get available stock at site godown
+// ── GET /site-stock?site_id=X — get all stock at site godown(s)
 router.get('/site-stock', async (req, res) => {
   try {
     const { site_id } = req.query
     if (!site_id) return res.status(400).json({ message: 'site_id required' })
-    const siteGodowns = await Godown.findAll({ where: { site_id } })
-    if (!siteGodowns.length) return res.json([])
-    const godownIds = siteGodowns.map(g => g.id)
+    const godowns = await Godown.findAll({ where: { site_id }, attributes: ['id', 'name'] })
+    if (!godowns.length) return res.json([])
+    const godownIds = godowns.map(g => g.id)
     const stocks = await GodownStock.findAll({
-      where: { godown_id: godownIds, quantity: { [Op.gt]: 0 } },
+      where: { godown_id: godownIds },
       include: [{ model: MaterialCategory, as: 'category', attributes: ['id', 'name', 'unit'] }]
     })
     const result = stocks.map(s => ({
       id: s.id,
+      material_name: s.category?.name || '',
+      unit: s.category?.unit || '',
+      quantity: parseFloat(s.quantity || 0),
+      godown_id: s.godown_id,
       category_id: s.category_id,
-      product_name: s.category?.name || 'Unknown',
-      unit: s.category?.unit || 'units',
-      quantity: parseFloat(s.quantity),
-      godown_id: s.godown_id
     }))
     res.json(result)
   } catch (e) { res.status(500).json({ message: e.message }) }

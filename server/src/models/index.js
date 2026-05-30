@@ -21,6 +21,7 @@ const {
   ProcessFlat, ProcessStep, ProcessStepMaterial,
   FlatProgress, FlatProgressHistory
 } = require('./ProcessModels');
+const { LabourWageHistory, WageChangeRequest, LabourSiteHistory } = require('./LabourWageModels');
 
 // Site associations
 Site.belongsTo(Organisation, { foreignKey: 'organisation_id', as: 'organisation' });
@@ -113,6 +114,20 @@ DailyPlan.belongsTo(Site, { foreignKey: 'site_id', as: 'site' });
 DailyPlan.belongsTo(User, { foreignKey: 'supervisor_id', as: 'supervisor' });
 Site.hasMany(DailyPlan, { foreignKey: 'site_id', as: 'dailyPlans' });
 
+// Wage history associations
+LabourWageHistory.belongsTo(Labour, { foreignKey: 'labour_id', as: 'labour' });
+LabourWageHistory.belongsTo(User, { foreignKey: 'changed_by', as: 'changedBy' });
+WageChangeRequest.belongsTo(Labour, { foreignKey: 'labour_id', as: 'labour' });
+WageChangeRequest.belongsTo(User, { foreignKey: 'supervisor_id', as: 'supervisor' });
+WageChangeRequest.belongsTo(User, { foreignKey: 'reviewed_by', as: 'reviewer' });
+
+// Labour site history associations
+LabourSiteHistory.belongsTo(Labour, { foreignKey: 'labour_id', as: 'labour' });
+LabourSiteHistory.belongsTo(Site, { foreignKey: 'site_id', as: 'site' });
+
+// Labour transfer from-site association
+LabourTransfer.belongsTo(Site, { foreignKey: 'from_site_id', as: 'fromSite' });
+
 module.exports = {
   User, Organisation, Site, Labour, Attendance,
   SalaryRecord, AdvancePayment, LabourTransfer, SiteLedger, ClientPayment,
@@ -129,4 +144,5 @@ module.exports = {
   SiteMaterial, ProcessMaster, ProcessArea,
   ProcessFlat, ProcessStep, ProcessStepMaterial,
   FlatProgress, FlatProgressHistory,
+  LabourWageHistory, WageChangeRequest, LabourSiteHistory,
 };
