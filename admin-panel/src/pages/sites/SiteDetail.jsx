@@ -107,7 +107,17 @@ function ImportModal({ siteId, onClose, onSuccess }) {
       <div className="space-y-4">
         <div className="p-3 rounded-lg" style={{ background: 'var(--bg3)' }}>
           <p className="text-sm mb-2" style={{ color: 'var(--muted)' }}>Step 1: Download the template, fill it, then upload</p>
-          <button onClick={() => window.open('/api/site-materials/template')} className="btn-outline text-sm">
+          <button onClick={async () => {
+            try {
+              const token = localStorage.getItem('dg_token')
+              const res = await api.get('/site-materials/template', { responseType: 'blob', headers: { Authorization: `Bearer ${token}` } })
+              const url = window.URL.createObjectURL(new Blob([res.data]))
+              const link = document.createElement('a')
+              link.href = url; link.setAttribute('download', 'material_import_template.xlsx')
+              document.body.appendChild(link); link.click(); link.remove()
+              window.URL.revokeObjectURL(url)
+            } catch { alert('Failed to download template') }
+          }} className="btn-outline text-sm">
             Download Template
           </button>
         </div>
@@ -229,6 +239,7 @@ export default function SiteDetail() {
   const [showMaterialModal, setShowMaterialModal] = useState(false)
   const [showImportModal, setShowImportModal] = useState(false)
   const [matCategoryFilter, setMatCategoryFilter] = useState('All')
+  const [materialSearch, setMaterialSearch] = useState('')
 
   // Process tab state
   const [processes, setProcesses] = useState([])
@@ -248,7 +259,12 @@ export default function SiteDetail() {
     } catch { toast.error('Failed to load') }
     setLoading(false)
   }
-  useEffect(() => { load() }, [id])
+  useEffect(() => {
+    load()
+    const urlParams = new URLSearchParams(window.location.search)
+    const tabFromUrl = urlParams.get('tab')
+    if (tabFromUrl) setActiveTab(tabFromUrl)
+  }, [id])
 
   // Fetch financials only when Financials tab is active and not yet loaded
   useEffect(() => {
@@ -283,6 +299,44 @@ export default function SiteDetail() {
     if (activeTab !== 'materials' || materialsLoaded) return
     fetchMaterials()
   }, [activeTab, id, materialsLoaded])
+
+  async function deleteProcess(processId) {
+    if (!confirm('Delete this process and all its data?')) return
+    try {
+      await api.delete(`/process-master/${processId}`)
+      toast.success('Process deleted')
+      setProcessLoaded(false)
+      fetchProcesses()
+    } catch { toast.error('Failed to delete') }
+  }
+
+  async function deleteMaterial(materialId) {
+    if (!confirm('Delete this material?')) return
+    try {
+      await api.delete(`/site-materials/${materialId}`)
+      toast.success('Material deleted')
+      setMaterialsLoaded(false)
+      fetchMaterials()
+    } catch { toast.error('Failed to delete') }
+  }
+
+  async function downloadTemplate() {
+    try {
+      const token = localStorage.getItem('dg_token')
+      const res = await api.get('/site-materials/template', {
+        responseType: 'blob',
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      const url = window.URL.createObjectURL(new Blob([res.data]))
+      const link = document.createElement('a')
+      link.href = url
+      link.setAttribute('download', 'material_import_template.xlsx')
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      window.URL.revokeObjectURL(url)
+    } catch { toast.error('Failed to download template') }
+  }
 
   const fetchProcesses = async () => {
     setProcessLoading(true)
@@ -456,10 +510,24 @@ export default function SiteDetail() {
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-semibold" style={{ color: 'var(--text)' }}>Site Materials</h3>
             <div className="flex gap-2">
-              <a href="/api/site-materials/template" download className="btn-outline text-sm">Download Template</a>
+              <button onClick={downloadTemplate} className="btn-outline text-sm">Download Template</button>
               <button onClick={() => setShowImportModal(true)} className="btn-outline text-sm">Import Excel</button>
               <button onClick={() => setShowMaterialModal(true)} className="btn-gold text-sm">+ Add Material</button>
             </div>
+          </div>
+
+          {/* Search bar */}
+          <div style={{ marginBottom: '12px', position: 'relative' }}>
+            <input
+              placeholder="Search by name, company, product, shade..."
+              value={materialSearch}
+              onChange={e => setMaterialSearch(e.target.value)}
+              style={{ width: '100%', background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: '8px', padding: '8px 12px 8px 36px', color: 'var(--text)', fontSize: '14px', boxSizing: 'border-box' }}
+            />
+            <span style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)', fontSize: '16px' }}>🔍</span>
+            {materialSearch && (
+              <button onClick={() => setMaterialSearch('')} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: '16px' }}>×</button>
+            )}
           </div>
 
           {/* Category filter */}
@@ -491,6 +559,18 @@ export default function SiteDetail() {
                 <tbody>
                   {materials
                     .filter(m => matCategoryFilter === 'All' || m.main_category === matCategoryFilter)
+                    .filter(m => {
+                      if (!materialSearch) return true
+                      const q = materialSearch.toLowerCase()
+                      return (
+                        m.full_name?.toLowerCase().includes(q) ||
+                        m.company_name?.toLowerCase().includes(q) ||
+                        m.product_name?.toLowerCase().includes(q) ||
+                        m.shade_name?.toLowerCase().includes(q) ||
+                        m.shade_code?.toLowerCase().includes(q) ||
+                        m.main_category?.toLowerCase().includes(q)
+                      )
+                    })
                     .map(m => (
                       <tr key={m.id} className="border-t" style={{ borderColor: 'var(--bg2)' }}>
                         <td className="px-3 py-2 font-medium" style={{ color: 'var(--text)' }}>{m.full_name}</td>
@@ -502,13 +582,7 @@ export default function SiteDetail() {
                         <td className="px-3 py-2" style={{ color: 'var(--muted)' }}>{m.packaging || '—'}</td>
                         <td className="px-3 py-2"><span className="badge-blue text-xs">{m.main_category}</span></td>
                         <td className="px-3 py-2">
-                          <button onClick={async () => {
-                            if (!confirm('Delete this material?')) return
-                            await api.delete(`/site-materials/${m.id}`)
-                            toast.success('Deleted')
-                            setMaterialsLoaded(false)
-                            fetchMaterials()
-                          }} className="text-red-400 hover:text-red-300 text-xs">×</button>
+                          <button onClick={() => deleteMaterial(m.id)} className="text-red-400 hover:text-red-300 text-xs">×</button>
                         </td>
                       </tr>
                     ))}
@@ -544,12 +618,15 @@ export default function SiteDetail() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {processes.map(pm => (
                 <div key={pm.id} className="card space-y-3">
-                  <div>
-                    <h4 className="font-semibold" style={{ color: 'var(--text)' }}>{pm.title}</h4>
-                    <div className="flex gap-2 mt-1">
-                      <span className="badge-blue text-xs">{WORK_TYPE_LABELS[pm.work_type] || pm.work_type_custom}</span>
-                      <StatusBadge status={pm.status} />
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <h4 className="font-semibold" style={{ color: 'var(--text)' }}>{pm.title}</h4>
+                      <div className="flex gap-2 mt-1">
+                        <span className="badge-blue text-xs">{WORK_TYPE_LABELS[pm.work_type] || pm.work_type_custom}</span>
+                        <StatusBadge status={pm.status} />
+                      </div>
                     </div>
+                    <button onClick={() => deleteProcess(pm.id)} className="text-red-400 hover:text-red-300 text-lg leading-none ml-2">×</button>
                   </div>
                   <div className="flex gap-2 mt-2">
                     <button onClick={() => navigate(`/sites/${id}/process/${pm.id}`)} className="btn-outline text-xs">

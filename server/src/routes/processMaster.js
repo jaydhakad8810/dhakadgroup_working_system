@@ -198,6 +198,17 @@ router.delete('/steps/:step_id/materials/:material_id', adminOnly, async (req, r
   } catch (err) { return res.status(500).json({ error: err.message }) }
 })
 
+// DELETE /api/process-master/:id
+router.delete('/:id', adminOnly, async (req, res) => {
+  try {
+    const { ProcessMaster } = require('../models')
+    const process = await ProcessMaster.findByPk(req.params.id)
+    if (!process) return res.status(404).json({ error: 'Not found' })
+    await process.destroy()
+    return res.json({ success: true })
+  } catch (err) { return res.status(500).json({ error: err.message }) }
+})
+
 // PATCH /api/process-master/:id/status
 router.patch('/:id/status', adminOnly, async (req, res) => {
   try {
