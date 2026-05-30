@@ -2,7 +2,8 @@ const express = require('express')
 const router = express.Router()
 const multer = require('multer')
 const upload = multer({ storage: multer.memoryStorage() })
-const { adminOnly, supervisorOrAdmin } = require('../middleware/auth')
+const { auth, adminOnly, supervisorOrAdmin } = require('../middleware/auth')
+router.use(auth);
 
 // GET /api/site-materials?site_id=X
 router.get('/', supervisorOrAdmin, async (req, res) => {

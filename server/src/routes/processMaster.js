@@ -1,6 +1,7 @@
 const express = require('express')
 const router = express.Router()
-const { adminOnly, supervisorOrAdmin } = require('../middleware/auth')
+const { auth, adminOnly, supervisorOrAdmin } = require('../middleware/auth')
+router.use(auth);
 
 // GET /api/process-master?site_id=X
 router.get('/', supervisorOrAdmin, async (req, res) => {
