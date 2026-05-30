@@ -780,174 +780,139 @@ function PhotoCaptureCard({ labour, photoUrl, onPhotoCapture, uploading }) {
 }
 
 // ─── CheckoutItemCard ─────────────────────────────────────────────────────────
-function CheckoutItemCard({ item, onUpdate, extraMaterials, onAddExtra, onRemoveExtra, onUpdateExtra }) {
-  const itemExtras = extraMaterials[item.id] || []
-  const allFlats = item.flat_nos || []
-  const completedFlats = item.completed_flat_nos || []
-  const statusOptions = [
-    { value: 'done',          label: 'Done',      cls: 'bg-green-500 text-white' },
-    { value: 'carry_forward', label: 'Carry Fwd', cls: 'bg-orange-500 text-white' },
-    { value: 'partial',       label: 'Partial',   cls: 'bg-yellow-500 text-white' },
-  ]
+function CheckoutItemCard({ item, onUpdate }) {
+  const PERCENTAGES = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100]
+
   return (
-    <div className="card" style={{ borderLeft: '3px solid #F97316' }}>
+    <div style={{
+      background: '#111', borderRadius: '12px',
+      border: '1px solid #222', marginBottom: '14px',
+      overflow: 'hidden'
+    }}>
       {/* Header */}
-      <div className="mb-3">
-        {item.group_name && <p className="text-orange-400 font-bold text-sm">{item.group_name}</p>}
-        <p className="text-gray-400 text-xs mt-0.5">{item.step_name || 'Task'}</p>
-        {item.material_name && (
-          <p className="text-gray-500 text-xs mt-1">
-            {item.material_name}
-            {item.estimated_qty && <span className="text-gray-600"> · Est. {item.estimated_qty} {item.unit}</span>}
-          </p>
+      <div style={{
+        padding: '12px 14px', background: '#1a1a1a',
+        borderBottom: '1px solid #222'
+      }}>
+        <div style={{ color: '#FF8C00', fontWeight: 'bold', fontSize: '14px' }}>
+          {item.flat_no || item.flat_nos?.[0] || 'Flat'}
+          {item.bhk_type && (
+            <span style={{ color: '#888', fontWeight: 'normal', fontSize: '12px', marginLeft: '6px' }}>
+              {item.bhk_type}
+            </span>
+          )}
+        </div>
+        <div style={{ color: '#ccc', fontSize: '13px', marginTop: '2px' }}>
+          {item.step_name || 'Task'}
+        </div>
+        {(item.labour_names?.length > 0 || item.labour_ids?.length > 0) && (
+          <div style={{ color: '#666', fontSize: '12px', marginTop: '2px' }}>
+            👷 {item.labour_names?.join(', ') || `${item.labour_ids?.length} labourers`}
+          </div>
         )}
       </div>
 
-      {/* Flat toggles — all selected by default */}
-      {allFlats.length > 0 && (
-        <div className="mb-3">
-          <label className="label">Flats Done Today</label>
-          <div className="flex flex-wrap gap-2">
-            {allFlats.map(flat => {
-              const isDone = completedFlats.includes(flat)
-              return (
-                <button
-                  key={flat}
-                  type="button"
-                  onClick={() => {
-                    const next = isDone
-                      ? completedFlats.filter(f => f !== flat)
-                      : [...completedFlats, flat]
-                    onUpdate(item.id, { completed_flat_nos: next })
+      <div style={{ padding: '14px' }}>
+        {/* Done percentage selector */}
+        <div style={{ marginBottom: '14px' }}>
+          <label style={{ color: '#888', fontSize: '12px', display: 'block', marginBottom: '8px' }}>
+            Work Completed
+          </label>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: '6px' }}>
+            {PERCENTAGES.map(pct => (
+              <button
+                key={pct}
+                onClick={() => onUpdate(item.id, {
+                  done_percentage: pct,
+                  status: pct === 100 ? 'done' : 'in_progress'
+                })}
+                style={{
+                  padding: '8px 4px',
+                  borderRadius: '8px',
+                  border: item.done_percentage === pct ? '2px solid #FF8C00' : '1px solid #333',
+                  background: item.done_percentage === pct
+                    ? pct === 100 ? '#14532d' : '#1a1200'
+                    : '#1a1a1a',
+                  color: item.done_percentage === pct
+                    ? pct === 100 ? '#22c55e' : '#FF8C00'
+                    : '#666',
+                  fontSize: '12px', fontWeight: 'bold', cursor: 'pointer'
+                }}>
+                {pct === 100 ? 'DONE' : `${pct}%`}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Materials used */}
+        {(item.materials?.length > 0) && (
+          <div style={{ marginBottom: '14px' }}>
+            <label style={{ color: '#888', fontSize: '12px', display: 'block', marginBottom: '8px' }}>
+              Materials Used
+            </label>
+            {item.materials.map((mat, idx) => (
+              <div key={idx} style={{
+                display: 'flex', alignItems: 'center', gap: '8px',
+                marginBottom: '8px'
+              }}>
+                <span style={{ flex: 2, color: '#ccc', fontSize: '13px' }}>
+                  {mat.material_name}
+                </span>
+                <input
+                  type="number"
+                  placeholder="Qty used"
+                  value={mat.actual_qty || ''}
+                  onChange={e => {
+                    const updated = [...item.materials]
+                    updated[idx] = { ...updated[idx], actual_qty: e.target.value }
+                    onUpdate(item.id, { materials: updated })
                   }}
-                  className={`px-3 py-1 rounded-lg text-xs font-medium transition-all active:scale-95 ${isDone ? 'bg-primary-500 text-white' : 'bg-surface-400 text-gray-500 border border-white/10'}`}
-                >
-                  {flat}
-                </button>
-              )
-            })}
+                  style={{
+                    flex: 1, background: '#111', color: '#fff',
+                    border: '1px solid #333', borderRadius: '8px',
+                    padding: '8px', fontSize: '14px'
+                  }}
+                />
+                <span style={{ color: '#888', fontSize: '12px', minWidth: '30px' }}>
+                  {mat.unit}
+                </span>
+              </div>
+            ))}
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Actual qty */}
-      <div className="grid grid-cols-2 gap-2 mb-3">
-        <div>
-          <label className="label">Actual Qty *</label>
-          <input
-            type="number"
-            className="input"
-            placeholder="0"
-            value={item.actual_qty || ''}
-            onChange={e => onUpdate(item.id, { actual_qty: e.target.value })}
-          />
-        </div>
-        <div>
-          <label className="label">Unit</label>
-          <input className="input text-gray-500" value={item.unit || ''} readOnly />
-        </div>
-      </div>
-
-      {/* Extra material rows */}
-      {itemExtras.map((extra, idx) => (
-        <div key={idx} className="flex gap-2 mb-2 items-end">
-          <div className="flex-1">
-            {idx === 0 && <label className="label">Extra Material</label>}
-            <input
-              className="input"
-              placeholder="Material name"
-              value={extra.material_name}
-              onChange={e => onUpdateExtra(item.id, idx, 'material_name', e.target.value)}
-            />
-          </div>
-          <div className="w-20">
-            {idx === 0 && <label className="label">Qty</label>}
-            <input
-              type="number"
-              className="input"
-              placeholder="0"
-              value={extra.qty}
-              onChange={e => onUpdateExtra(item.id, idx, 'qty', e.target.value)}
-            />
-          </div>
-          <div className="w-16">
-            {idx === 0 && <label className="label">Unit</label>}
-            <input
-              className="input"
-              placeholder="unit"
-              value={extra.unit}
-              onChange={e => onUpdateExtra(item.id, idx, 'unit', e.target.value)}
-            />
-          </div>
+        {/* Carry forward option */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 0' }}>
           <button
-            type="button"
-            onClick={() => onRemoveExtra(item.id, idx)}
-            className="p-2 text-red-400 hover:text-red-300 transition-colors shrink-0"
-          >
-            <X size={15} />
-          </button>
-        </div>
-      ))}
-      <button
-        type="button"
-        onClick={() => onAddExtra(item.id)}
-        className="text-xs text-primary-400 flex items-center gap-1 mb-3 transition-all active:scale-95"
-      >
-        <Plus size={13} />
-        Add Extra Material
-      </button>
-
-      {/* Status */}
-      <div className="mb-3">
-        <label className="label">Status</label>
-        <div className="flex gap-2">
-          {statusOptions.map(opt => (
-            <button
-              key={opt.value}
-              type="button"
-              onClick={() => onUpdate(item.id, { status: opt.value })}
-              className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-all active:scale-95 ${item.status === opt.value ? opt.cls : 'bg-surface-400 text-gray-400 border border-white/10'}`}
-            >
-              {opt.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Partial flat selector */}
-      {item.status === 'partial' && allFlats.length > 0 && (
-        <div className="mb-3">
-          <label className="label">Completed Flats (Partial)</label>
-          <div className="flex flex-wrap gap-2">
-            {allFlats.map(flat => {
-              const selected = (item.partial_flat_nos || []).includes(flat)
-              return (
-                <button
-                  key={flat}
-                  type="button"
-                  onClick={() => {
-                    const curr = item.partial_flat_nos || []
-                    const next = selected ? curr.filter(f => f !== flat) : [...curr, flat]
-                    onUpdate(item.id, { partial_flat_nos: next })
-                  }}
-                  className={`px-3 py-1 rounded-lg text-xs font-medium transition-all active:scale-95 ${selected ? 'bg-yellow-500 text-white' : 'bg-surface-400 text-gray-400 border border-white/10'}`}
-                >
-                  {flat}
-                </button>
-              )
+            onClick={() => onUpdate(item.id, {
+              status: item.status === 'carry_forward' ? 'in_progress' : 'carry_forward',
+              done_percentage: item.status === 'carry_forward' ? item.done_percentage : 0
             })}
-          </div>
+            style={{
+              padding: '6px 12px', borderRadius: '8px', fontSize: '12px',
+              border: item.status === 'carry_forward' ? '1px solid #f97316' : '1px solid #333',
+              background: item.status === 'carry_forward' ? '#431407' : '#1a1a1a',
+              color: item.status === 'carry_forward' ? '#f97316' : '#666',
+              cursor: 'pointer'
+            }}>
+            ↩ Carry Forward
+          </button>
+          <span style={{ color: '#555', fontSize: '12px' }}>
+            {item.status === 'carry_forward' ? "Will appear in tomorrow's plan" : 'Mark if not completing today'}
+          </span>
         </div>
-      )}
 
-      {/* Notes */}
-      <div>
-        <label className="label">Notes</label>
+        {/* Notes */}
         <input
-          className="input"
-          placeholder="Any checkout notes..."
+          placeholder="Notes (optional)"
           value={item.checkout_notes || ''}
           onChange={e => onUpdate(item.id, { checkout_notes: e.target.value })}
+          style={{
+            width: '100%', background: '#111', color: '#fff',
+            border: '1px solid #222', borderRadius: '8px',
+            padding: '8px', fontSize: '13px',
+            marginTop: '8px', boxSizing: 'border-box'
+          }}
         />
       </div>
     </div>
@@ -1292,23 +1257,16 @@ export default function DailyPlan() {
     setView('attend')
   }
 
-  async function initializeCheckoutItems() {
-    let items = todayPlan?.items
-    if (!items) {
-      try {
-        const res = await api.get(`/daily-plans?site_id=${siteId}&date=${todayPlan?.date || TODAY}`)
-        items = res.data?.plan?.items
-      } catch {}
-    }
-    setCheckoutItems((items || []).map(item => ({
+  function initializeCheckoutItems() {
+    if (!todayPlan?.items) return
+    const items = todayPlan.items.map(item => ({
       ...item,
-      completed_flat_nos: item.flat_nos || [],
-      actual_qty: '',
-      status: 'done',
-      partial_flat_nos: [],
-      checkout_notes: '',
-    })))
-    setExtraMaterials({})
+      flat_no: item.flat_nos?.[0] || item.flat_no || '',
+      done_percentage: 0,
+      status: 'pending',
+      materials: (item.materials || []).map(m => ({ ...m, actual_qty: '' }))
+    }))
+    setCheckoutItems(items)
     setCheckoutStep(1)
   }
 
@@ -1360,16 +1318,30 @@ export default function DailyPlan() {
       const token = sessionStorage.getItem('sv_token') || localStorage.getItem('sv_token')
       const headers = { Authorization: `Bearer ${token}` }
 
-      await Promise.allSettled(
-        checkoutItems.map(item =>
-          api.patch(`/daily-plans/items/${item.id}/checkout`, {
-            actual_qty: parseFloat(item.actual_qty) || 0,
-            status: item.status,
-            partial_flat_nos: item.status === 'partial' ? (item.partial_flat_nos || []) : [],
+      for (const item of checkoutItems) {
+        await api.patch(
+          `/daily-plans/items/${item.id}/checkout`,
+          {
+            actual_qty: item.materials?.[0] ? parseFloat(item.materials[0].actual_qty || 0) : 0,
+            status: item.status === 'carry_forward'
+              ? 'carry_forward'
+              : item.done_percentage >= 100 ? 'done' : 'partial',
+            done_percentage: item.done_percentage || 0,
+            partial_flat_nos: item.done_percentage < 100 ? item.flat_nos || [] : [],
             checkout_notes: item.checkout_notes || '',
-          }, { headers })
+            date_worked: todayPlan.date,
+            process_step_id: item.process_step_id,
+            process_id: item.process_id,
+            labour_ids: item.labour_ids || [],
+            materials: item.materials?.map(m => ({
+              material_name: m.material_name,
+              quantity_used: parseFloat(m.actual_qty || 0),
+              unit: m.unit
+            })) || []
+          },
+          { headers }
         )
-      )
+      }
 
       const date = todayPlan?.date || TODAY
       try {
@@ -1725,10 +1697,6 @@ export default function DailyPlan() {
                 key={item.id}
                 item={item}
                 onUpdate={updateCheckoutItem}
-                extraMaterials={extraMaterials}
-                onAddExtra={addExtraMaterial}
-                onRemoveExtra={removeExtraMaterial}
-                onUpdateExtra={updateExtraMaterial}
               />
             ))
           )}
@@ -1742,9 +1710,8 @@ export default function DailyPlan() {
             </button>
             <button
               onClick={() => {
-                const invalid = checkoutItems.filter(i => i.material_name && !i.actual_qty)
-                if (invalid.length > 0) {
-                  toast.error(`Enter actual qty for: ${invalid[0].step_name || 'task'}`)
+                if (checkoutItems.every(i => !i.done_percentage || i.done_percentage === 0)) {
+                  toast.error('Mark completion percentage for at least one task')
                   return
                 }
                 setCheckoutStep(2)
