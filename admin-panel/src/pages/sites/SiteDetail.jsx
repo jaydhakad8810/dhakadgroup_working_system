@@ -1,12 +1,205 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Edit, MapPin, Loader2 } from 'lucide-react'
+import { ArrowLeft, Edit, MapPin, Loader2, X } from 'lucide-react'
 import api from '../../utils/api'
 import { LoadingPage, StatusBadge, Modal, InfoRow } from '../../components/ui'
 import { PhotoUpload } from '../../components/ui/PhotoUpload'
 import toast from 'react-hot-toast'
 
 const fmt = (v) => `₹${parseFloat(v || 0).toLocaleString('en-IN')}`
+
+// ── AddMaterialModal ────────────────────────────────────────────────────────
+function AddMaterialModal({ siteId, onClose, onSuccess }) {
+  const [form, setForm] = useState({
+    company_name: '', product_name: '', shade_name: '',
+    shade_code: '', unit: 'Kg', packaging: '', main_category: 'Paints'
+  })
+  const [saving, setSaving] = useState(false)
+  const f = (k, v) => setForm(p => ({ ...p, [k]: v }))
+
+  const previewParts = [form.company_name, form.product_name, form.shade_name, form.shade_code].filter(Boolean)
+  const preview = previewParts.length ? previewParts.join(' - ') : '—'
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    setSaving(true)
+    try {
+      await api.post('/site-materials', { ...form, site_id: siteId })
+      toast.success('Material added')
+      onSuccess()
+      onClose()
+    } catch { toast.error('Failed to add material') }
+    setSaving(false)
+  }
+
+  return (
+    <Modal open onClose={onClose} title="Add Material" size="lg">
+      <form onSubmit={handleSubmit} className="space-y-3">
+        <div>
+          <label className="label">Main Category</label>
+          <select className="select" value={form.main_category} onChange={e => f('main_category', e.target.value)}>
+            <option>Paints</option><option>Painting Kit</option><option>Other Material</option>
+          </select>
+        </div>
+        <div>
+          <label className="label">Company Name *</label>
+          <input className="input" required value={form.company_name} onChange={e => f('company_name', e.target.value)} placeholder="e.g. Asian Paints, Birla White, Dulux" />
+        </div>
+        <div>
+          <label className="label">Product Name *</label>
+          <input className="input" required value={form.product_name} onChange={e => f('product_name', e.target.value)} placeholder="e.g. Putty, Primer, Interior Paint" />
+        </div>
+        <div>
+          <label className="label">Shade Name</label>
+          <input className="input" value={form.shade_name} onChange={e => f('shade_name', e.target.value)} placeholder="e.g. Fine Putty, SPARC Internal" />
+        </div>
+        <div>
+          <label className="label">Shade Code</label>
+          <input className="input" value={form.shade_code} onChange={e => f('shade_code', e.target.value)} placeholder="e.g. 001, W-102" />
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="label">Unit *</label>
+            <select className="select" value={form.unit} onChange={e => f('unit', e.target.value)}>
+              <option>Kg</option><option>Ltr</option><option>Nos</option><option>Pcs</option>
+            </select>
+          </div>
+          <div>
+            <label className="label">Packaging</label>
+            <input className="input" value={form.packaging} onChange={e => f('packaging', e.target.value)} placeholder="e.g. 40" />
+          </div>
+        </div>
+        <div className="p-3 rounded-lg border" style={{ background: 'var(--bg3)', borderColor: '#b8962e' }}>
+          <p className="text-xs mb-1" style={{ color: 'var(--muted)' }}>Final Name Preview:</p>
+          <p className="font-semibold text-gold-400">{preview}</p>
+        </div>
+        <div className="flex gap-3 justify-end pt-2">
+          <button type="button" onClick={onClose} className="btn-ghost">Cancel</button>
+          <button type="submit" disabled={saving} className="btn-gold">{saving ? 'Saving...' : 'Add Material'}</button>
+        </div>
+      </form>
+    </Modal>
+  )
+}
+
+// ── ImportModal ─────────────────────────────────────────────────────────────
+function ImportModal({ siteId, onClose, onSuccess }) {
+  const [file, setFile] = useState(null)
+  const [importing, setImporting] = useState(false)
+  const [result, setResult] = useState(null)
+
+  const handleImport = async () => {
+    if (!file) return
+    setImporting(true)
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      fd.append('site_id', siteId)
+      const res = await api.post('/site-materials/import', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
+      setResult(res.data)
+      onSuccess()
+    } catch { toast.error('Import failed') }
+    setImporting(false)
+  }
+
+  return (
+    <Modal open onClose={onClose} title="Import Materials from Excel" size="md">
+      <div className="space-y-4">
+        <div className="p-3 rounded-lg" style={{ background: 'var(--bg3)' }}>
+          <p className="text-sm mb-2" style={{ color: 'var(--muted)' }}>Step 1: Download the template, fill it, then upload</p>
+          <button onClick={() => window.open('/api/site-materials/template')} className="btn-outline text-sm">
+            Download Template
+          </button>
+        </div>
+        {!result ? (
+          <>
+            <div>
+              <label className="label">Step 2: Upload filled Excel file</label>
+              <input type="file" accept=".xlsx,.xls" className="input" onChange={e => setFile(e.target.files[0])} />
+            </div>
+            <div className="flex gap-3 justify-end">
+              <button onClick={onClose} className="btn-ghost">Cancel</button>
+              <button onClick={handleImport} disabled={!file || importing} className="btn-gold">
+                {importing ? <><Loader2 size={14} className="animate-spin inline mr-1" />Importing...</> : 'Import'}
+              </button>
+            </div>
+          </>
+        ) : (
+          <div className="space-y-3">
+            <p className="text-green-400 font-semibold">✓ {result.imported} materials imported</p>
+            {result.errors?.length > 0 && (
+              <div className="space-y-1">
+                <p className="text-sm text-red-400 font-medium">Errors ({result.errors.length}):</p>
+                {result.errors.map((e, i) => (
+                  <p key={i} className="text-xs" style={{ color: 'var(--muted)' }}>Row {e.row}: {e.error}</p>
+                ))}
+              </div>
+            )}
+            <div className="flex justify-end">
+              <button onClick={onClose} className="btn-gold">Done</button>
+            </div>
+          </div>
+        )}
+      </div>
+    </Modal>
+  )
+}
+
+// ── CreateProcessModal ───────────────────────────────────────────────────────
+function CreateProcessModal({ siteId, onClose }) {
+  const navigate = useNavigate()
+  const [form, setForm] = useState({ title: '', work_type: 'internal', work_type_custom: '', notes: '' })
+  const [saving, setSaving] = useState(false)
+  const f = (k, v) => setForm(p => ({ ...p, [k]: v }))
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    setSaving(true)
+    try {
+      const res = await api.post('/process-master', { ...form, site_id: siteId })
+      toast.success('Process created')
+      navigate(`/sites/${siteId}/process/${res.data.id}`)
+    } catch { toast.error('Failed to create process') }
+    setSaving(false)
+  }
+
+  return (
+    <Modal open onClose={onClose} title="New Process Master" size="md">
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div>
+          <label className="label">Title *</label>
+          <input className="input" required value={form.title} onChange={e => f('title', e.target.value)} placeholder="e.g. Tower A - Internal Work" />
+        </div>
+        <div>
+          <label className="label">Work Type *</label>
+          <select className="select" value={form.work_type} onChange={e => f('work_type', e.target.value)}>
+            <option value="internal">Internal</option>
+            <option value="external">External</option>
+            <option value="oil">Oil Paint</option>
+            <option value="gypsum">Gypsum</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+        {form.work_type === 'other' && (
+          <div>
+            <label className="label">Custom Work Type Name</label>
+            <input className="input" value={form.work_type_custom} onChange={e => f('work_type_custom', e.target.value)} placeholder="Describe the work type" />
+          </div>
+        )}
+        <div>
+          <label className="label">Notes</label>
+          <textarea className="input" rows={2} value={form.notes} onChange={e => f('notes', e.target.value)} />
+        </div>
+        <div className="flex gap-3 justify-end">
+          <button type="button" onClick={onClose} className="btn-ghost">Cancel</button>
+          <button type="submit" disabled={saving} className="btn-gold">{saving ? 'Creating...' : 'Create Process'}</button>
+        </div>
+      </form>
+    </Modal>
+  )
+}
+
+const WORK_TYPE_LABELS = { internal: 'Internal', external: 'External', oil: 'Oil Paint', gypsum: 'Gypsum', other: 'Other' }
 
 export default function SiteDetail() {
   const { id } = useParams()
@@ -28,6 +221,20 @@ export default function SiteDetail() {
   const [financialsLoading, setFinancialsLoading] = useState(false)
   const [newLedgerSummary, setNewLedgerSummary] = useState(null)
   const [clientSummary, setClientSummary] = useState(null)
+
+  // Materials tab state
+  const [materials, setMaterials] = useState([])
+  const [materialsLoading, setMaterialsLoading] = useState(false)
+  const [materialsLoaded, setMaterialsLoaded] = useState(false)
+  const [showMaterialModal, setShowMaterialModal] = useState(false)
+  const [showImportModal, setShowImportModal] = useState(false)
+  const [matCategoryFilter, setMatCategoryFilter] = useState('All')
+
+  // Process tab state
+  const [processes, setProcesses] = useState([])
+  const [processLoading, setProcessLoading] = useState(false)
+  const [processLoaded, setProcessLoaded] = useState(false)
+  const [showProcessModal, setShowProcessModal] = useState(false)
 
   const load = async () => {
     try {
@@ -61,6 +268,36 @@ export default function SiteDetail() {
     }
     fetchFinancials()
   }, [activeTab, id, financialsLoaded])
+
+  const fetchMaterials = async () => {
+    setMaterialsLoading(true)
+    try {
+      const res = await api.get(`/site-materials?site_id=${id}`)
+      setMaterials(res.data || [])
+      setMaterialsLoaded(true)
+    } catch {}
+    setMaterialsLoading(false)
+  }
+
+  useEffect(() => {
+    if (activeTab !== 'materials' || materialsLoaded) return
+    fetchMaterials()
+  }, [activeTab, id, materialsLoaded])
+
+  const fetchProcesses = async () => {
+    setProcessLoading(true)
+    try {
+      const res = await api.get(`/process-master?site_id=${id}`)
+      setProcesses(res.data || [])
+      setProcessLoaded(true)
+    } catch {}
+    setProcessLoading(false)
+  }
+
+  useEffect(() => {
+    if (activeTab !== 'process' || processLoaded) return
+    fetchProcesses()
+  }, [activeTab, id, processLoaded])
 
   const handleSave = async (e) => {
     e.preventDefault(); setSaving(true)
@@ -99,7 +336,7 @@ export default function SiteDetail() {
 
       {/* Tab navigation */}
       <div className="flex gap-1 p-1 rounded-xl w-fit" style={{ background: 'var(--bg2)' }}>
-        {[['overview', 'Overview'], ['financials', 'Financials']].map(([key, label]) => (
+        {[['overview', 'Overview'], ['financials', 'Financials'], ['materials', 'Materials'], ['process', 'Process Master']].map(([key, label]) => (
           <button key={key} onClick={() => setActiveTab(key)}
             className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${activeTab === key ? 'bg-gold-500 text-dark-950' : 'text-gray-400 hover:text-white'}`}>
             {label}
@@ -209,6 +446,128 @@ export default function SiteDetail() {
                 </button>
               </div>
             </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Materials Tab ── */}
+      {activeTab === 'materials' && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold" style={{ color: 'var(--text)' }}>Site Materials</h3>
+            <div className="flex gap-2">
+              <a href="/api/site-materials/template" download className="btn-outline text-sm">Download Template</a>
+              <button onClick={() => setShowImportModal(true)} className="btn-outline text-sm">Import Excel</button>
+              <button onClick={() => setShowMaterialModal(true)} className="btn-gold text-sm">+ Add Material</button>
+            </div>
+          </div>
+
+          {/* Category filter */}
+          <div className="flex gap-1 p-1 rounded-xl w-fit" style={{ background: 'var(--bg2)' }}>
+            {['All', 'Paints', 'Painting Kit', 'Other Material'].map(cat => (
+              <button key={cat} onClick={() => setMatCategoryFilter(cat)}
+                className={`px-3 py-1 rounded-lg text-sm font-medium transition-all ${matCategoryFilter === cat ? 'bg-gold-500 text-dark-950' : 'text-gray-400 hover:text-white'}`}>
+                {cat}
+              </button>
+            ))}
+          </div>
+
+          {materialsLoading ? (
+            <div className="flex justify-center py-12"><Loader2 size={32} className="animate-spin text-gold-500" /></div>
+          ) : materials.length === 0 ? (
+            <div className="card text-center py-12">
+              <p style={{ color: 'var(--muted)' }}>No materials yet. Add materials or import from Excel.</p>
+            </div>
+          ) : (
+            <div className="card overflow-x-auto p-0">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr style={{ background: 'var(--bg2)' }}>
+                    {['Full Name','Company','Product','Shade','Code','Unit','Pkg','Category',''].map(h => (
+                      <th key={h} className="px-3 py-2 text-left text-xs font-medium" style={{ color: 'var(--muted)' }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {materials
+                    .filter(m => matCategoryFilter === 'All' || m.main_category === matCategoryFilter)
+                    .map(m => (
+                      <tr key={m.id} className="border-t" style={{ borderColor: 'var(--bg2)' }}>
+                        <td className="px-3 py-2 font-medium" style={{ color: 'var(--text)' }}>{m.full_name}</td>
+                        <td className="px-3 py-2" style={{ color: 'var(--muted)' }}>{m.company_name}</td>
+                        <td className="px-3 py-2" style={{ color: 'var(--muted)' }}>{m.product_name}</td>
+                        <td className="px-3 py-2" style={{ color: 'var(--muted)' }}>{m.shade_name || '—'}</td>
+                        <td className="px-3 py-2" style={{ color: 'var(--muted)' }}>{m.shade_code || '—'}</td>
+                        <td className="px-3 py-2" style={{ color: 'var(--muted)' }}>{m.unit}</td>
+                        <td className="px-3 py-2" style={{ color: 'var(--muted)' }}>{m.packaging || '—'}</td>
+                        <td className="px-3 py-2"><span className="badge-blue text-xs">{m.main_category}</span></td>
+                        <td className="px-3 py-2">
+                          <button onClick={async () => {
+                            if (!confirm('Delete this material?')) return
+                            await api.delete(`/site-materials/${m.id}`)
+                            toast.success('Deleted')
+                            setMaterialsLoaded(false)
+                            fetchMaterials()
+                          }} className="text-red-400 hover:text-red-300 text-xs">×</button>
+                        </td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {showMaterialModal && (
+            <AddMaterialModal siteId={id} onClose={() => setShowMaterialModal(false)} onSuccess={() => { setMaterialsLoaded(false); fetchMaterials() }} />
+          )}
+          {showImportModal && (
+            <ImportModal siteId={id} onClose={() => setShowImportModal(false)} onSuccess={() => { setMaterialsLoaded(false); fetchMaterials() }} />
+          )}
+        </div>
+      )}
+
+      {/* ── Process Master Tab ── */}
+      {activeTab === 'process' && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold" style={{ color: 'var(--text)' }}>Process Master</h3>
+            <button onClick={() => setShowProcessModal(true)} className="btn-gold text-sm">+ New Process</button>
+          </div>
+
+          {processLoading ? (
+            <div className="flex justify-center py-12"><Loader2 size={32} className="animate-spin text-gold-500" /></div>
+          ) : processes.length === 0 ? (
+            <div className="card text-center py-12">
+              <p style={{ color: 'var(--muted)' }}>No processes yet. Create one to start tracking work.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {processes.map(pm => (
+                <div key={pm.id} className="card space-y-3">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <h4 className="font-semibold" style={{ color: 'var(--text)' }}>{pm.title}</h4>
+                      <div className="flex gap-2 mt-1">
+                        <span className="badge-blue text-xs">{WORK_TYPE_LABELS[pm.work_type] || pm.work_type_custom}</span>
+                        <StatusBadge status={pm.status} />
+                      </div>
+                    </div>
+                    <button onClick={() => navigate(`/sites/${id}/process/${pm.id}`)} className="btn-outline text-xs">
+                      View / Edit
+                    </button>
+                  </div>
+                  <div className="flex gap-4 text-xs" style={{ color: 'var(--muted)' }}>
+                    <span>{pm.areas?.length || 0} areas</span>
+                    <span>{pm.flats?.length || 0} flats</span>
+                    <span>{pm.steps?.length || 0} steps</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {showProcessModal && (
+            <CreateProcessModal siteId={id} onClose={() => setShowProcessModal(false)} />
           )}
         </div>
       )}

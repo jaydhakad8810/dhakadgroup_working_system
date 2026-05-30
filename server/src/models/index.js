@@ -16,6 +16,11 @@ const { Driver, Vehicle, Trip } = require('./DriverModels');
 const { MaterialRequest, WebsiteContent, WebsiteProject } = require('./WebsiteModels');
 const { WorkOrder, WorkOrderStep, WorkOrderFlat, WorkOrderMaterial, WorkOrderHint } = require('./WorkOrderModels');
 const { DailyPlan, DailyPlanItem } = require('./DailyPlanModels');
+const {
+  SiteMaterial, ProcessMaster, ProcessArea,
+  ProcessFlat, ProcessStep, ProcessStepMaterial,
+  FlatProgress, FlatProgressHistory
+} = require('./ProcessModels');
 
 // Site associations
 Site.belongsTo(Organisation, { foreignKey: 'organisation_id', as: 'organisation' });
@@ -99,6 +104,10 @@ LabourGroup.belongsTo(User, { foreignKey: 'created_by', as: 'creator' });
 Site.hasMany(LabourGroup, { foreignKey: 'site_id', as: 'labourGroups' });
 LabourGroupMember.belongsTo(Labour, { foreignKey: 'labour_id', as: 'labour' });
 
+// Process cross-model associations
+ProcessStepMaterial.belongsTo(SiteMaterial, { foreignKey: 'site_material_id', as: 'siteMaterial' });
+ProcessFlat.belongsTo(ProcessArea, { foreignKey: 'area_id', as: 'area' });
+
 // Daily Plan cross-model associations
 DailyPlan.belongsTo(Site, { foreignKey: 'site_id', as: 'site' });
 DailyPlan.belongsTo(User, { foreignKey: 'supervisor_id', as: 'supervisor' });
@@ -117,4 +126,7 @@ module.exports = {
   WorkOrder, WorkOrderStep, WorkOrderFlat, WorkOrderMaterial, WorkOrderHint,
   LabourGroup, LabourGroupMember,
   DailyPlan, DailyPlanItem,
+  SiteMaterial, ProcessMaster, ProcessArea,
+  ProcessFlat, ProcessStep, ProcessStepMaterial,
+  FlatProgress, FlatProgressHistory,
 };
