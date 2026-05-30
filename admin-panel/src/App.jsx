@@ -9,6 +9,7 @@ import Login from './pages/auth/Login'
 import Dashboard from './pages/dashboard/Dashboard'
 import Sites from './pages/sites/Sites'
 import SiteDetail from './pages/sites/SiteDetail'
+import ProcessMasterDetail from './pages/sites/ProcessMasterDetail'
 import Labour from './pages/labour/Labour'
 import LabourDetail from './pages/labour/LabourDetail'
 import Attendance from './pages/attendance/Attendance'
@@ -60,6 +61,7 @@ export default function App() {
             <Route path="dashboard" element={<Dashboard />} />
             <Route path="sites" element={<Sites />} />
             <Route path="sites/:id" element={<SiteDetail />} />
+            <Route path="sites/:siteId/process/:processId" element={<ProcessMasterDetail />} />
             <Route path="labour" element={<Labour />} />
             <Route path="labour/:id" element={<LabourDetail />} />
             <Route path="attendance" element={<Attendance />} />

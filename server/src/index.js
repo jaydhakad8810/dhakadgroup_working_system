@@ -49,6 +49,8 @@ app.use('/api/recycle-bin', require('./routes/recycleBin'));
 app.use('/api/workorders', require('./routes/workOrderRoutes'));
 app.use('/api/labour-groups', require('./routes/labourGroups'));
 app.use('/api/daily-plans', require('./routes/dailyPlans'));
+app.use('/api/site-materials', require('./routes/siteMaterials'));
+app.use('/api/process-master', require('./routes/processMaster'));
 
 app.get('/health', (_req, res) => res.json({ status: 'OK', time: new Date() }));
 
