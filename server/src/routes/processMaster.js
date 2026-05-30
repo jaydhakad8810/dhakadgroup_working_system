@@ -22,6 +22,40 @@ router.get('/', supervisorOrAdmin, async (req, res) => {
   } catch (err) { return res.status(500).json({ error: err.message }) }
 })
 
+// GET /api/process-master/for-planning?site_id=X
+router.get('/for-planning', supervisorOrAdmin, async (req, res) => {
+  try {
+    const { ProcessMaster, ProcessStep, ProcessFlat, ProcessArea, ProcessStepMaterial, SiteMaterial } = require('../models')
+    const { site_id } = req.query
+    if (!site_id) return res.status(400).json({ error: 'site_id required' })
+    const processes = await ProcessMaster.findAll({
+      where: { site_id, status: 'active' },
+      include: [
+        {
+          model: ProcessStep, as: 'steps',
+          attributes: ['id','step_name','coat_count','sequence_order'],
+          include: [{
+            model: ProcessStepMaterial, as: 'materials',
+            include: [{
+              model: SiteMaterial, as: 'siteMaterial',
+              attributes: ['id','full_name','unit','packaging']
+            }]
+          }]
+        },
+        {
+          model: ProcessFlat, as: 'flats',
+          attributes: ['id','flat_no','bhk_type','area_id','sequence_order'],
+          include: [{
+            model: ProcessArea, as: 'area',
+            attributes: ['id','area_name']
+          }]
+        }
+      ]
+    })
+    return res.json(processes)
+  } catch (err) { return res.status(500).json({ error: err.message }) }
+})
+
 // GET /api/process-master/:id
 router.get('/:id', supervisorOrAdmin, async (req, res) => {
   try {
