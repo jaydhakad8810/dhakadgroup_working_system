@@ -6,10 +6,39 @@ import { LoadingPage, StatusBadge, Modal } from '../../components/ui'
 import toast from 'react-hot-toast'
 
 const STEP_PRESETS = {
-  internal: ['Joint Repairing','Corus Putty','Fine Putty 1st Coat','Fine Putty 2nd Coat','Putty Rubbing','Aster Coat','Internal Colour 1st Coat','Internal Colour 2nd Coat'],
-  external: ['Washing','Grading','Joint Repairing','Crack Filling','Texture','Primer Coat','Base Coat','Colour 1st Coat','Colour 2nd Coat'],
-  oil: ['Scrapping','Metal Primer','Wood Primer','Wall Primer','Putty 1st Coat','Putty 2nd Coat','Putty Rubbing','Colour Coats'],
-  gypsum: ['Right Angle','Olimba','Tikki and Dhad','Gypsum Panelling'],
+  internal: [
+    { name: 'Joint Repairing', coat_count: 1 },
+    { name: 'Corus Putty', coat_count: 1 },
+    { name: 'Fine Putty', coat_count: 2 },
+    { name: 'Putty Rubbing', coat_count: 1 },
+    { name: 'Aster Coat', coat_count: 1 },
+    { name: 'Internal Colour', coat_count: 2 },
+  ],
+  external: [
+    { name: 'Washing', coat_count: 1 },
+    { name: 'Grading', coat_count: 1 },
+    { name: 'Joint Repairing', coat_count: 1 },
+    { name: 'Crack Filling', coat_count: 1 },
+    { name: 'Texture', coat_count: 1 },
+    { name: 'Primer Coat', coat_count: 1 },
+    { name: 'Base Coat', coat_count: 1 },
+    { name: 'Colour', coat_count: 2 },
+  ],
+  oil: [
+    { name: 'Scrapping', coat_count: 1 },
+    { name: 'Metal Primer', coat_count: 1 },
+    { name: 'Wood Primer', coat_count: 1 },
+    { name: 'Wall Primer', coat_count: 1 },
+    { name: 'Putty', coat_count: 2 },
+    { name: 'Putty Rubbing', coat_count: 1 },
+    { name: 'Colour', coat_count: 2 },
+  ],
+  gypsum: [
+    { name: 'Right Angle', coat_count: 1 },
+    { name: 'Olimba', coat_count: 1 },
+    { name: 'Tikki and Dhad', coat_count: 1 },
+    { name: 'Gypsum Panelling', coat_count: 1 },
+  ],
   other: [],
 }
 
@@ -163,14 +192,34 @@ function Step1AreasFlats({ process, onSaved }) {
 
 // ── Step 2: Process Steps ───────────────────────────────────────────────────
 function Step2Steps({ process, onSaved }) {
-  const presets = STEP_PRESETS[process.work_type] || []
+  const initialPresets = STEP_PRESETS[process.work_type] || []
+  const [presetList, setPresetList] = useState(initialPresets)
   const [selected, setSelected] = useState({})
   const [coatCounts, setCoatCounts] = useState({})
   const [customSteps, setCustomSteps] = useState([])
   const [newCustom, setNewCustom] = useState('')
   const [saving, setSaving] = useState(false)
 
-  const toggle = (name) => setSelected(p => ({ ...p, [name]: !p[name] }))
+  const toggle = (name, defaultCoat) => {
+    setSelected(p => {
+      const next = { ...p, [name]: !p[name] }
+      return next
+    })
+    setCoatCounts(p => {
+      if (!p[name]) return { ...p, [name]: defaultCoat || 1 }
+      return p
+    })
+  }
+
+  const movePreset = (idx, dir) => {
+    setPresetList(p => {
+      const arr = [...p]
+      const target = idx + dir
+      if (target < 0 || target >= arr.length) return arr
+      ;[arr[idx], arr[target]] = [arr[target], arr[idx]]
+      return arr
+    })
+  }
 
   const addCustom = () => {
     if (!newCustom.trim()) return
@@ -190,11 +239,13 @@ function Step2Steps({ process, onSaved }) {
 
   const saveSteps = async () => {
     const steps = []
-    presets.forEach((name, i) => {
-      if (selected[name]) steps.push({ step_name: name, coat_count: parseInt(coatCounts[name]) || 1, sequence_order: i, is_optional: false, is_custom: false })
+    presetList.forEach((preset, i) => {
+      if (selected[preset.name]) {
+        steps.push({ step_name: preset.name, coat_count: parseInt(coatCounts[preset.name]) || preset.coat_count || 1, sequence_order: i, is_optional: false, is_custom: false })
+      }
     })
     customSteps.forEach((cs, i) => {
-      steps.push({ step_name: cs.name, coat_count: cs.coat_count, sequence_order: presets.length + i, is_optional: false, is_custom: true })
+      steps.push({ step_name: cs.name, coat_count: cs.coat_count, sequence_order: presetList.length + i, is_optional: false, is_custom: true })
     })
     if (!steps.length) { toast.error('Select at least one step'); return }
     setSaving(true)
@@ -208,21 +259,27 @@ function Step2Steps({ process, onSaved }) {
 
   return (
     <div className="space-y-6">
-      {presets.length > 0 && (
+      {presetList.length > 0 && (
         <div className="card space-y-3">
           <h4 className="font-semibold" style={{ color: 'var(--text)' }}>Preset Steps for {process.work_type}</h4>
           <div className="space-y-2">
-            {presets.map(name => (
-              <div key={name} className="flex items-center gap-3 p-2 rounded-lg" style={{ background: 'var(--bg3)' }}>
-                <input type="checkbox" id={`preset-${name}`} checked={!!selected[name]} onChange={() => toggle(name)} className="w-4 h-4 accent-gold-500" />
-                <label htmlFor={`preset-${name}`} className="flex-1 text-sm cursor-pointer" style={{ color: 'var(--text)' }}>{name}</label>
-                {selected[name] && (
+            {presetList.map((preset, idx) => (
+              <div key={preset.name} className="flex items-center gap-2 p-2 rounded-lg" style={{ background: 'var(--bg3)' }}>
+                <input type="checkbox" id={`preset-${preset.name}`} checked={!!selected[preset.name]} onChange={() => toggle(preset.name, preset.coat_count)} className="w-4 h-4 accent-gold-500" />
+                <label htmlFor={`preset-${preset.name}`} className="flex-1 text-sm cursor-pointer" style={{ color: 'var(--text)' }}>{preset.name}</label>
+                {selected[preset.name] && (
                   <div className="flex items-center gap-1">
                     <span className="text-xs" style={{ color: 'var(--muted)' }}>Coats:</span>
-                    <input type="number" min={1} className="input w-16 text-sm py-0.5" value={coatCounts[name] || 1}
-                      onChange={e => setCoatCounts(p => ({ ...p, [name]: e.target.value }))} />
+                    <input type="number" min={1} max={10} className="input w-16 text-sm py-0.5" value={coatCounts[preset.name] || preset.coat_count || 1}
+                      onChange={e => setCoatCounts(p => ({ ...p, [preset.name]: parseInt(e.target.value) || 1 }))} />
                   </div>
                 )}
+                <div style={{ display: 'flex', gap: '2px' }}>
+                  <button onClick={() => movePreset(idx, -1)} disabled={idx === 0}
+                    style={{ background: 'none', border: '1px solid #555', borderRadius: '4px', padding: '2px 6px', cursor: 'pointer', opacity: idx === 0 ? 0.3 : 1, color: 'var(--text)' }}>▲</button>
+                  <button onClick={() => movePreset(idx, 1)} disabled={idx === presetList.length - 1}
+                    style={{ background: 'none', border: '1px solid #555', borderRadius: '4px', padding: '2px 6px', cursor: 'pointer', opacity: idx === presetList.length - 1 ? 0.3 : 1, color: 'var(--text)' }}>▼</button>
+                </div>
               </div>
             ))}
           </div>
@@ -232,7 +289,7 @@ function Step2Steps({ process, onSaved }) {
       <div className="card space-y-3">
         <h4 className="font-semibold" style={{ color: 'var(--text)' }}>Custom Steps</h4>
         <div className="flex gap-2">
-          <input className="input flex-1" value={newCustom} onChange={e => setNewCustom(e.target.value)} placeholder="Custom step name" />
+          <input className="input flex-1" value={newCustom} onChange={e => setNewCustom(e.target.value)} placeholder="Custom step name" onKeyDown={e => e.key === 'Enter' && addCustom()} />
           <button onClick={addCustom} className="btn-outline whitespace-nowrap">+ Add</button>
         </div>
         {customSteps.map((cs, i) => (
@@ -380,8 +437,8 @@ function Step4Review({ process, siteId }) {
     setActivating(true)
     try {
       await api.patch(`/process-master/${process.id}/status`, { status: 'active' })
-      toast.success('Process activated!')
-      navigate(`/sites/${siteId}`)
+      toast.success('Process activated successfully')
+      navigate(`/sites/${siteId}?tab=process`)
     } catch { toast.error('Failed to activate') }
     setActivating(false)
   }
@@ -439,9 +496,8 @@ function Step4Review({ process, siteId }) {
       )}
 
       <div className="flex flex-wrap gap-3">
-        <button onClick={() => navigate(`/sites/${siteId}`)} className="btn-outline">Save as Draft</button>
-        <button onClick={activate} disabled={activating} className="btn-gold">
-          {activating ? 'Activating...' : 'Activate Process'}
+        <button onClick={activate} disabled={activating} className="btn-gold" style={{ minWidth: '180px' }}>
+          {activating ? 'Activating...' : '⚡ Save & Activate'}
         </button>
         <button onClick={() => navigate(`/sites/${siteId}/process/${process.id}/progress`)} className="btn-outline">
           View Progress Grid →
