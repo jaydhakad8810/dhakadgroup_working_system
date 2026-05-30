@@ -10,6 +10,7 @@ import Dashboard from './pages/dashboard/Dashboard'
 import Sites from './pages/sites/Sites'
 import SiteDetail from './pages/sites/SiteDetail'
 import ProcessMasterDetail from './pages/sites/ProcessMasterDetail'
+import FlatProgressGrid from './pages/sites/FlatProgressGrid'
 import Labour from './pages/labour/Labour'
 import LabourDetail from './pages/labour/LabourDetail'
 import Attendance from './pages/attendance/Attendance'
@@ -62,6 +63,7 @@ export default function App() {
             <Route path="sites" element={<Sites />} />
             <Route path="sites/:id" element={<SiteDetail />} />
             <Route path="sites/:siteId/process/:processId" element={<ProcessMasterDetail />} />
+            <Route path="sites/:siteId/process/:processId/progress" element={<FlatProgressGrid />} />
             <Route path="labour" element={<Labour />} />
             <Route path="labour/:id" element={<LabourDetail />} />
             <Route path="attendance" element={<Attendance />} />

@@ -176,8 +176,9 @@ router.patch('/:id/status', adminOnly, async (req, res) => {
 // GET /api/process-master/:process_id/progress
 router.get('/:process_id/progress', supervisorOrAdmin, async (req, res) => {
   try {
-    const { ProcessFlat, ProcessStep, FlatProgress, ProcessArea } = require('../models')
-    const [flats, steps, progress] = await Promise.all([
+    const { ProcessMaster, ProcessFlat, ProcessStep, FlatProgress, ProcessArea } = require('../models')
+    const [processMaster, flats, steps, progress] = await Promise.all([
+      ProcessMaster.findByPk(req.params.process_id, { attributes: ['id','title','work_type','status'] }),
       ProcessFlat.findAll({
         where: { process_id: req.params.process_id },
         include: [{ model: ProcessArea, as: 'area' }],
@@ -187,15 +188,18 @@ router.get('/:process_id/progress', supervisorOrAdmin, async (req, res) => {
         where: { process_id: req.params.process_id },
         order: [['sequence_order','ASC']]
       }),
-      FlatProgress.findAll({ where: { process_id: req.params.process_id } })
+      FlatProgress.findAll({
+        where: { process_id: req.params.process_id },
+        attributes: ['id','flat_id','step_id','status','done_percentage','date_updated']
+      })
     ])
     const flatData = flats.map(f => ({
       id: f.id, flat_no: f.flat_no, bhk_type: f.bhk_type,
       area_name: f.area ? f.area.area_name : null
     }))
     const stepData = steps.map(s => ({ id: s.id, step_name: s.step_name, coat_count: s.coat_count, sequence_order: s.sequence_order }))
-    const progressData = progress.map(p => ({ flat_id: p.flat_id, step_id: p.step_id, status: p.status, done_percentage: p.done_percentage, date_updated: p.date_updated }))
-    return res.json({ flats: flatData, steps: stepData, progress: progressData })
+    const progressData = progress.map(p => ({ id: p.id, flat_id: p.flat_id, step_id: p.step_id, status: p.status, done_percentage: p.done_percentage, date_updated: p.date_updated }))
+    return res.json({ process: processMaster, flats: flatData, steps: stepData, progress: progressData })
   } catch (err) { return res.status(500).json({ error: err.message }) }
 })
 

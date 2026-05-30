@@ -438,10 +438,13 @@ function Step4Review({ process, siteId }) {
         </div>
       )}
 
-      <div className="flex gap-3">
+      <div className="flex flex-wrap gap-3">
         <button onClick={() => navigate(`/sites/${siteId}`)} className="btn-outline">Save as Draft</button>
         <button onClick={activate} disabled={activating} className="btn-gold">
           {activating ? 'Activating...' : 'Activate Process'}
+        </button>
+        <button onClick={() => navigate(`/sites/${siteId}/process/${process.id}/progress`)} className="btn-outline">
+          View Progress Grid →
         </button>
       </div>
     </div>
