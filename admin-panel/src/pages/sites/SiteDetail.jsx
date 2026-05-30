@@ -544,16 +544,19 @@ export default function SiteDetail() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {processes.map(pm => (
                 <div key={pm.id} className="card space-y-3">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <h4 className="font-semibold" style={{ color: 'var(--text)' }}>{pm.title}</h4>
-                      <div className="flex gap-2 mt-1">
-                        <span className="badge-blue text-xs">{WORK_TYPE_LABELS[pm.work_type] || pm.work_type_custom}</span>
-                        <StatusBadge status={pm.status} />
-                      </div>
+                  <div>
+                    <h4 className="font-semibold" style={{ color: 'var(--text)' }}>{pm.title}</h4>
+                    <div className="flex gap-2 mt-1">
+                      <span className="badge-blue text-xs">{WORK_TYPE_LABELS[pm.work_type] || pm.work_type_custom}</span>
+                      <StatusBadge status={pm.status} />
                     </div>
+                  </div>
+                  <div className="flex gap-2 mt-2">
                     <button onClick={() => navigate(`/sites/${id}/process/${pm.id}`)} className="btn-outline text-xs">
-                      View / Edit
+                      Edit Process
+                    </button>
+                    <button onClick={() => navigate(`/sites/${id}/process/${pm.id}/progress`)} className="btn-gold text-xs">
+                      View Progress
                     </button>
                   </div>
                   <div className="flex gap-4 text-xs" style={{ color: 'var(--muted)' }}>
