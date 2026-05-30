@@ -199,6 +199,212 @@ function MaterialRow({ material, index, siteMaterials, onChange, onRemove }) {
   )
 }
 
+// ─── ProcessPlanCard ──────────────────────────────────────────────────────────
+function ProcessPlanCard({ group, index, siteLabours, activeProcesses, onUpdate, onRemove }) {
+  const process = activeProcesses.find(p => p.id === group.process_id) || null
+  const availableFlats = process?.flats || []
+  const availableSteps = process?.steps || []
+
+  const stepMaterials = useMemo(() => {
+    if (!group.step_id || !process) return []
+    const step = process.steps?.find(s => s.id === group.step_id)
+    return step?.materials?.map(m => ({
+      site_material_id: m.site_material_id,
+      material_name: m.siteMaterial?.full_name || '',
+      unit: m.siteMaterial?.unit || '',
+      estimated_qty: ''
+    })) || []
+  }, [group.step_id, process])
+
+  useEffect(() => {
+    if (group.step_id && stepMaterials.length > 0 &&
+        (!group.materials || group.materials.length === 0)) {
+      onUpdate(group.id, { materials: stepMaterials })
+    }
+  }, [group.step_id])
+
+  const selectedLabourIds = group.labour_ids || []
+
+  return (
+    <div style={{
+      background: '#111', borderRadius: '12px',
+      border: '1px solid #222', marginBottom: '16px', overflow: 'hidden'
+    }}>
+      <div style={{
+        display: 'flex', justifyContent: 'space-between',
+        alignItems: 'center', padding: '14px 16px', background: '#1a1a1a'
+      }}>
+        <span style={{ color: '#FF8C00', fontWeight: 'bold', fontSize: '15px' }}>
+          Task {index + 1}
+        </span>
+        <button onClick={() => onRemove(group.id)}
+          style={{ background: 'none', border: 'none', color: '#666', cursor: 'pointer', fontSize: '18px' }}>×</button>
+      </div>
+
+      <div style={{ padding: '16px' }}>
+        {/* Process selector */}
+        <div style={{ marginBottom: '14px' }}>
+          <label style={{ color: '#888', fontSize: '12px', display: 'block', marginBottom: '8px' }}>Process</label>
+          <select
+            value={group.process_id || ''}
+            onChange={e => onUpdate(group.id, {
+              process_id: e.target.value,
+              flat_id: '', flat_no: '', bhk_type: '',
+              step_id: '', step_name: '', materials: []
+            })}
+            style={{ width: '100%', background: '#111', color: '#fff',
+              border: '1px solid #FF8C00', borderRadius: '8px',
+              padding: '12px', fontSize: '14px' }}>
+            <option value="">Select process</option>
+            {activeProcesses.map(p => (
+              <option key={p.id} value={p.id}>{p.title} ({p.work_type})</option>
+            ))}
+          </select>
+        </div>
+
+        {/* Flat selector */}
+        {group.process_id && (
+          <div style={{ marginBottom: '14px' }}>
+            <label style={{ color: '#888', fontSize: '12px', display: 'block', marginBottom: '8px' }}>Flat / Area</label>
+            <select
+              value={group.flat_id || ''}
+              onChange={e => {
+                const flat = availableFlats.find(f => f.id === e.target.value)
+                onUpdate(group.id, {
+                  flat_id: e.target.value,
+                  flat_no: flat?.flat_no || '',
+                  bhk_type: flat?.bhk_type || ''
+                })
+              }}
+              style={{ width: '100%', background: '#111', color: '#fff',
+                border: '1px solid #333', borderRadius: '8px',
+                padding: '12px', fontSize: '14px' }}>
+              <option value="">Select flat</option>
+              {availableFlats.map(flat => (
+                <option key={flat.id} value={flat.id}>
+                  {flat.flat_no}{flat.bhk_type ? ` — ${flat.bhk_type}` : ''}{flat.area?.area_name ? ` (${flat.area.area_name})` : ''}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        {/* Step selector */}
+        {group.flat_id && (
+          <div style={{ marginBottom: '14px' }}>
+            <label style={{ color: '#888', fontSize: '12px', display: 'block', marginBottom: '8px' }}>Task / Step</label>
+            <select
+              value={group.step_id || ''}
+              onChange={e => {
+                const step = availableSteps.find(s => s.id === e.target.value)
+                onUpdate(group.id, {
+                  step_id: e.target.value,
+                  step_name: step?.step_name || '',
+                  coat_count: step?.coat_count || 1,
+                  materials: []
+                })
+              }}
+              style={{ width: '100%', background: '#111', color: '#fff',
+                border: '1px solid #333', borderRadius: '8px',
+                padding: '12px', fontSize: '14px' }}>
+              <option value="">Select step</option>
+              {availableSteps.map(step => (
+                <option key={step.id} value={step.id}>
+                  {step.step_name}{step.coat_count > 1 ? ` (${step.coat_count} coats)` : ''}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        {/* Labour multi-select */}
+        {group.step_id && (
+          <div style={{ marginBottom: '14px' }}>
+            <label style={{ color: '#888', fontSize: '12px', display: 'block', marginBottom: '8px' }}>
+              Assign Labour ({selectedLabourIds.length} selected)
+            </label>
+            <div style={{ maxHeight: '160px', overflowY: 'auto', border: '1px solid #333', borderRadius: '8px' }}>
+              {siteLabours.length === 0
+                ? <div style={{ padding: '12px', color: '#666', fontSize: '13px', textAlign: 'center' }}>No labourers found</div>
+                : siteLabours.map(labour => {
+                    const selected = selectedLabourIds.includes(labour.id)
+                    return (
+                      <div key={labour.id}
+                        onClick={() => {
+                          const updated = selected
+                            ? selectedLabourIds.filter(id => id !== labour.id)
+                            : [...selectedLabourIds, labour.id]
+                          onUpdate(group.id, {
+                            labour_ids: updated,
+                            labour_names: siteLabours.filter(l => updated.includes(l.id)).map(l => l.name)
+                          })
+                        }}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: '10px',
+                          padding: '10px 12px', borderBottom: '1px solid #1e1e1e',
+                          cursor: 'pointer', background: selected ? '#1a1200' : 'transparent'
+                        }}>
+                        <div style={{
+                          width: '18px', height: '18px', borderRadius: '4px', flexShrink: 0,
+                          background: selected ? '#FF8C00' : 'none',
+                          border: selected ? '2px solid #FF8C00' : '2px solid #444',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center'
+                        }}>
+                          {selected && <span style={{ color: '#000', fontSize: '12px', fontWeight: 'bold' }}>✓</span>}
+                        </div>
+                        <span style={{ color: selected ? '#fff' : '#aaa', fontSize: '14px' }}>{labour.name}</span>
+                      </div>
+                    )
+                  })
+              }
+            </div>
+          </div>
+        )}
+
+        {/* Materials — auto-filled from process step */}
+        {group.step_id && (
+          <div>
+            <label style={{ color: '#888', fontSize: '12px', display: 'block', marginBottom: '8px' }}>Materials</label>
+            {(group.materials || []).length === 0 && (
+              <div style={{ color: '#555', fontSize: '13px', padding: '8px', textAlign: 'center' }}>
+                No materials linked to this step
+              </div>
+            )}
+            {(group.materials || []).map((mat, idx) => (
+              <div key={idx} style={{
+                background: '#1e1e1e', borderRadius: '8px',
+                padding: '10px', marginBottom: '8px', border: '1px solid #2a2a2a'
+              }}>
+                <div style={{ color: '#ccc', fontSize: '13px', marginBottom: '8px', fontWeight: '500' }}>
+                  {mat.material_name}
+                </div>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <input
+                    type="number"
+                    placeholder="Est. qty"
+                    value={mat.estimated_qty || ''}
+                    onChange={e => {
+                      const updated = [...(group.materials || [])]
+                      updated[idx] = { ...updated[idx], estimated_qty: e.target.value }
+                      onUpdate(group.id, { materials: updated })
+                    }}
+                    style={{ flex: 2, background: '#111', color: '#fff',
+                      border: '1px solid #333', borderRadius: '8px', padding: '8px', fontSize: '14px' }}
+                  />
+                  <span style={{ flex: 1, color: '#888', fontSize: '13px',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    {mat.unit}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 // ─── GroupCard ────────────────────────────────────────────────────────────────
 function GroupCard({
   group, index, siteLabours, workOrderSteps,
@@ -838,6 +1044,9 @@ export default function DailyPlan() {
   const [submittingCheckout, setSubmittingCheckout] = useState(false)
   const [extraMaterials, setExtraMaterials] = useState({})
 
+  // Process Master planning state
+  const [activeProcesses, setActiveProcesses] = useState([])
+
   async function fetchInitialData(siteId) {
     if (!siteId) return
     const token = sessionStorage.getItem('sv_token') || localStorage.getItem('sv_token')
@@ -873,6 +1082,13 @@ export default function DailyPlan() {
       setCarryForwardItems(cfRes.data || [])
       const d = planRes.data
       setTodayPlan(d?.exists ? d.plan : null)
+      // Fetch active processes for this site
+      try {
+        const procRes = await api.get(`/process-master/for-planning?site_id=${siteId}`)
+        setActiveProcesses(procRes.data || [])
+      } catch (err) {
+        console.error('Process fetch error:', err.message)
+      }
     } catch {
       toast.error('Failed to load plan data')
     }
@@ -949,8 +1165,10 @@ export default function DailyPlan() {
         group_name: g.labour_names?.join(', ') || g.group_name || '',
         labour_ids: g.labour_ids || [],
         work_order_step_id: g.work_order_step_id || null,
+        process_id: g.process_id || null,
+        process_step_id: g.step_id || null,
         step_name: g.step_name || '',
-        flat_nos: g.flat_nos || [],
+        flat_nos: g.flat_id ? [g.flat_no] : (g.flat_nos || []),
         flat_description: g.flat_description || '',
         materials: g.materials || [],
         material_name: g.materials?.[0]?.material_name || g.material_name || '',
@@ -1628,42 +1846,43 @@ export default function DailyPlan() {
       )}
 
       {groups.map((group, index) => (
-        <GroupCard
+        <ProcessPlanCard
           key={group.id}
           group={group}
           index={index}
           siteLabours={siteLabours}
-          workOrderSteps={workOrderSteps}
-          flatProgress={flatProgress}
-          siteMaterials={siteMaterials}
+          activeProcesses={activeProcesses}
           onUpdate={updateGroup}
           onRemove={removeGroup}
-          isCarryForward={!!group.isCarryForward}
         />
       ))}
 
-      <button
-        className="w-full py-3 rounded-xl border border-primary-500/40 text-primary-400 text-sm font-medium flex items-center justify-center gap-2 transition-all active:scale-95 hover:bg-primary-500/10"
-        onClick={() => setGroups(prev => [...prev, {
-          id: Date.now().toString(),
-          group_id: '',
-          group_name: '',
-          labour_ids: [],
-          labour_names: [],
-          work_order_step_id: '',
-          step_name: '',
-          flat_nos: [],
-          flat_description: '',
-          materials: [],
-          material_name: '',
-          estimated_qty: '',
-          unit: '',
-          isCarryForward: false,
-        }])}
-      >
-        <Plus size={16} />
-        Add Group
-      </button>
+      {activeProcesses.length === 0 ? (
+        <div style={{
+          background: '#1a0a00', border: '1px solid #7c2d12',
+          borderRadius: '10px', padding: '16px', textAlign: 'center',
+          color: '#fb923c', fontSize: '14px'
+        }}>
+          No active processes found for this site.
+          Ask admin to create and activate a Process Master first.
+        </div>
+      ) : (
+        <button
+          className="w-full py-3 rounded-xl border border-primary-500/40 text-primary-400 text-sm font-medium flex items-center justify-center gap-2 transition-all active:scale-95 hover:bg-primary-500/10"
+          onClick={() => setGroups(prev => [...prev, {
+            id: Date.now().toString(),
+            process_id: activeProcesses[0]?.id || '',
+            flat_id: '', flat_no: '', bhk_type: '',
+            step_id: '', step_name: '', coat_count: 1,
+            labour_ids: [], labour_names: [],
+            materials: [],
+            isCarryForward: false,
+          }])}
+        >
+          <Plus size={16} />
+          Add Task
+        </button>
+      )}
 
       <div className="card">
         <label className="label">Notes (optional)</label>

@@ -28,6 +28,10 @@ const DailyPlanItem = sequelize.define('DailyPlanItem', {
   status: { type: DataTypes.ENUM('pending', 'done', 'carry_forward', 'partial'), defaultValue: 'pending' },
   partial_flat_nos: { type: DataTypes.JSON, defaultValue: [] },
   checkout_notes: { type: DataTypes.TEXT, allowNull: true },
+  process_step_id: { type: DataTypes.UUID, allowNull: true },
+  process_id: { type: DataTypes.UUID, allowNull: true },
+  labour_ids: { type: DataTypes.JSON, defaultValue: [] },
+  materials: { type: DataTypes.JSON, defaultValue: [] },
 }, { tableName: 'daily_plan_items' });
 
 DailyPlan.hasMany(DailyPlanItem, { foreignKey: 'plan_id', as: 'items' });

@@ -97,6 +97,10 @@ router.post('/', supervisorOrAdmin, async (req, res) => {
           material_name: item.material_name || null,
           estimated_qty: item.estimated_qty || null,
           unit: item.unit || null,
+          process_step_id: item.process_step_id || null,
+          process_id: item.process_id || null,
+          labour_ids: item.labour_ids || [],
+          materials: item.materials || [],
           status: 'pending',
         });
         createdItems.push(created);
@@ -210,6 +214,58 @@ router.patch('/items/:item_id/checkout', supervisorOrAdmin, async (req, res) => 
       } catch (ledgerErr) {
         console.error('Ledger trigger error (non-fatal):', ledgerErr.message);
       }
+    }
+
+    // Update FlatProgress if process_step_id exists
+    try {
+      if (item.process_step_id && item.flat_nos && item.flat_nos.length > 0) {
+        const { FlatProgress, FlatProgressHistory, ProcessFlat } = require('../models')
+        const pct = req.body.done_percentage ||
+          (req.body.status === 'done' ? 100 :
+           req.body.status === 'carry_forward' ? 0 : 50)
+
+        for (const flatNo of item.flat_nos) {
+          const flat = await ProcessFlat.findOne({
+            where: { flat_no: flatNo, process_id: item.process_id }
+          })
+          if (!flat) continue
+
+          const [fpRecord] = await FlatProgress.findOrCreate({
+            where: { flat_id: flat.id, step_id: item.process_step_id },
+            defaults: {
+              process_id: item.process_id,
+              status: 'pending',
+              done_percentage: 0
+            }
+          })
+
+          const newPct = Math.max(fpRecord.done_percentage, pct)
+          const newStatus = newPct >= 100 ? 'done' : newPct > 0 ? 'in_progress' : 'pending'
+
+          await fpRecord.update({
+            done_percentage: newPct,
+            status: newStatus,
+            date_updated: new Date().toISOString().split('T')[0],
+            updated_by: req.user.id
+          })
+
+          await FlatProgressHistory.create({
+            flat_progress_id: fpRecord.id,
+            flat_id: flat.id,
+            step_id: item.process_step_id,
+            process_id: item.process_id,
+            done_percentage: pct,
+            date_worked: req.body.date_worked || new Date().toISOString().split('T')[0],
+            labour_ids: item.labour_ids || [],
+            material_used: item.materials || [],
+            updated_by: req.user.id,
+            notes: req.body.checkout_notes || ''
+          })
+        }
+      }
+    } catch (err) {
+      console.error('FlatProgress update error:', err.message)
+      // Never block checkout response
     }
 
     res.json(item);
