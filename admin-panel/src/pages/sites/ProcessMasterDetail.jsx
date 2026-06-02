@@ -53,6 +53,7 @@ function Step1AreasFlats({ process, onSaved }) {
   const [flatBuilders, setFlatBuilders] = useState({})
   const [flatPreviews, setFlatPreviews] = useState({})
   const [savingFlats, setSavingFlats] = useState({})
+  const [flatSummaries, setFlatSummaries] = useState({})
 
   const fb = (areaId, k, v) => setFlatBuilders(p => ({ ...p, [areaId]: { ...(p[areaId] || {}), [k]: v } }))
 
@@ -73,12 +74,15 @@ function Step1AreasFlats({ process, onSaved }) {
     const from = parseInt(b.from_no) || 101
     const to = parseInt(b.to_no) || 101
     const bhk = b.bhk_type || '2BHK'
+    const perFloor = parseInt(b.flats_per_floor) || 1
     if (to < from) { toast.error('To must be >= From'); return }
     const flats = []
     for (let n = from; n <= to; n++) {
-      flats.push({ flat_no: String(n), bhk_type: bhk, sequence_order: n - from, _bhk_override: bhk })
+      flats.push({ flat_no: String(n), bhk_type: bhk, sequence_order: n - from })
     }
+    const totalFloors = Math.ceil(flats.length / perFloor)
     setFlatPreviews(p => ({ ...p, [areaId]: flats }))
+    setFlatSummaries(p => ({ ...p, [areaId]: { total: flats.length, floors: totalFloors } }))
   }
 
   const updatePreviewBhk = (areaId, idx, bhk) => {
@@ -87,6 +91,13 @@ function Step1AreasFlats({ process, onSaved }) {
       arr[idx] = { ...arr[idx], bhk_type: bhk }
       return { ...p, [areaId]: arr }
     })
+  }
+
+  const setBulkBhk = (areaId, bhk) => {
+    setFlatPreviews(p => ({
+      ...p,
+      [areaId]: (p[areaId] || []).map(f => ({ ...f, bhk_type: bhk }))
+    }))
   }
 
   const saveFlats = async (areaId) => {
@@ -137,7 +148,7 @@ function Step1AreasFlats({ process, onSaved }) {
           {isInternal && (
             <div className="space-y-3 p-3 rounded-lg" style={{ background: 'var(--bg3)' }}>
               <p className="text-sm font-medium" style={{ color: 'var(--text)' }}>Generate Flats</p>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                 <div>
                   <label className="label text-xs">From Flat No</label>
                   <input type="number" className="input" value={flatBuilders[area.id]?.from_no || ''} onChange={e => fb(area.id, 'from_no', e.target.value)} placeholder="101" />
@@ -147,9 +158,13 @@ function Step1AreasFlats({ process, onSaved }) {
                   <input type="number" className="input" value={flatBuilders[area.id]?.to_no || ''} onChange={e => fb(area.id, 'to_no', e.target.value)} placeholder="202" />
                 </div>
                 <div>
-                  <label className="label text-xs">BHK Type</label>
+                  <label className="label text-xs">Flats per Floor</label>
+                  <input type="number" min={1} max={20} className="input" value={flatBuilders[area.id]?.flats_per_floor || ''} onChange={e => fb(area.id, 'flats_per_floor', e.target.value)} placeholder="e.g. 4" />
+                </div>
+                <div>
+                  <label className="label text-xs">Default BHK</label>
                   <select className="select" value={flatBuilders[area.id]?.bhk_type || '2BHK'} onChange={e => fb(area.id, 'bhk_type', e.target.value)}>
-                    <option>1BHK</option><option>2BHK</option><option>3BHK</option><option>Other</option>
+                    <option>1BHK</option><option>2BHK</option><option>3BHK</option><option>4BHK</option><option>Studio</option><option>Other</option>
                   </select>
                 </div>
                 <div className="flex items-end">
@@ -158,15 +173,28 @@ function Step1AreasFlats({ process, onSaved }) {
               </div>
 
               {flatPreviews[area.id]?.length > 0 && (
-                <div className="space-y-2">
-                  <p className="text-xs font-medium" style={{ color: 'var(--muted)' }}>Preview ({flatPreviews[area.id].length} flats) — adjust BHK per flat:</p>
-                  <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto">
+                <div className="space-y-3">
+                  {flatSummaries[area.id] && (
+                    <p className="text-xs font-medium text-gold-400">
+                      Total: {flatSummaries[area.id].total} flats across ~{flatSummaries[area.id].floors} floors
+                    </p>
+                  )}
+                  <div style={{ marginBottom: '8px' }}>
+                    <span className="text-xs" style={{ color: 'var(--muted)' }}>Set all to: </span>
+                    {['1BHK','2BHK','3BHK','4BHK'].map(bhk => (
+                      <button key={bhk} onClick={() => setBulkBhk(area.id, bhk)}
+                        style={{ marginLeft: '6px', padding: '2px 8px', fontSize: '12px', borderRadius: '4px', border: '1px solid var(--border)', background: 'var(--bg2)', color: 'var(--text)', cursor: 'pointer' }}>
+                        {bhk}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="max-h-64 overflow-y-auto space-y-1 pr-1">
                     {flatPreviews[area.id].map((f, i) => (
-                      <div key={i} className="flex items-center gap-1 p-1 rounded" style={{ background: 'var(--bg2)' }}>
-                        <span className="text-xs font-medium" style={{ color: 'var(--text)' }}>{f.flat_no}</span>
-                        <select className="text-xs rounded px-1 py-0.5 border-0" style={{ background: 'var(--bg3)', color: 'var(--muted)' }}
-                          value={f.bhk_type} onChange={e => updatePreviewBhk(area.id, i, e.target.value)}>
-                          <option>1BHK</option><option>2BHK</option><option>3BHK</option><option>Other</option>
+                      <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 8px', borderRadius: '6px', background: 'var(--bg2)', borderBottom: '1px solid var(--border)' }}>
+                        <span style={{ minWidth: '48px', fontWeight: 'bold', color: 'var(--text)', fontSize: '13px' }}>{f.flat_no}</span>
+                        <select value={f.bhk_type} onChange={e => updatePreviewBhk(area.id, i, e.target.value)}
+                          style={{ flex: 1, background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: '6px', padding: '4px 8px', color: 'var(--text)', fontSize: '13px' }}>
+                          <option>1BHK</option><option>2BHK</option><option>3BHK</option><option>4BHK</option><option>Studio</option><option>Other</option>
                         </select>
                       </div>
                     ))}
@@ -191,44 +219,36 @@ function Step1AreasFlats({ process, onSaved }) {
 }
 
 // ── Step 2: Process Steps ───────────────────────────────────────────────────
-function Step2Steps({ process, onSaved }) {
+function expandStepByCoats(name, coatCount) {
+  if (coatCount <= 1) return [name]
+  const ordinals = ['1st','2nd','3rd','4th','5th','6th','7th','8th','9th','10th']
+  return Array.from({ length: coatCount }, (_, i) => `${name} ${ordinals[i]} Coat`)
+}
+
+function Step2Steps({ process, onSaved, onComplete }) {
   const initialPresets = STEP_PRESETS[process.work_type] || []
-  const [presetList, setPresetList] = useState(initialPresets)
-  const [selected, setSelected] = useState({})
-  const [coatCounts, setCoatCounts] = useState({})
-  const [customSteps, setCustomSteps] = useState([])
+  const [allSteps, setAllSteps] = useState([])
   const [newCustom, setNewCustom] = useState('')
   const [saving, setSaving] = useState(false)
 
-  const toggle = (name, defaultCoat) => {
-    setSelected(p => {
-      const next = { ...p, [name]: !p[name] }
-      return next
-    })
-    setCoatCounts(p => {
-      if (!p[name]) return { ...p, [name]: defaultCoat || 1 }
-      return p
-    })
-  }
+  const isSelected = (name) => allSteps.some(s => s.name === name && !s.is_custom)
 
-  const movePreset = (idx, dir) => {
-    setPresetList(p => {
-      const arr = [...p]
-      const target = idx + dir
-      if (target < 0 || target >= arr.length) return arr
-      ;[arr[idx], arr[target]] = [arr[target], arr[idx]]
-      return arr
-    })
+  const togglePreset = (preset) => {
+    if (isSelected(preset.name)) {
+      setAllSteps(p => p.filter(s => !(s.name === preset.name && !s.is_custom)))
+    } else {
+      setAllSteps(p => [...p, { id: `preset-${preset.name}`, name: preset.name, coat_count: preset.coat_count, is_custom: false }])
+    }
   }
 
   const addCustom = () => {
     if (!newCustom.trim()) return
-    setCustomSteps(p => [...p, { name: newCustom.trim(), coat_count: 1 }])
+    setAllSteps(p => [...p, { id: `custom-${Date.now()}`, name: newCustom.trim(), coat_count: 1, is_custom: true }])
     setNewCustom('')
   }
 
-  const moveCustom = (idx, dir) => {
-    setCustomSteps(p => {
+  const moveStep = (idx, dir) => {
+    setAllSteps(p => {
       const arr = [...p]
       const target = idx + dir
       if (target < 0 || target >= arr.length) return arr
@@ -237,80 +257,100 @@ function Step2Steps({ process, onSaved }) {
     })
   }
 
+  const updateCoatCount = (idx, val) => {
+    setAllSteps(p => p.map((s, i) => i === idx ? { ...s, coat_count: parseInt(val) || 1 } : s))
+  }
+
+  const removeStep = (idx) => setAllSteps(p => p.filter((_, i) => i !== idx))
+
   const saveSteps = async () => {
-    const steps = []
-    presetList.forEach((preset, i) => {
-      if (selected[preset.name]) {
-        steps.push({ step_name: preset.name, coat_count: parseInt(coatCounts[preset.name]) || preset.coat_count || 1, sequence_order: i, is_optional: false, is_custom: false })
+    if (!allSteps.length) { toast.error('Select at least one step'); return }
+    let seq = 0
+    const expandedSteps = []
+    for (const s of allSteps) {
+      for (const stepName of expandStepByCoats(s.name, s.coat_count)) {
+        expandedSteps.push({ step_name: stepName, coat_count: 1, sequence_order: seq++, is_optional: false, is_custom: s.is_custom })
       }
-    })
-    customSteps.forEach((cs, i) => {
-      steps.push({ step_name: cs.name, coat_count: cs.coat_count, sequence_order: presetList.length + i, is_optional: false, is_custom: true })
-    })
-    if (!steps.length) { toast.error('Select at least one step'); return }
+    }
     setSaving(true)
     try {
-      await api.post(`/process-master/${process.id}/steps`, { steps })
-      toast.success(`${steps.length} steps saved`)
+      await api.post(`/process-master/${process.id}/steps`, { steps: expandedSteps })
+      toast.success(`${expandedSteps.length} steps saved`)
       onSaved()
+      onComplete()
     } catch { toast.error('Failed to save steps') }
     setSaving(false)
   }
 
+  const totalExpanded = allSteps.reduce((sum, s) => sum + s.coat_count, 0)
+
   return (
     <div className="space-y-6">
-      {presetList.length > 0 && (
+      {/* Preset checkboxes */}
+      {initialPresets.length > 0 && (
         <div className="card space-y-3">
-          <h4 className="font-semibold" style={{ color: 'var(--text)' }}>Preset Steps for {process.work_type}</h4>
+          <h4 className="font-semibold" style={{ color: 'var(--text)' }}>Preset Steps — {process.work_type}</h4>
           <div className="space-y-2">
-            {presetList.map((preset, idx) => (
-              <div key={preset.name} className="flex items-center gap-2 p-2 rounded-lg" style={{ background: 'var(--bg3)' }}>
-                <input type="checkbox" id={`preset-${preset.name}`} checked={!!selected[preset.name]} onChange={() => toggle(preset.name, preset.coat_count)} className="w-4 h-4 accent-gold-500" />
-                <label htmlFor={`preset-${preset.name}`} className="flex-1 text-sm cursor-pointer" style={{ color: 'var(--text)' }}>{preset.name}</label>
-                {selected[preset.name] && (
-                  <div className="flex items-center gap-1">
-                    <span className="text-xs" style={{ color: 'var(--muted)' }}>Coats:</span>
-                    <input type="number" min={1} max={10} className="input w-16 text-sm py-0.5" value={coatCounts[preset.name] || preset.coat_count || 1}
-                      onChange={e => setCoatCounts(p => ({ ...p, [preset.name]: parseInt(e.target.value) || 1 }))} />
-                  </div>
-                )}
-                <div style={{ display: 'flex', gap: '2px' }}>
-                  <button onClick={() => movePreset(idx, -1)} disabled={idx === 0}
-                    style={{ background: 'none', border: '1px solid #555', borderRadius: '4px', padding: '2px 6px', cursor: 'pointer', opacity: idx === 0 ? 0.3 : 1, color: 'var(--text)' }}>▲</button>
-                  <button onClick={() => movePreset(idx, 1)} disabled={idx === presetList.length - 1}
-                    style={{ background: 'none', border: '1px solid #555', borderRadius: '4px', padding: '2px 6px', cursor: 'pointer', opacity: idx === presetList.length - 1 ? 0.3 : 1, color: 'var(--text)' }}>▼</button>
-                </div>
+            {initialPresets.map(preset => (
+              <div key={preset.name} className="flex items-center gap-3 p-2 rounded-lg" style={{ background: 'var(--bg3)' }}>
+                <input type="checkbox" checked={isSelected(preset.name)} onChange={() => togglePreset(preset)} className="w-4 h-4 accent-gold-500" id={`p-${preset.name}`} />
+                <label htmlFor={`p-${preset.name}`} className="flex-1 text-sm cursor-pointer" style={{ color: 'var(--text)' }}>{preset.name}</label>
+                <span className="text-xs" style={{ color: 'var(--muted)' }}>{preset.coat_count} coat{preset.coat_count > 1 ? 's' : ''}</span>
               </div>
             ))}
           </div>
         </div>
       )}
 
+      {/* Custom step input */}
       <div className="card space-y-3">
-        <h4 className="font-semibold" style={{ color: 'var(--text)' }}>Custom Steps</h4>
+        <h4 className="font-semibold" style={{ color: 'var(--text)' }}>Add Custom Step</h4>
         <div className="flex gap-2">
-          <input className="input flex-1" value={newCustom} onChange={e => setNewCustom(e.target.value)} placeholder="Custom step name" onKeyDown={e => e.key === 'Enter' && addCustom()} />
+          <input className="input flex-1" value={newCustom} onChange={e => setNewCustom(e.target.value)}
+            placeholder="Custom step name" onKeyDown={e => e.key === 'Enter' && addCustom()} />
           <button onClick={addCustom} className="btn-outline whitespace-nowrap">+ Add</button>
         </div>
-        {customSteps.map((cs, i) => (
-          <div key={i} className="flex items-center gap-2 p-2 rounded-lg" style={{ background: 'var(--bg3)' }}>
-            <div className="flex flex-col gap-0.5">
-              <button onClick={() => moveCustom(i, -1)} disabled={i === 0} className="text-gray-400 hover:text-white disabled:opacity-30"><ChevronUp size={14} /></button>
-              <button onClick={() => moveCustom(i, 1)} disabled={i === customSteps.length - 1} className="text-gray-400 hover:text-white disabled:opacity-30"><ChevronDown size={14} /></button>
-            </div>
-            <span className="flex-1 text-sm" style={{ color: 'var(--text)' }}>{cs.name}</span>
-            <div className="flex items-center gap-1">
-              <span className="text-xs" style={{ color: 'var(--muted)' }}>Coats:</span>
-              <input type="number" min={1} className="input w-16 text-sm py-0.5" value={cs.coat_count}
-                onChange={e => setCustomSteps(p => p.map((s, j) => j === i ? { ...s, coat_count: parseInt(e.target.value) || 1 } : s))} />
-            </div>
-            <button onClick={() => setCustomSteps(p => p.filter((_, j) => j !== i))} className="text-red-400 hover:text-red-300 text-xs">×</button>
-          </div>
-        ))}
       </div>
 
+      {/* Unified ordered list */}
+      {allSteps.length > 0 && (
+        <div className="card space-y-3">
+          <h4 className="font-semibold" style={{ color: 'var(--text)' }}>Steps in Order ({allSteps.length} selected → {totalExpanded} total)</h4>
+          <div className="space-y-2">
+            {allSteps.map((step, idx) => {
+              const preview = expandStepByCoats(step.name, step.coat_count)
+              return (
+                <div key={step.id} className="p-3 rounded-lg" style={{ background: 'var(--bg3)' }}>
+                  <div className="flex items-center gap-2">
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                      <button onClick={() => moveStep(idx, -1)} disabled={idx === 0}
+                        style={{ background: 'none', border: '1px solid #555', borderRadius: '3px', padding: '1px 5px', cursor: 'pointer', opacity: idx === 0 ? 0.3 : 1, color: 'var(--text)', fontSize: '10px' }}>▲</button>
+                      <button onClick={() => moveStep(idx, 1)} disabled={idx === allSteps.length - 1}
+                        style={{ background: 'none', border: '1px solid #555', borderRadius: '3px', padding: '1px 5px', cursor: 'pointer', opacity: idx === allSteps.length - 1 ? 0.3 : 1, color: 'var(--text)', fontSize: '10px' }}>▼</button>
+                    </div>
+                    <span className="text-sm font-medium flex-1" style={{ color: 'var(--text)' }}>{idx + 1}. {step.name}</span>
+                    <div className="flex items-center gap-1">
+                      <span className="text-xs" style={{ color: 'var(--muted)' }}>Coats:</span>
+                      <input type="number" min={1} max={10} className="input w-16 text-sm py-0.5"
+                        value={step.coat_count} onChange={e => updateCoatCount(idx, e.target.value)} />
+                    </div>
+                    {step.is_custom && <span className="text-xs px-1 rounded" style={{ background: 'var(--bg2)', color: 'var(--muted)' }}>custom</span>}
+                    <button onClick={() => removeStep(idx)} className="text-red-400 hover:text-red-300 text-sm">×</button>
+                  </div>
+                  {step.coat_count > 1 && (
+                    <p className="text-xs mt-1 pl-8" style={{ color: 'var(--muted)' }}>
+                      Will create: {preview.join(', ')}
+                    </p>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
       <button onClick={saveSteps} disabled={saving} className="btn-gold">
-        {saving ? 'Saving...' : 'Save Steps'}
+        {saving ? 'Saving...' : `Save & Continue →`}
       </button>
     </div>
   )
@@ -553,7 +593,7 @@ export default function ProcessMasterDetail() {
       </div>
 
       {activeStep === 1 && <Step1AreasFlats process={process} onSaved={load} />}
-      {activeStep === 2 && <Step2Steps process={process} onSaved={load} />}
+      {activeStep === 2 && <Step2Steps process={process} onSaved={load} onComplete={() => setActiveStep(3)} />}
       {activeStep === 3 && <Step3Materials process={process} siteId={siteId} />}
       {activeStep === 4 && <Step4Review process={process} siteId={siteId} />}
 
