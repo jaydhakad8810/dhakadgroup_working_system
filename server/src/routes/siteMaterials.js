@@ -60,8 +60,8 @@ router.get('/template', adminOnly, async (req, res) => {
       ['Main Category: Must be: Paints, Painting Kit, or Other Material'],
     ])
     const wb = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(wb, notes, 'Instructions')
     XLSX.utils.book_append_sheet(wb, ws, 'Materials')
+    XLSX.utils.book_append_sheet(wb, notes, 'Instructions')
     const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' })
     res.setHeader('Content-Disposition', 'attachment; filename=material_template.xlsx')
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
@@ -98,19 +98,37 @@ router.post('/import', adminOnly, upload.single('file'), async (req, res) => {
     if (!req.file) return res.status(400).json({ error: 'File required' })
 
     const workbook = XLSX.read(req.file.buffer, { type: 'buffer' })
-    const sheet = workbook.Sheets[workbook.SheetNames[0]]
+    const materialsSheetName = workbook.SheetNames.find(
+      n => n.toLowerCase().includes('material')
+    ) || workbook.SheetNames[workbook.SheetNames.length - 1]
+    const sheet = workbook.Sheets[materialsSheetName]
     const rows = XLSX.utils.sheet_to_json(sheet)
+
+    const unitMap = {
+      'kg': 'Kg', 'KG': 'Kg', 'Kg': 'Kg',
+      'ltr': 'Ltr', 'LTR': 'Ltr', 'Ltr': 'Ltr', 'liter': 'Ltr', 'litre': 'Ltr',
+      'nos': 'Nos', 'NOS': 'Nos', 'Nos': 'Nos', 'no': 'Nos',
+      'pcs': 'Pcs', 'PCS': 'Pcs', 'Pcs': 'Pcs', 'piece': 'Pcs',
+    }
+    const categoryMap = {
+      'paints': 'Paints', 'paint': 'Paints',
+      'painting kit': 'Painting Kit', 'kit': 'Painting Kit',
+      'other material': 'Other Material', 'other': 'Other Material',
+    }
 
     const results = { imported: 0, errors: [] }
     for (const [i, row] of rows.entries()) {
       try {
-        const company_name = row['Company Name'] || row['company_name']
-        const product_name = row['Product Name'] || row['product_name']
-        const shade_name = row['Shade Name'] || row['shade_name'] || null
-        const shade_code = row['Shade Code'] || row['shade_code'] || null
-        const unit = row['Unit'] || row['unit']
-        const packaging = row['Packaging'] || row['packaging'] || null
-        const main_category = row['Main Category'] || row['main_category'] || 'Other Material'
+        const company_name = (row['Company Name'] || row['company_name'] || row['COMPANY NAME'] || '').toString().trim()
+        const product_name = (row['Product Name'] || row['product_name'] || row['PRODUCT NAME'] || '').toString().trim()
+        const shade_name = (row['Shade Name'] || row['shade_name'] || row['SHADE NAME'] || '').toString().trim() || null
+        const shade_code = (row['Shade Code'] || row['shade_code'] || row['SHADE CODE'] || '').toString().trim() || null
+        const unit_raw = (row['Unit'] || row['unit'] || row['UNIT'] || '').toString().trim()
+        const packaging = (row['Packaging'] || row['packaging'] || row['PACKAGING'] || '').toString().trim() || null
+        const main_category_raw = (row['Main Category'] || row['main_category'] || row['MAIN CATEGORY'] || '').toString().trim()
+
+        const unit = unitMap[unit_raw] || unit_raw
+        const main_category = categoryMap[main_category_raw.toLowerCase()] || categoryMap[main_category_raw] || 'Other Material'
 
         if (!company_name || !product_name || !unit) {
           results.errors.push({ row: i+2, error: 'Missing Company Name, Product Name or Unit' })
