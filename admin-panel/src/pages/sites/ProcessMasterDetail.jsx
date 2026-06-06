@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Loader2, ChevronUp, ChevronDown } from 'lucide-react'
 import api from '../../utils/api'
@@ -399,18 +399,91 @@ function Step2Steps({ process, onSaved, onComplete }) {
   )
 }
 
+// ── Material autocomplete input ─────────────────────────────────────────────
+function MaterialSearchSelect({ siteMaterials, value, onChange }) {
+  const [query, setQuery] = useState('')
+  const [open, setOpen] = useState(false)
+  const ref = useRef(null)
+
+  useEffect(() => {
+    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  const selected = siteMaterials.find(m => m.id === value)
+  const displayValue = open ? query : (selected ? selected.full_name : query)
+
+  const filtered = (() => {
+    const q = query.toLowerCase()
+    if (!q) return siteMaterials
+    return siteMaterials.filter(m =>
+      m.full_name?.toLowerCase().includes(q) ||
+      m.product_name?.toLowerCase().includes(q) ||
+      m.shade_name?.toLowerCase().includes(q) ||
+      m.shade_code?.toLowerCase().includes(q) ||
+      m.company_name?.toLowerCase().includes(q)
+    )
+  })()
+
+  const grouped = ['Paints', 'Painting Kit', 'Other Material'].map(cat => ({
+    cat,
+    items: filtered.filter(m => m.main_category === cat)
+  })).filter(g => g.items.length > 0)
+
+  return (
+    <div ref={ref} style={{ position: 'relative' }}>
+      <div style={{ position: 'relative' }}>
+        <span style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)', pointerEvents: 'none' }}>🔍</span>
+        <input
+          placeholder="Search material by name, shade, code..."
+          value={displayValue}
+          onFocus={() => { setOpen(true); setQuery('') }}
+          onChange={e => { setQuery(e.target.value); setOpen(true); onChange(null) }}
+          style={{ width: '100%', padding: '8px 32px 8px 32px', background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: '8px', color: 'var(--text)', fontSize: '13px', boxSizing: 'border-box' }}
+        />
+        {(value || query) && (
+          <button onClick={() => { onChange(null); setQuery(''); setOpen(false) }}
+            style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: '16px' }}>×</button>
+        )}
+      </div>
+      {open && (
+        <div style={{ position: 'absolute', zIndex: 100, top: '100%', left: 0, right: 0, background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: '8px', maxHeight: '220px', overflowY: 'auto', marginTop: '2px', boxShadow: '0 4px 16px rgba(0,0,0,0.4)' }}>
+          {grouped.length === 0 && <div style={{ padding: '10px 14px', color: 'var(--muted)', fontSize: '13px' }}>No materials found</div>}
+          {grouped.map(({ cat, items }) => (
+            <div key={cat}>
+              <div style={{ padding: '6px 12px 2px', fontSize: '10px', fontWeight: 700, letterSpacing: '0.08em', color: 'var(--muted)', textTransform: 'uppercase', background: 'var(--bg3)' }}>{cat}</div>
+              {items.map(m => (
+                <div key={m.id}
+                  onMouseDown={() => { onChange(m.id); setQuery(''); setOpen(false) }}
+                  style={{ padding: '8px 14px', cursor: 'pointer', fontSize: '13px', color: m.id === value ? 'var(--gold)' : 'var(--text)', background: m.id === value ? 'rgba(212,175,55,0.08)' : 'transparent' }}
+                  onMouseEnter={e => e.currentTarget.style.background = 'var(--bg3)'}
+                  onMouseLeave={e => e.currentTarget.style.background = m.id === value ? 'rgba(212,175,55,0.08)' : 'transparent'}
+                >
+                  <div style={{ fontWeight: 500 }}>{m.full_name}</div>
+                  <div style={{ fontSize: '11px', color: 'var(--muted)', marginTop: '1px' }}>
+                    {[m.company_name, m.unit, m.shade_code].filter(Boolean).join(' · ')}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── Step 3: Materials per Step ──────────────────────────────────────────────
 function Step3Materials({ process, siteId }) {
   const [siteMaterials, setSiteMaterials] = useState([])
   const [stepMaterials, setStepMaterials] = useState({})
   const [addingFor, setAddingFor] = useState(null)
-  const [matForm, setMatForm] = useState({ site_material_id: '', quantity_per_flat: '', unit: '' })
+  const [addingMaterial, setAddingMaterial] = useState({})
   const [saving, setSaving] = useState(false)
-  const [materialSearch, setMaterialSearch] = useState({})
 
   useEffect(() => {
     api.get(`/site-materials?site_id=${siteId}`).then(r => setSiteMaterials(r.data || []))
-    // load existing materials per step
     if (process.steps) {
       const map = {}
       process.steps.forEach(s => { map[s.id] = s.materials || [] })
@@ -420,15 +493,20 @@ function Step3Materials({ process, siteId }) {
 
   const openAdd = (stepId) => {
     setAddingFor(stepId)
-    setMatForm({ site_material_id: '', quantity_per_flat: '', unit: '' })
+    setAddingMaterial(p => ({ ...p, [stepId]: { site_material_id: null, quantity_per_flat: '', unit: '' } }))
   }
 
   const handleAdd = async () => {
-    if (!matForm.site_material_id) { toast.error('Select a material'); return }
+    const form = addingMaterial[addingFor] || {}
+    if (!form.site_material_id) { toast.error('Select a material'); return }
     setSaving(true)
     try {
-      const res = await api.post(`/process-master/steps/${addingFor}/materials`, matForm)
-      const mat = siteMaterials.find(m => m.id === matForm.site_material_id)
+      const res = await api.post(`/process-master/steps/${addingFor}/materials`, {
+        site_material_id: form.site_material_id,
+        quantity_per_flat: form.quantity_per_flat,
+        unit: form.unit
+      })
+      const mat = siteMaterials.find(m => m.id === form.site_material_id)
       setStepMaterials(p => ({ ...p, [addingFor]: [...(p[addingFor] || []), { ...res.data, siteMaterial: mat }] }))
       setAddingFor(null)
       toast.success('Material added')
@@ -473,50 +551,23 @@ function Step3Materials({ process, siteId }) {
             <div className="p-3 rounded-lg space-y-3 border" style={{ background: 'var(--bg3)', borderColor: 'var(--bg2)' }}>
               <div>
                 <label className="label text-xs">Material</label>
-                <div style={{ position: 'relative', marginBottom: '8px' }}>
-                  <input
-                    placeholder="Search material by name, shade, code..."
-                    value={materialSearch[step.id] || ''}
-                    onChange={e => setMaterialSearch(p => ({ ...p, [step.id]: e.target.value }))}
-                    style={{ width: '100%', padding: '8px 12px 8px 32px', background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: '8px', color: 'var(--text)', fontSize: '13px', boxSizing: 'border-box' }}
-                  />
-                  <span style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)' }}>🔍</span>
-                  {materialSearch[step.id] && (
-                    <button onClick={() => setMaterialSearch(p => ({ ...p, [step.id]: '' }))}
-                      style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer' }}>×</button>
-                  )}
-                </div>
-                <select className="select" value={matForm.site_material_id}
-                  onChange={e => {
-                    const m = siteMaterials.find(x => x.id === e.target.value)
-                    setMatForm(p => ({ ...p, site_material_id: e.target.value, unit: m?.unit || '' }))
-                  }}>
-                  <option value="">Select material...</option>
-                  {(() => {
-                    const q = (materialSearch[step.id] || '').toLowerCase()
-                    const filtered = q ? siteMaterials.filter(m =>
-                      m.full_name?.toLowerCase().includes(q) ||
-                      m.product_name?.toLowerCase().includes(q) ||
-                      m.shade_name?.toLowerCase().includes(q) ||
-                      m.shade_code?.toLowerCase().includes(q) ||
-                      m.company_name?.toLowerCase().includes(q)
-                    ) : siteMaterials
-                    return ['Paints','Painting Kit','Other Material'].map(cat => {
-                      const mats = filtered.filter(m => m.main_category === cat)
-                      if (!mats.length) return null
-                      return <optgroup key={cat} label={cat}>{mats.map(m => <option key={m.id} value={m.id}>{m.full_name}</option>)}</optgroup>
-                    })
-                  })()}
-                </select>
+                <MaterialSearchSelect
+                  siteMaterials={siteMaterials}
+                  value={addingMaterial[step.id]?.site_material_id || null}
+                  onChange={(id) => {
+                    const mat = siteMaterials.find(m => m.id === id)
+                    setAddingMaterial(p => ({ ...p, [step.id]: { ...p[step.id], site_material_id: id, unit: mat?.unit || p[step.id]?.unit || '' } }))
+                  }}
+                />
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="label text-xs">Qty per flat</label>
-                  <input type="number" className="input" value={matForm.quantity_per_flat} onChange={e => setMatForm(p => ({ ...p, quantity_per_flat: e.target.value }))} />
+                  <input type="number" className="input" value={addingMaterial[step.id]?.quantity_per_flat || ''} onChange={e => setAddingMaterial(p => ({ ...p, [step.id]: { ...p[step.id], quantity_per_flat: e.target.value } }))} />
                 </div>
                 <div>
                   <label className="label text-xs">Unit</label>
-                  <input className="input" value={matForm.unit} onChange={e => setMatForm(p => ({ ...p, unit: e.target.value }))} />
+                  <input className="input" value={addingMaterial[step.id]?.unit || ''} onChange={e => setAddingMaterial(p => ({ ...p, [step.id]: { ...p[step.id], unit: e.target.value } }))} />
                 </div>
               </div>
               <div className="flex gap-2">
