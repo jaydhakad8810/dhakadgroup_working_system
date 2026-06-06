@@ -43,7 +43,7 @@ const STEP_PRESETS = {
 }
 
 // ── Step 1: Areas & Flats ───────────────────────────────────────────────────
-function Step1AreasFlats({ process, onSaved }) {
+function Step1AreasFlats({ process, onSaved, onComplete }) {
   const [areas, setAreas] = useState(process.areas || [])
   const [newAreaName, setNewAreaName] = useState('')
   const [areaType, setAreaType] = useState('wing')
@@ -71,24 +71,37 @@ function Step1AreasFlats({ process, onSaved }) {
 
   const generateFlats = (areaId) => {
     const b = flatBuilders[areaId] || {}
-    const from = parseInt(b.from_no) || 101
-    const to = parseInt(b.to_no) || 101
+    const from = parseInt(b.from_no)
+    const to = parseInt(b.to_no)
     const bhk = b.bhk_type || '2BHK'
-    const perFloor = parseInt(b.flats_per_floor) || 1
-    if (to < from) { toast.error('To must be >= From'); return }
+    const perFloor = parseInt(b.flats_per_floor) || 0
+    if (!from || !to || from > to) { toast.error('Enter valid From/To flat numbers'); return }
+
     const flats = []
-    for (let n = from; n <= to; n++) {
-      flats.push({ flat_no: String(n), bhk_type: bhk, sequence_order: n - from })
+    let currentNo = from
+    while (currentNo <= to) {
+      flats.push({ flat_no: currentNo.toString(), bhk_type: bhk, isEditing: false, showCustomBhk: false })
+      currentNo++
+      if (perFloor > 0) {
+        const lastTwo = parseInt(currentNo.toString().slice(-2))
+        if (lastTwo > perFloor) {
+          const floorPart = parseInt(currentNo.toString().slice(0, -2)) + 1
+          currentNo = parseInt(floorPart.toString() + '01')
+        }
+      }
     }
-    const totalFloors = Math.ceil(flats.length / perFloor)
+
+    const floors = perFloor > 0
+      ? new Set(flats.map(f => f.flat_no.toString().slice(0, -2))).size
+      : null
     setFlatPreviews(p => ({ ...p, [areaId]: flats }))
-    setFlatSummaries(p => ({ ...p, [areaId]: { total: flats.length, floors: totalFloors } }))
+    setFlatSummaries(p => ({ ...p, [areaId]: { total: flats.length, floors } }))
   }
 
-  const updatePreviewBhk = (areaId, idx, bhk) => {
+  const updateFlat = (areaId, idx, patch) => {
     setFlatPreviews(p => {
       const arr = [...(p[areaId] || [])]
-      arr[idx] = { ...arr[idx], bhk_type: bhk }
+      arr[idx] = { ...arr[idx], ...patch }
       return { ...p, [areaId]: arr }
     })
   }
@@ -96,7 +109,7 @@ function Step1AreasFlats({ process, onSaved }) {
   const setBulkBhk = (areaId, bhk) => {
     setFlatPreviews(p => ({
       ...p,
-      [areaId]: (p[areaId] || []).map(f => ({ ...f, bhk_type: bhk }))
+      [areaId]: (p[areaId] || []).map(f => ({ ...f, bhk_type: bhk, showCustomBhk: false }))
     }))
   }
 
@@ -111,6 +124,7 @@ function Step1AreasFlats({ process, onSaved }) {
       toast.success(`${preview.length} flats saved`)
       setFlatPreviews(p => ({ ...p, [areaId]: [] }))
       onSaved()
+      onComplete()
     } catch { toast.error('Failed to save flats') }
     setSavingFlats(p => ({ ...p, [areaId]: false }))
   }
@@ -176,7 +190,7 @@ function Step1AreasFlats({ process, onSaved }) {
                 <div className="space-y-3">
                   {flatSummaries[area.id] && (
                     <p className="text-xs font-medium text-gold-400">
-                      Total: {flatSummaries[area.id].total} flats across ~{flatSummaries[area.id].floors} floors
+                      Total: {flatSummaries[area.id].total} flats{flatSummaries[area.id].floors ? ` across ${flatSummaries[area.id].floors} floor(s)` : ''}
                     </p>
                   )}
                   <div style={{ marginBottom: '8px' }}>
@@ -190,12 +204,41 @@ function Step1AreasFlats({ process, onSaved }) {
                   </div>
                   <div className="max-h-64 overflow-y-auto space-y-1 pr-1">
                     {flatPreviews[area.id].map((f, i) => (
-                      <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 8px', borderRadius: '6px', background: 'var(--bg2)', borderBottom: '1px solid var(--border)' }}>
-                        <span style={{ minWidth: '48px', fontWeight: 'bold', color: 'var(--text)', fontSize: '13px' }}>{f.flat_no}</span>
-                        <select value={f.bhk_type} onChange={e => updatePreviewBhk(area.id, i, e.target.value)}
-                          style={{ flex: 1, background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: '6px', padding: '4px 8px', color: 'var(--text)', fontSize: '13px' }}>
+                      <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 8px', borderRadius: '6px', background: 'var(--bg2)' }}>
+                        {/* Flat number — inline editable */}
+                        {f.isEditing ? (
+                          <input
+                            value={f.flat_no} autoFocus
+                            onChange={e => updateFlat(area.id, i, { flat_no: e.target.value })}
+                            onBlur={() => updateFlat(area.id, i, { isEditing: false })}
+                            onKeyDown={e => e.key === 'Enter' && updateFlat(area.id, i, { isEditing: false })}
+                            style={{ width: '72px', padding: '3px 6px', background: 'var(--bg3)', border: '1px solid var(--gold)', borderRadius: '4px', color: 'var(--text)', fontSize: '13px', fontWeight: 'bold' }}
+                          />
+                        ) : (
+                          <span style={{ minWidth: '60px', fontWeight: 'bold', color: 'var(--text)', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                            {f.flat_no}
+                            <button onClick={() => updateFlat(area.id, i, { isEditing: true })}
+                              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: '11px', padding: '0', lineHeight: 1 }}>✏</button>
+                          </span>
+                        )}
+                        {/* BHK selector */}
+                        <select
+                          value={['1BHK','2BHK','3BHK','4BHK','Studio'].includes(f.bhk_type) ? f.bhk_type : 'Other'}
+                          onChange={e => updateFlat(area.id, i, {
+                            bhk_type: e.target.value === 'Other' ? '' : e.target.value,
+                            showCustomBhk: e.target.value === 'Other'
+                          })}
+                          style={{ background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: '6px', padding: '4px 8px', color: 'var(--text)', fontSize: '13px' }}>
                           <option>1BHK</option><option>2BHK</option><option>3BHK</option><option>4BHK</option><option>Studio</option><option>Other</option>
                         </select>
+                        {f.showCustomBhk && (
+                          <input
+                            placeholder="e.g. 5BHK"
+                            value={f.bhk_type}
+                            onChange={e => updateFlat(area.id, i, { bhk_type: e.target.value })}
+                            style={{ width: '72px', padding: '4px 6px', background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: '4px', color: 'var(--text)', fontSize: '13px' }}
+                          />
+                        )}
                       </div>
                     ))}
                   </div>
@@ -363,6 +406,7 @@ function Step3Materials({ process, siteId }) {
   const [addingFor, setAddingFor] = useState(null)
   const [matForm, setMatForm] = useState({ site_material_id: '', quantity_per_flat: '', unit: '' })
   const [saving, setSaving] = useState(false)
+  const [materialSearch, setMaterialSearch] = useState({})
 
   useEffect(() => {
     api.get(`/site-materials?site_id=${siteId}`).then(r => setSiteMaterials(r.data || []))
@@ -429,17 +473,40 @@ function Step3Materials({ process, siteId }) {
             <div className="p-3 rounded-lg space-y-3 border" style={{ background: 'var(--bg3)', borderColor: 'var(--bg2)' }}>
               <div>
                 <label className="label text-xs">Material</label>
+                <div style={{ position: 'relative', marginBottom: '8px' }}>
+                  <input
+                    placeholder="Search material by name, shade, code..."
+                    value={materialSearch[step.id] || ''}
+                    onChange={e => setMaterialSearch(p => ({ ...p, [step.id]: e.target.value }))}
+                    style={{ width: '100%', padding: '8px 12px 8px 32px', background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: '8px', color: 'var(--text)', fontSize: '13px', boxSizing: 'border-box' }}
+                  />
+                  <span style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)' }}>🔍</span>
+                  {materialSearch[step.id] && (
+                    <button onClick={() => setMaterialSearch(p => ({ ...p, [step.id]: '' }))}
+                      style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer' }}>×</button>
+                  )}
+                </div>
                 <select className="select" value={matForm.site_material_id}
                   onChange={e => {
                     const m = siteMaterials.find(x => x.id === e.target.value)
                     setMatForm(p => ({ ...p, site_material_id: e.target.value, unit: m?.unit || '' }))
                   }}>
                   <option value="">Select material...</option>
-                  {['Paints','Painting Kit','Other Material'].map(cat => {
-                    const mats = siteMaterials.filter(m => m.main_category === cat)
-                    if (!mats.length) return null
-                    return <optgroup key={cat} label={cat}>{mats.map(m => <option key={m.id} value={m.id}>{m.full_name}</option>)}</optgroup>
-                  })}
+                  {(() => {
+                    const q = (materialSearch[step.id] || '').toLowerCase()
+                    const filtered = q ? siteMaterials.filter(m =>
+                      m.full_name?.toLowerCase().includes(q) ||
+                      m.product_name?.toLowerCase().includes(q) ||
+                      m.shade_name?.toLowerCase().includes(q) ||
+                      m.shade_code?.toLowerCase().includes(q) ||
+                      m.company_name?.toLowerCase().includes(q)
+                    ) : siteMaterials
+                    return ['Paints','Painting Kit','Other Material'].map(cat => {
+                      const mats = filtered.filter(m => m.main_category === cat)
+                      if (!mats.length) return null
+                      return <optgroup key={cat} label={cat}>{mats.map(m => <option key={m.id} value={m.id}>{m.full_name}</option>)}</optgroup>
+                    })
+                  })()}
                 </select>
               </div>
               <div className="grid grid-cols-2 gap-2">
@@ -508,14 +575,27 @@ function Step4Review({ process, siteId }) {
       </div>
 
       {steps.length > 0 && (
-        <div className="card space-y-3">
-          <h4 className="font-semibold" style={{ color: 'var(--text)' }}>Steps & Materials</h4>
-          {steps.map((s, i) => (
-            <div key={s.id} className="p-2 rounded" style={{ background: 'var(--bg3)' }}>
-              <p className="text-sm font-medium" style={{ color: 'var(--text)' }}>{i + 1}. {s.step_name} — {s.coat_count} coat{s.coat_count > 1 ? 's' : ''}</p>
-              {(s.materials || []).map(m => (
-                <p key={m.id} className="text-xs pl-3 mt-0.5" style={{ color: 'var(--muted)' }}>• {m.siteMaterial?.full_name || 'Material'} — {m.quantity_per_flat} {m.unit}/flat</p>
-              ))}
+        <div className="card overflow-hidden p-0">
+          <div className="px-4 py-3" style={{ borderBottom: '1px solid var(--border)' }}>
+            <h4 className="font-semibold" style={{ color: 'var(--text)' }}>Steps & Materials</h4>
+          </div>
+          {[...steps].sort((a, b) => (a.sequence_order || 0) - (b.sequence_order || 0)).map((s, i) => (
+            <div key={s.id} style={{ padding: '12px 14px', borderBottom: '1px solid var(--border)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: (s.materials || []).length > 0 ? '8px' : '0' }}>
+                <span style={{ color: 'var(--muted)', fontSize: '13px', minWidth: '24px' }}>{i + 1}.</span>
+                <span style={{ color: 'var(--text)', fontWeight: '500' }}>{s.step_name}</span>
+                <span style={{ color: 'var(--muted)', fontSize: '12px' }}>— {s.coat_count || 1} coat</span>
+              </div>
+              {(s.materials || []).length > 0 && (
+                <div style={{ marginLeft: '32px' }}>
+                  {s.materials.map((m, mi) => (
+                    <div key={mi} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 8px', background: 'var(--bg3)', borderRadius: '6px', marginBottom: '4px', fontSize: '12px' }}>
+                      <span style={{ color: 'var(--muted)' }}>📦 {m.siteMaterial?.full_name || m.material_name || 'Material'}</span>
+                      <span style={{ color: 'var(--gold)' }}>{m.quantity_per_flat ? `${m.quantity_per_flat} ${m.unit || ''}/flat` : 'qty not set'}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -566,6 +646,14 @@ export default function ProcessMasterDetail() {
 
   useEffect(() => { load() }, [processId])
 
+  useEffect(() => {
+    if (activeStep === 4) {
+      api.get(`/process-master/${processId}`)
+        .then(res => setProcess(res.data))
+        .catch(() => {})
+    }
+  }, [activeStep])
+
   if (loading) return <LoadingPage />
   if (!process) return <div className="text-gray-400">Process not found</div>
 
@@ -592,7 +680,7 @@ export default function ProcessMasterDetail() {
         ))}
       </div>
 
-      {activeStep === 1 && <Step1AreasFlats process={process} onSaved={load} />}
+      {activeStep === 1 && <Step1AreasFlats process={process} onSaved={load} onComplete={() => setActiveStep(2)} />}
       {activeStep === 2 && <Step2Steps process={process} onSaved={load} onComplete={() => setActiveStep(3)} />}
       {activeStep === 3 && <Step3Materials process={process} siteId={siteId} />}
       {activeStep === 4 && <Step4Review process={process} siteId={siteId} />}
