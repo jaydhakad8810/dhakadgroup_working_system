@@ -738,6 +738,14 @@ export default function MarkAttendance() {
     labour_id: '',
   })
 
+  // Check-in flow state
+  const [attendStep, setAttendStep] = useState('today') // 'today' | 'mark' | 'photos'
+  const [attendance, setAttendance] = useState({})
+  const [checkInPhotos, setCheckInPhotos] = useState({})
+  const [uploadingPhoto, setUploadingPhoto] = useState({})
+  const [submittingAttendance, setSubmittingAttendance] = useState(false)
+  const [laboursLoading, setLaboursLoading] = useState(false)
+
   useEffect(() => {
     api.get('/auth/me').then(res => {
       const sites = res.data?.sites || []
@@ -767,6 +775,62 @@ export default function MarkAttendance() {
       const res = await api.get(`/workorders/site-labours?site_id=${sid}`)
       setSiteLabours(res.data || [])
     } catch {}
+  }
+
+  async function fetchSiteLabours(siteId) {
+    setLaboursLoading(true)
+    try {
+      const token = sessionStorage.getItem('sv_token') || localStorage.getItem('sv_token')
+      const res = await api.get(
+        `/workorders/site-labours?site_id=${siteId}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      )
+      const labours = res.data || []
+      setSiteLabours(labours)
+      const init = {}
+      labours.forEach(l => { init[l.id] = 'present' })
+      setAttendance(init)
+    } catch { toast.error('Failed to load labourers') }
+    setLaboursLoading(false)
+  }
+
+  async function uploadCheckInPhoto(labourId, file) {
+    setUploadingPhoto(prev => ({ ...prev, [labourId]: true }))
+    try {
+      const token = sessionStorage.getItem('sv_token') || localStorage.getItem('sv_token')
+      const formData = new FormData()
+      formData.append('file', file)
+      const res = await api.post('/upload/single', formData, {
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'multipart/form-data' }
+      })
+      setCheckInPhotos(prev => ({ ...prev, [labourId]: res.data.url }))
+    } catch { toast.error('Photo upload failed') }
+    setUploadingPhoto(prev => ({ ...prev, [labourId]: false }))
+  }
+
+  async function submitCheckIn() {
+    setSubmittingAttendance(true)
+    try {
+      const token = sessionStorage.getItem('sv_token') || localStorage.getItem('sv_token')
+      const presentLabours = siteLabours.filter(l => attendance[l.id] !== 'absent')
+      const siteId = typeof selectedSite === 'object' ? selectedSite?.id : selectedSite
+      await api.post('/attendance/bulk', {
+        site_id: siteId,
+        date: today,
+        labours: presentLabours.map(l => ({
+          labour_id: l.id,
+          status: attendance[l.id] || 'present',
+          check_in_photo: checkInPhotos[l.id] || null
+        }))
+      }, { headers: { Authorization: `Bearer ${token}` } })
+      toast.success('Attendance submitted successfully!')
+      setAttendStep('today')
+      setCheckInPhotos({})
+      loadTodayPlan(siteId)
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Failed to submit')
+    }
+    setSubmittingAttendance(false)
   }
 
   async function fetchHistory(filter, sid) {
@@ -849,7 +913,7 @@ export default function MarkAttendance() {
       </div>
 
       {/* TODAY TAB */}
-      {tab === 'today' && (
+      {tab === 'today' && attendStep === 'today' && (
         <div className="space-y-4">
           {/* Plan context banner — shown when navigated from Reports → Plan */}
           {planContext && planContext.date === today && (
@@ -911,11 +975,14 @@ export default function MarkAttendance() {
                   </div>
                 </div>
                 <button
-                  onClick={() => navigate('/plan')}
+                  onClick={() => {
+                    const siteId = typeof selectedSite === 'object' ? selectedSite?.id : selectedSite
+                    fetchSiteLabours(siteId)
+                    setAttendStep('mark')
+                  }}
                   className="w-full py-3 rounded-xl bg-primary-500 text-white text-sm font-semibold flex items-center justify-center gap-2 active:scale-95 transition-all"
                 >
-                  Continue Plan
-                  <ArrowRight size={16} />
+                  Mark Attendance →
                 </button>
               </div>
               {planItems.length > 0 && (
@@ -958,6 +1025,166 @@ export default function MarkAttendance() {
               </button>
             </div>
           )}
+        </div>
+      )}
+
+      {/* STEP: Mark Present/Absent */}
+      {tab === 'today' && attendStep === 'mark' && (
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+            <button onClick={() => setAttendStep('today')}
+              style={{ background: 'none', border: 'none', color: '#FF8C00', cursor: 'pointer', fontSize: '24px' }}>
+              ←
+            </button>
+            <div>
+              <div style={{ color: '#fff', fontWeight: 'bold', fontSize: '16px' }}>Mark Attendance</div>
+              <div style={{ color: '#888', fontSize: '12px' }}>Step 1 of 2 — Mark present/absent</div>
+            </div>
+          </div>
+
+          <button
+            onClick={() => {
+              const all = {}
+              siteLabours.forEach(l => { all[l.id] = 'present' })
+              setAttendance(all)
+            }}
+            style={{ width: '100%', background: '#14532d', border: 'none', borderRadius: '10px', padding: '12px', color: '#22c55e', fontWeight: 'bold', fontSize: '14px', cursor: 'pointer', marginBottom: '12px' }}>
+            ✓ All Present
+          </button>
+
+          {laboursLoading ? (
+            <div style={{ textAlign: 'center', color: '#888', padding: '20px' }}>Loading labourers...</div>
+          ) : siteLabours.length === 0 ? (
+            <div style={{ textAlign: 'center', color: '#666', padding: '20px', fontSize: '14px' }}>No labourers found for this site</div>
+          ) : (
+            <div style={{ marginBottom: '16px' }}>
+              {siteLabours.map(labour => (
+                <div key={labour.id} style={{ background: '#111', borderRadius: '12px', padding: '14px', marginBottom: '10px', border: '1px solid #222' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      {labour.photo ? (
+                        <img src={labour.photo} style={{ width: '36px', height: '36px', borderRadius: '50%', objectFit: 'cover' }} />
+                      ) : (
+                        <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#333', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#888', fontWeight: 'bold' }}>
+                          {labour.name?.[0] || '?'}
+                        </div>
+                      )}
+                      <span style={{ color: '#fff', fontSize: '14px', fontWeight: '500' }}>{labour.name}</span>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    {['present', 'half_day', 'absent'].map(status => (
+                      <button key={status}
+                        onClick={() => setAttendance(prev => ({ ...prev, [labour.id]: status }))}
+                        style={{
+                          flex: 1, padding: '8px 4px', borderRadius: '8px', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer', border: 'none',
+                          background: attendance[labour.id] === status ? (status === 'present' ? '#14532d' : status === 'half_day' ? '#78350f' : '#7f1d1d') : '#1e1e1e',
+                          color: attendance[labour.id] === status ? (status === 'present' ? '#22c55e' : status === 'half_day' ? '#fbbf24' : '#f87171') : '#555'
+                        }}>
+                        {status === 'present' ? 'Present' : status === 'half_day' ? 'Half Day' : 'Absent'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div style={{ display: 'flex', gap: '12px', marginBottom: '16px', padding: '12px', background: '#1a1a1a', borderRadius: '10px' }}>
+            <div style={{ flex: 1, textAlign: 'center' }}>
+              <div style={{ color: '#22c55e', fontWeight: 'bold', fontSize: '20px' }}>{siteLabours.filter(l => attendance[l.id] === 'present').length}</div>
+              <div style={{ color: '#888', fontSize: '12px' }}>Present</div>
+            </div>
+            <div style={{ flex: 1, textAlign: 'center' }}>
+              <div style={{ color: '#fbbf24', fontWeight: 'bold', fontSize: '20px' }}>{siteLabours.filter(l => attendance[l.id] === 'half_day').length}</div>
+              <div style={{ color: '#888', fontSize: '12px' }}>Half Day</div>
+            </div>
+            <div style={{ flex: 1, textAlign: 'center' }}>
+              <div style={{ color: '#f87171', fontWeight: 'bold', fontSize: '20px' }}>{siteLabours.filter(l => attendance[l.id] === 'absent').length}</div>
+              <div style={{ color: '#888', fontSize: '12px' }}>Absent</div>
+            </div>
+          </div>
+
+          <button
+            onClick={() => setAttendStep('photos')}
+            disabled={siteLabours.filter(l => attendance[l.id] !== 'absent').length === 0}
+            style={{ width: '100%', background: '#FF8C00', border: 'none', borderRadius: '12px', padding: '16px', color: '#000', fontWeight: 'bold', fontSize: '16px', cursor: 'pointer', opacity: siteLabours.filter(l => attendance[l.id] !== 'absent').length === 0 ? 0.5 : 1 }}>
+            Next → Take Check-in Photos
+          </button>
+        </div>
+      )}
+
+      {/* STEP: Check-in Photos */}
+      {tab === 'today' && attendStep === 'photos' && (
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+            <button onClick={() => setAttendStep('mark')}
+              style={{ background: 'none', border: 'none', color: '#FF8C00', cursor: 'pointer', fontSize: '24px' }}>
+              ←
+            </button>
+            <div>
+              <div style={{ color: '#fff', fontWeight: 'bold', fontSize: '16px' }}>Check-in Photos</div>
+              <div style={{ color: '#888', fontSize: '12px' }}>Step 2 of 2 — Take photos for present labourers</div>
+            </div>
+          </div>
+
+          {(() => {
+            const present = siteLabours.filter(l => attendance[l.id] !== 'absent')
+            const taken = present.filter(l => checkInPhotos[l.id]).length
+            return (
+              <div style={{ background: '#1a1a1a', borderRadius: '10px', padding: '12px', marginBottom: '16px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
+                  <span style={{ color: '#888', fontSize: '13px' }}>Photos taken</span>
+                  <span style={{ color: '#FF8C00', fontWeight: 'bold', fontSize: '13px' }}>{taken} / {present.length}</span>
+                </div>
+                <div style={{ background: '#333', borderRadius: '4px', height: '6px' }}>
+                  <div style={{ background: '#FF8C00', borderRadius: '4px', height: '6px', width: present.length > 0 ? `${(taken / present.length) * 100}%` : '0%', transition: 'width 0.3s' }} />
+                </div>
+              </div>
+            )
+          })()}
+
+          {siteLabours.filter(l => attendance[l.id] !== 'absent').map(labour => (
+            <div key={labour.id} style={{ background: '#111', borderRadius: '12px', padding: '14px', marginBottom: '10px', border: checkInPhotos[labour.id] ? '1px solid #22c55e' : '1px solid #7f1d1d' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  {labour.photo ? (
+                    <img src={labour.photo} style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover' }} />
+                  ) : (
+                    <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: '#333', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#888', fontWeight: 'bold', fontSize: '16px' }}>
+                      {labour.name?.[0]}
+                    </div>
+                  )}
+                  <div>
+                    <div style={{ color: '#fff', fontSize: '14px', fontWeight: '500' }}>{labour.name}</div>
+                    <div style={{ color: '#888', fontSize: '12px' }}>{attendance[labour.id] === 'half_day' ? 'Half Day' : 'Present'}</div>
+                  </div>
+                </div>
+                {checkInPhotos[labour.id] ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <img src={checkInPhotos[labour.id]} style={{ width: '48px', height: '48px', borderRadius: '8px', objectFit: 'cover' }} />
+                    <span style={{ color: '#22c55e', fontSize: '20px' }}>✓</span>
+                  </div>
+                ) : uploadingPhoto[labour.id] ? (
+                  <span style={{ color: '#FF8C00', fontSize: '13px' }}>Uploading...</span>
+                ) : (
+                  <label style={{ background: '#FF8C00', border: 'none', borderRadius: '8px', padding: '8px 14px', color: '#000', fontWeight: 'bold', fontSize: '13px', cursor: 'pointer' }}>
+                    📷 Photo
+                    <input type="file" accept="image/*" capture="environment" style={{ display: 'none' }}
+                      onChange={e => { const file = e.target.files?.[0]; if (file) uploadCheckInPhoto(labour.id, file) }} />
+                  </label>
+                )}
+              </div>
+            </div>
+          ))}
+
+          <button
+            onClick={submitCheckIn}
+            disabled={submittingAttendance || siteLabours.filter(l => attendance[l.id] !== 'absent').some(l => !checkInPhotos[l.id])}
+            style={{ width: '100%', background: '#22c55e', border: 'none', borderRadius: '12px', padding: '16px', color: '#000', fontWeight: 'bold', fontSize: '16px', cursor: 'pointer', marginTop: '8px', opacity: (submittingAttendance || siteLabours.filter(l => attendance[l.id] !== 'absent').some(l => !checkInPhotos[l.id])) ? 0.5 : 1 }}>
+            {submittingAttendance ? 'Submitting...' : '✓ Submit Attendance'}
+          </button>
+          <p style={{ textAlign: 'center', color: '#666', fontSize: '12px', marginTop: '8px' }}>All present labourers must have a photo</p>
         </div>
       )}
 
