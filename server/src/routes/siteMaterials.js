@@ -153,6 +153,22 @@ router.post('/import', adminOnly, upload.single('file'), async (req, res) => {
   } catch (err) { return res.status(500).json({ error: err.message }) }
 })
 
+// PUT /api/site-materials/:id
+router.put('/:id', adminOnly, async (req, res) => {
+  try {
+    const { SiteMaterial } = require('../models')
+    const { company_name, product_name, shade_name,
+            shade_code, unit, packaging, main_category, full_name } = req.body
+    await SiteMaterial.update(
+      { company_name, product_name, shade_name,
+        shade_code, unit, packaging, main_category, full_name },
+      { where: { id: req.params.id } }
+    )
+    const updated = await SiteMaterial.findByPk(req.params.id)
+    return res.json(updated)
+  } catch (err) { return res.status(500).json({ error: err.message }) }
+})
+
 // DELETE /api/site-materials/:id
 router.delete('/:id', adminOnly, async (req, res) => {
   try {

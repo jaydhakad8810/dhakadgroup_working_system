@@ -155,6 +155,88 @@ function ImportModal({ siteId, onClose, onSuccess }) {
   )
 }
 
+// ── EditMaterialModal ────────────────────────────────────────────────────────
+function EditMaterialModal({ material, onClose, onSuccess }) {
+  const [form, setForm] = useState({
+    company_name: material?.company_name || '',
+    product_name: material?.product_name || '',
+    shade_name: material?.shade_name || '',
+    shade_code: material?.shade_code || '',
+    unit: material?.unit || 'Kg',
+    packaging: material?.packaging || '',
+    main_category: material?.main_category || 'Paints'
+  })
+  const [saving, setSaving] = useState(false)
+  const f = (k, v) => setForm(p => ({ ...p, [k]: v }))
+
+  const preview = [form.company_name, form.product_name, form.shade_name, form.shade_code]
+    .filter(Boolean).join(' - ')
+
+  async function handleSave() {
+    setSaving(true)
+    try {
+      await api.put(`/site-materials/${material.id}`, { ...form, full_name: preview })
+      toast.success('Material updated')
+      onSuccess()
+      onClose()
+    } catch { toast.error('Failed to update') }
+    setSaving(false)
+  }
+
+  return (
+    <Modal open={true} onClose={onClose} title="Edit Material" size="md">
+      <div className="space-y-4">
+        <div>
+          <label className="label">Main Category</label>
+          <select className="select" value={form.main_category} onChange={e => f('main_category', e.target.value)}>
+            <option>Paints</option>
+            <option>Painting Kit</option>
+            <option>Other Material</option>
+          </select>
+        </div>
+        <div>
+          <label className="label">Company Name *</label>
+          <input className="input" value={form.company_name} onChange={e => f('company_name', e.target.value)} />
+        </div>
+        <div>
+          <label className="label">Product Name *</label>
+          <input className="input" value={form.product_name} onChange={e => f('product_name', e.target.value)} />
+        </div>
+        <div>
+          <label className="label">Shade Name</label>
+          <input className="input" value={form.shade_name} onChange={e => f('shade_name', e.target.value)} />
+        </div>
+        <div>
+          <label className="label">Shade Code</label>
+          <input className="input" value={form.shade_code} onChange={e => f('shade_code', e.target.value)} />
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+          <div>
+            <label className="label">Unit *</label>
+            <select className="select" value={form.unit} onChange={e => f('unit', e.target.value)}>
+              <option>Kg</option><option>Ltr</option><option>Nos</option><option>Pcs</option>
+            </select>
+          </div>
+          <div>
+            <label className="label">Packaging</label>
+            <input className="input" value={form.packaging} onChange={e => f('packaging', e.target.value)} />
+          </div>
+        </div>
+        <div style={{ background: 'var(--bg3)', border: '1px solid var(--gold)', borderRadius: '8px', padding: '12px' }}>
+          <div style={{ color: 'var(--muted)', fontSize: '11px', marginBottom: '4px' }}>UPDATED FULL NAME</div>
+          <div style={{ fontWeight: 'bold', color: 'var(--text)' }}>{preview || 'Fill fields above'}</div>
+        </div>
+        <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+          <button className="btn-ghost" onClick={onClose}>Cancel</button>
+          <button className="btn-gold" onClick={handleSave} disabled={saving || !form.company_name || !form.product_name}>
+            {saving ? 'Saving...' : 'Save Changes'}
+          </button>
+        </div>
+      </div>
+    </Modal>
+  )
+}
+
 // ── CreateProcessModal ───────────────────────────────────────────────────────
 function CreateProcessModal({ siteId, onClose }) {
   const navigate = useNavigate()
@@ -240,6 +322,8 @@ export default function SiteDetail() {
   const [showImportModal, setShowImportModal] = useState(false)
   const [matCategoryFilter, setMatCategoryFilter] = useState('All')
   const [materialSearch, setMaterialSearch] = useState('')
+  const [editMaterialModal, setEditMaterialModal] = useState(false)
+  const [editingMaterial, setEditingMaterial] = useState(null)
 
   // Process tab state
   const [processes, setProcesses] = useState([])
@@ -581,7 +665,11 @@ export default function SiteDetail() {
                         <td className="px-3 py-2" style={{ color: 'var(--muted)' }}>{m.unit}</td>
                         <td className="px-3 py-2" style={{ color: 'var(--muted)' }}>{m.packaging || '—'}</td>
                         <td className="px-3 py-2"><span className="badge-blue text-xs">{m.main_category}</span></td>
-                        <td className="px-3 py-2">
+                        <td className="px-3 py-2" style={{ whiteSpace: 'nowrap' }}>
+                          <button
+                            onClick={() => { setEditingMaterial(m); setEditMaterialModal(true) }}
+                            style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: '14px', padding: '4px', marginRight: '4px' }}
+                            title="Edit">✏️</button>
                           <button onClick={() => deleteMaterial(m.id)} className="text-red-400 hover:text-red-300 text-xs">×</button>
                         </td>
                       </tr>
@@ -596,6 +684,13 @@ export default function SiteDetail() {
           )}
           {showImportModal && (
             <ImportModal siteId={id} onClose={() => setShowImportModal(false)} onSuccess={() => { setMaterialsLoaded(false); fetchMaterials() }} />
+          )}
+          {editMaterialModal && editingMaterial && (
+            <EditMaterialModal
+              material={editingMaterial}
+              onClose={() => { setEditMaterialModal(false); setEditingMaterial(null) }}
+              onSuccess={() => { setMaterialsLoaded(false); fetchMaterials() }}
+            />
           )}
         </div>
       )}
