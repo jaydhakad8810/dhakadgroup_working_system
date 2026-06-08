@@ -709,6 +709,14 @@ export default function MarkAttendance() {
   const today = new Date().toISOString().split('T')[0]
 
   const [tab, setTab] = useState('today')
+  const [planContext, setPlanContext] = useState(null)
+
+  useEffect(() => {
+    const ctx = sessionStorage.getItem('daily_plan_context')
+    if (ctx) {
+      try { setPlanContext(JSON.parse(ctx)) } catch {}
+    }
+  }, [])
 
   // Site management
   const [supervisorSites, setSupervisorSites] = useState([])
@@ -843,6 +851,37 @@ export default function MarkAttendance() {
       {/* TODAY TAB */}
       {tab === 'today' && (
         <div className="space-y-4">
+          {/* Plan context banner — shown when navigated from Reports → Plan */}
+          {planContext && planContext.date === today && (
+            <div style={{ background: '#1a1200', border: '1px solid #FF8C00', borderRadius: '12px', padding: '14px' }}>
+              <div style={{ color: '#FF8C00', fontWeight: 'bold', fontSize: '14px', marginBottom: '10px' }}>
+                📋 Today's Task Plan — {planContext.site_name}
+              </div>
+              {planContext.tasks.map((task, i) => (
+                <div key={i} style={{ background: '#111', borderRadius: '8px', padding: '10px', marginBottom: '8px' }}>
+                  <div style={{ color: '#fff', fontSize: '13px', fontWeight: '500' }}>
+                    Flat {task.flat_no} ({task.bhk_type}) — {task.step_name}
+                  </div>
+                  {task.materials.length > 0 && (
+                    <div style={{ color: '#888', fontSize: '12px', marginTop: '4px' }}>
+                      Materials: {task.materials.map(m => `${m.material_name} (${m.actual_qty || m.qty_per_flat} ${m.unit})`).join(', ')}
+                    </div>
+                  )}
+                  {task.labour_ids.length > 0 && (
+                    <div style={{ color: '#666', fontSize: '11px', marginTop: '2px' }}>
+                      {task.labour_ids.length} labour(s) assigned
+                    </div>
+                  )}
+                </div>
+              ))}
+              <button
+                onClick={() => { sessionStorage.removeItem('daily_plan_context'); setPlanContext(null) }}
+                style={{ background: 'none', border: 'none', color: '#666', fontSize: '12px', cursor: 'pointer', marginTop: '4px' }}>
+                Clear plan context
+              </button>
+            </div>
+          )}
+
           {planLoading ? (
             <div className="card text-center py-8">
               <p className="text-gray-400 text-sm">Loading today's plan...</p>
