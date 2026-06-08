@@ -89,7 +89,7 @@ function ProcessList({ site, processes, loading, onSelect, onBack }) {
 }
 
 // ── Progress grid ─────────────────────────────────────────────────────────────
-function ProgressGrid({ process: pm, flats, steps, progress, loading, onBack, onPlanToday }) {
+function ProgressGrid({ process: pm, flats, steps, progress, loading, onBack, onPlanToday, planSaved, onStartCheckout, onCellClick }) {
   const totalCells = flats.length * steps.length
   const sumPct = progress.reduce((acc, p) => acc + (p.done_percentage || 0), 0)
   const completedCells = progress.filter(p => p.done_percentage >= 100).length
@@ -122,10 +122,18 @@ function ProgressGrid({ process: pm, flats, steps, progress, loading, onBack, on
                 style={{ width: `${Math.min(overallPct, 100)}%`, background: '#FF8C00' }} />
             </div>
           </div>
-          <button onClick={onPlanToday}
-            style={{ background: '#FF8C00', border: 'none', borderRadius: '10px', padding: '10px 20px', color: '#000', fontWeight: 'bold', fontSize: '14px', cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0 }}>
-            📋 Plan Today
-          </button>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flexShrink: 0 }}>
+            <button onClick={onPlanToday}
+              style={{ background: '#FF8C00', border: 'none', borderRadius: '10px', padding: '10px 20px', color: '#000', fontWeight: 'bold', fontSize: '14px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+              📋 Plan Today
+            </button>
+            {planSaved && (
+              <button onClick={onStartCheckout}
+                style={{ background: '#22c55e', border: 'none', borderRadius: '10px', padding: '10px 20px', color: '#000', fontWeight: 'bold', fontSize: '14px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                ✓ Start Checkout
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -160,7 +168,9 @@ function ProgressGrid({ process: pm, flats, steps, progress, loading, onBack, on
                     const prog = getProg(flat.id, step.id)
                     const pct = prog?.done_percentage || 0
                     return (
-                      <td key={step.id} style={{ padding: '8px 4px', borderBottom: '1px solid #222', borderLeft: '1px solid #222', ...getCellStyle(pct) }}>
+                      <td key={step.id}
+                        onClick={() => onCellClick && onCellClick(flat, step, prog)}
+                        style={{ padding: '8px 4px', borderBottom: '1px solid #222', borderLeft: '1px solid #222', cursor: 'pointer', ...getCellStyle(pct) }}>
                         {pct >= 100 ? 'DONE' : pct > 0 ? `${pct}%` : '—'}
                         {prog?.date_updated && pct > 0 && pct < 100 && (
                           <div style={{ fontSize: '9px', color: '#f97316', marginTop: '1px' }}>
@@ -234,7 +244,8 @@ export default function SiteReports() {
   const [loading, setLoading] = useState(true)
   const [processLoading, setProcessLoading] = useState(false)
   const [gridLoading, setGridLoading] = useState(false)
-  const [view, setView] = useState('sites') // 'sites'|'processes'|'grid'|'plan'
+  const [view, setView] = useState('sites') // 'sites'|'processes'|'grid'|'plan'|'checkout'|'cell_history'
+  const [planningProcess, setPlanningProcess] = useState(null)
 
   // Plan wizard state
   const [planStep, setPlanStep] = useState(1)
@@ -254,6 +265,18 @@ export default function SiteReports() {
   const [requestModal, setRequestModal] = useState(null) // { material_name, unit }
   const [requestForm, setRequestForm] = useState({ qty: '', urgency: 'Normal' })
   const [submittingRequest, setSubmittingRequest] = useState(false)
+
+  // Checkout state
+  const [checkoutItems, setCheckoutItems] = useState([])
+  const [checkoutPhotos, setCheckoutPhotos] = useState({})
+  const [uploadingCheckoutPhoto, setUploadingCheckoutPhoto] = useState({})
+  const [submittingCheckout, setSubmittingCheckout] = useState(false)
+  const [checkoutStep, setCheckoutStep] = useState(1)
+
+  // Cell history state
+  const [cellHistory, setCellHistory] = useState([])
+  const [cellHistoryLoading, setCellHistoryLoading] = useState(false)
+  const [selectedCell, setSelectedCell] = useState(null)
 
   useEffect(() => {
     api.get('/sites')
@@ -321,21 +344,19 @@ export default function SiteReports() {
   }
 
   function buildPlanItems() {
-    const processDetail = selectedProcess
+    const proc = planningProcess || selectedProcess
     const items = []
     for (const flatId of selectedFlatIds) {
       const flat = flats.find(f => f.id === flatId)
       if (!flat) continue
       for (const stepId of selectedStepIds) {
-        const step = steps.find(s => s.id === stepId)
+        const step = proc?.steps?.find(s => s.id === stepId) || steps.find(s => s.id === stepId)
         if (!step) continue
-        // Get materials from selectedProcess steps detail (may be in process.steps)
-        const detailStep = processDetail?.steps?.find(s => s.id === stepId)
-        const stepMaterials = (detailStep?.materials || []).map(m => ({
+        const stepMaterials = (step.materials || []).map(m => ({
           site_material_id: m.site_material_id,
           material_name: m.siteMaterial?.full_name || m.material_name || '',
           unit: m.siteMaterial?.unit || m.unit || '',
-          qty_per_flat: m.quantity_per_flat || 0,
+          qty_per_flat: parseFloat(m.quantity_per_flat || 0),
           actual_qty: m.quantity_per_flat || '',
           in_stock: true
         }))
@@ -346,7 +367,7 @@ export default function SiteReports() {
           bhk_type: flat.bhk_type || '',
           step_id: stepId,
           step_name: step.step_name,
-          process_id: processDetail.id,
+          process_id: proc.id,
           process_step_id: stepId,
           labour_ids: [],
           materials: stepMaterials
@@ -485,6 +506,105 @@ export default function SiteReports() {
       toast.error(err.response?.data?.error || 'Request failed')
     }
     setSubmittingRequest(false)
+  }
+
+  function initializeCheckout() {
+    const items = planItems.map(item => ({
+      ...item,
+      done_percentage: 0,
+      status: 'pending',
+      materials: (item.materials || []).map(m => ({ ...m, actual_qty_used: '' }))
+    }))
+    setCheckoutItems(items)
+    setCheckoutStep(1)
+  }
+
+  function updateCheckoutItem(itemId, updates) {
+    setCheckoutItems(prev => prev.map(item =>
+      item.id === itemId ? { ...item, ...updates } : item
+    ))
+  }
+
+  async function uploadCheckoutPhoto(labourId, file) {
+    setUploadingCheckoutPhoto(prev => ({ ...prev, [labourId]: true }))
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      const res = await api.post('/upload/single', formData, {
+        headers: { Authorization: `Bearer ${getToken()}`, 'Content-Type': 'multipart/form-data' }
+      })
+      setCheckoutPhotos(prev => ({ ...prev, [labourId]: res.data.url }))
+    } catch {
+      toast.error('Photo upload failed')
+    }
+    setUploadingCheckoutPhoto(prev => ({ ...prev, [labourId]: false }))
+  }
+
+  async function submitCheckout() {
+    setSubmittingCheckout(true)
+    try {
+      const headers = authHeaders()
+      for (const item of checkoutItems) {
+        await api.patch(
+          `/daily-plans/items/${item.plan_item_id || item.id}/checkout`,
+          {
+            done_percentage: item.done_percentage || 0,
+            status: item.done_percentage >= 100 ? 'done' : item.done_percentage > 0 ? 'in_progress' : 'pending',
+            actual_qty: item.materials?.[0] ? parseFloat(item.materials[0].actual_qty_used || 0) : 0,
+            materials: item.materials?.map(m => ({
+              material_name: m.material_name,
+              quantity_used: parseFloat(m.actual_qty_used || 0),
+              unit: m.unit
+            })) || [],
+            checkout_notes: '',
+            date_worked: planDate,
+            process_step_id: item.process_step_id,
+            process_id: item.process_id,
+            labour_ids: item.labour_ids || []
+          },
+          { headers }
+        )
+      }
+      toast.success('Day completed! Great work.')
+      setView('grid')
+      setCheckoutStep(1)
+      setPlanItems([])
+      setSelectedFlatIds([])
+      setSelectedStepIds([])
+      setPlanSaved(false)
+      const res = await api.get(`/process-master/${selectedProcess.id}/progress`, { headers })
+      setFlats(res.data.flats || [])
+      setSteps(res.data.steps || [])
+      setProgress(res.data.progress || [])
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Checkout failed')
+    }
+    setSubmittingCheckout(false)
+  }
+
+  async function openCellHistory(flat, step, progressRecord) {
+    setSelectedCell({
+      flat_no: flat.flat_no,
+      bhk_type: flat.bhk_type,
+      step_name: step.step_name,
+      flat_progress_id: progressRecord?.id
+    })
+    setCellHistoryLoading(true)
+    setView('cell_history')
+    if (progressRecord?.id) {
+      try {
+        const res = await api.get(
+          `/process-master/progress/${progressRecord.id}/history`,
+          { headers: authHeaders() }
+        )
+        setCellHistory(res.data || [])
+      } catch {
+        setCellHistory([])
+      }
+    } else {
+      setCellHistory([])
+    }
+    setCellHistoryLoading(false)
   }
 
   // ── Render ──────────────────────────────────────────────────────────────────
@@ -651,39 +771,38 @@ export default function SiteReports() {
 
                   <div style={{ padding: '12px 16px' }}>
                     {/* Materials */}
-                    {item.materials.length > 0 && (
-                      <div style={{ marginBottom: '12px' }}>
-                        <p style={{ color: '#888', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '8px' }}>Materials</p>
-                        {item.materials.map((mat, mi) => {
-                          const stockStatus = getStockStatus(mat.material_name)
-                          return (
-                            <div key={mi} style={{ background: '#2a2a2a', borderRadius: '10px', padding: '10px 12px', marginBottom: '8px' }}>
-                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '6px' }}>
-                                <p style={{ color: '#ccc', fontSize: '13px', fontWeight: 600, margin: 0, flex: 1 }}>{mat.material_name || 'Unnamed material'}</p>
-                                {!stockLoading && (
-                                  <span style={{ fontSize: '11px', fontWeight: 600, marginLeft: '8px', flexShrink: 0, color: stockStatus === 'in' ? '#22c55e' : stockStatus === 'low' ? '#fb923c' : stockStatus === 'out' ? '#ef4444' : '#666' }}>
-                                    {stockStatus === 'in' ? '✓ In Stock' : stockStatus === 'low' ? '⚠️ Low Stock' : stockStatus === 'out' ? '❌ Out of Stock' : ''}
-                                  </span>
-                                )}
-                              </div>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <input type="number" value={mat.actual_qty}
-                                  onChange={e => updatePlanItemMaterial(item.id, mi, 'actual_qty', e.target.value)}
-                                  style={{ width: '90px', padding: '6px 10px', background: '#333', border: '1px solid #444', borderRadius: '8px', color: '#fff', fontSize: '14px' }} />
-                                <span style={{ color: '#888', fontSize: '13px' }}>{mat.unit}</span>
-                                {stockStatus === 'out' && (
-                                  <button onClick={() => { setRequestModal({ material_name: mat.material_name, unit: mat.unit }); setRequestForm({ qty: mat.actual_qty || '', urgency: 'Normal' }) }}
-                                    style={{ background: '#7f1d1d', border: '1px solid #ef4444', borderRadius: '8px', padding: '4px 10px', color: '#fca5a5', fontSize: '12px', cursor: 'pointer', marginLeft: 'auto' }}>
-                                    Request Material
-                                  </button>
-                                )}
-                              </div>
+                    <div style={{ marginBottom: '12px' }}>
+                      <p style={{ color: '#888', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '8px' }}>Materials</p>
+                      {item.materials.length === 0 ? (
+                        <p style={{ color: '#555', fontSize: '12px', fontStyle: 'italic' }}>No materials linked to this step</p>
+                      ) : item.materials.map((mat, mi) => {
+                        const stockStatus = getStockStatus(mat.material_name)
+                        return (
+                          <div key={mi} style={{ background: '#2a2a2a', borderRadius: '10px', padding: '10px 12px', marginBottom: '8px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '6px' }}>
+                              <p style={{ color: '#ccc', fontSize: '13px', fontWeight: 600, margin: 0, flex: 1 }}>{mat.material_name || 'Unnamed material'}</p>
+                              {!stockLoading && (
+                                <span style={{ fontSize: '11px', fontWeight: 600, marginLeft: '8px', flexShrink: 0, color: stockStatus === 'in' ? '#22c55e' : stockStatus === 'low' ? '#fb923c' : stockStatus === 'out' ? '#ef4444' : '#666' }}>
+                                  {stockStatus === 'in' ? '✓ In Stock' : stockStatus === 'low' ? '⚠️ Low Stock' : stockStatus === 'out' ? '❌ Out of Stock' : ''}
+                                </span>
+                              )}
                             </div>
-                          )
-                        })}
-                        {item.materials.length === 0 && <p style={{ color: '#555', fontSize: '12px' }}>No materials assigned to this step</p>}
-                      </div>
-                    )}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <input type="number" value={mat.actual_qty}
+                                onChange={e => updatePlanItemMaterial(item.id, mi, 'actual_qty', e.target.value)}
+                                style={{ width: '90px', padding: '6px 10px', background: '#333', border: '1px solid #444', borderRadius: '8px', color: '#fff', fontSize: '14px' }} />
+                              <span style={{ color: '#888', fontSize: '13px' }}>{mat.unit}</span>
+                              {stockStatus === 'out' && (
+                                <button onClick={() => { setRequestModal({ material_name: mat.material_name, unit: mat.unit }); setRequestForm({ qty: mat.actual_qty || '', urgency: 'Normal' }) }}
+                                  style={{ background: '#7f1d1d', border: '1px solid #ef4444', borderRadius: '8px', padding: '4px 10px', color: '#fca5a5', fontSize: '12px', cursor: 'pointer', marginLeft: 'auto' }}>
+                                  Request Material
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
 
                     {/* Labour */}
                     <div>
@@ -822,6 +941,172 @@ export default function SiteReports() {
     )
   }
 
+  // ── Cell history view ────────────────────────────────────────────────────────
+  if (view === 'cell_history') {
+    const DONE_OPTIONS_DISPLAY = [10, 30, 50, 70, 90, 100]
+    return (
+      <div style={{ minHeight: '100vh', background: '#111', paddingBottom: '80px' }}>
+        <div style={{ padding: '16px', display: 'flex', alignItems: 'center', gap: '12px', borderBottom: '1px solid #222', position: 'sticky', top: 0, background: '#111', zIndex: 20 }}>
+          <button onClick={() => setView('grid')} style={{ background: '#1c1c1c', border: 'none', borderRadius: '10px', padding: '8px', cursor: 'pointer' }}>
+            <ArrowLeft size={18} color="#fff" />
+          </button>
+          <div style={{ flex: 1 }}>
+            <p style={{ color: '#fff', fontWeight: 700, fontSize: '15px', margin: 0 }}>
+              Flat {selectedCell?.flat_no} — {selectedCell?.step_name}
+            </p>
+            {selectedCell?.bhk_type && <p style={{ color: '#888', fontSize: '12px', margin: 0 }}>{selectedCell.bhk_type}</p>}
+          </div>
+        </div>
+        <div style={{ padding: '16px' }}>
+          {cellHistoryLoading ? (
+            <div style={{ display: 'flex', justifyContent: 'center', padding: '48px 0' }}>
+              <Loader2 size={28} className="animate-spin" style={{ color: '#FF8C00' }} />
+            </div>
+          ) : cellHistory.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '48px 0', color: '#555' }}>
+              No work recorded yet for this task
+            </div>
+          ) : (
+            cellHistory.map((entry, i) => (
+              <div key={i} style={{ background: '#1a1a1a', borderRadius: '10px', padding: '14px', marginBottom: '12px', border: '1px solid #222' }}>
+                <div style={{ color: '#FF8C00', fontWeight: 'bold', fontSize: '14px', marginBottom: '8px' }}>
+                  {new Date(entry.date_worked).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}
+                </div>
+                <div style={{ display: 'inline-block', background: entry.done_percentage >= 100 ? '#14532d' : '#1a1200', color: entry.done_percentage >= 100 ? '#22c55e' : '#FF8C00', padding: '3px 10px', borderRadius: '20px', fontSize: '12px', fontWeight: 'bold', marginBottom: '10px' }}>
+                  {entry.done_percentage >= 100 ? 'Done ✓' : `${entry.done_percentage}% Complete`}
+                </div>
+                {entry.labour_names?.length > 0 && (
+                  <div style={{ marginBottom: '8px' }}>
+                    <div style={{ color: '#666', fontSize: '11px', marginBottom: '4px' }}>LABOUR</div>
+                    <div style={{ color: '#ccc', fontSize: '13px' }}>👷 {entry.labour_names.join(', ')}</div>
+                  </div>
+                )}
+                {entry.material_used?.length > 0 && (
+                  <div style={{ marginBottom: '8px' }}>
+                    <div style={{ color: '#666', fontSize: '11px', marginBottom: '4px' }}>MATERIALS USED</div>
+                    {entry.material_used.map((m, mi) => (
+                      <div key={mi} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 8px', background: '#111', borderRadius: '6px', marginBottom: '4px' }}>
+                        <span style={{ color: '#aaa', fontSize: '12px' }}>{m.material_name}</span>
+                        <span style={{ color: '#FF8C00', fontSize: '12px', fontWeight: 'bold' }}>{m.quantity_used} {m.unit}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {entry.notes && (
+                  <div style={{ color: '#666', fontSize: '12px', fontStyle: 'italic', marginTop: '4px' }}>"{entry.notes}"</div>
+                )}
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  // ── Checkout view ────────────────────────────────────────────────────────────
+  if (view === 'checkout') {
+    const DONE_OPTIONS = [10, 30, 50, 70, 90, 100]
+    const presentLabours = siteLabours.filter(l => attendance[l.id] !== 'absent')
+
+    return (
+      <div style={{ minHeight: '100vh', background: '#111', paddingBottom: '80px' }}>
+        <div style={{ padding: '16px', display: 'flex', alignItems: 'center', gap: '12px', borderBottom: '1px solid #222', position: 'sticky', top: 0, background: '#111', zIndex: 20 }}>
+          <button onClick={() => setView('grid')} style={{ background: '#1c1c1c', border: 'none', borderRadius: '10px', padding: '8px', cursor: 'pointer' }}>
+            <ArrowLeft size={18} color="#fff" />
+          </button>
+          <div style={{ flex: 1 }}>
+            <p style={{ color: '#FF8C00', fontWeight: 700, fontSize: '15px', margin: 0 }}>
+              {checkoutStep === 1 ? 'Checkout — What did you complete?' : 'Checkout — Photos'}
+            </p>
+            <p style={{ color: '#888', fontSize: '12px', margin: 0 }}>Step {checkoutStep} of 2</p>
+          </div>
+        </div>
+
+        <div style={{ padding: '16px' }}>
+          <StepIndicator current={checkoutStep} total={2} />
+
+          {/* Step 1: Task completion */}
+          {checkoutStep === 1 && (
+            <div>
+              {checkoutItems.map(item => (
+                <div key={item.id} style={{ background: '#1c1c1c', borderRadius: '14px', border: '1px solid #333', marginBottom: '14px', overflow: 'hidden' }}>
+                  <div style={{ background: '#2a1500', padding: '12px 16px', borderBottom: '1px solid #333' }}>
+                    <p style={{ color: '#fff', fontWeight: 700, fontSize: '14px', margin: 0 }}>Flat {item.flat_no}{item.bhk_type ? ` (${item.bhk_type})` : ''}</p>
+                    <p style={{ color: '#FF8C00', fontSize: '12px', margin: '2px 0 0' }}>{item.step_name}</p>
+                  </div>
+                  <div style={{ padding: '12px 16px' }}>
+                    <p style={{ color: '#888', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '8px' }}>How much was completed?</p>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: '8px', marginBottom: '12px' }}>
+                      {DONE_OPTIONS.map(pct => (
+                        <button key={pct}
+                          onClick={() => updateCheckoutItem(item.id, { done_percentage: pct, status: pct === 100 ? 'done' : 'in_progress' })}
+                          style={{ padding: '10px 6px', borderRadius: '8px', border: item.done_percentage === pct ? '2px solid #FF8C00' : '1px solid #333', background: item.done_percentage === pct ? (pct === 100 ? '#14532d' : '#1a1200') : '#1a1a1a', color: item.done_percentage === pct ? (pct === 100 ? '#22c55e' : '#FF8C00') : '#666', fontSize: '13px', fontWeight: 'bold', cursor: 'pointer' }}>
+                          {pct === 100 ? 'Done ✓' : `${pct}%`}
+                        </button>
+                      ))}
+                    </div>
+                    {item.materials.length > 0 && (
+                      <div>
+                        <p style={{ color: '#888', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}>Material Used</p>
+                        {item.materials.map((mat, idx) => (
+                          <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', padding: '8px', background: '#1e1e1e', borderRadius: '8px' }}>
+                            <span style={{ flex: 2, color: '#ccc', fontSize: '13px' }}>{mat.material_name}</span>
+                            <input type="number" placeholder="Used qty" value={mat.actual_qty_used || ''}
+                              onChange={e => {
+                                const updated = [...checkoutItems]
+                                const itemIdx = updated.findIndex(ci => ci.id === item.id)
+                                updated[itemIdx].materials[idx].actual_qty_used = e.target.value
+                                setCheckoutItems(updated)
+                              }}
+                              style={{ width: '70px', background: '#111', color: '#fff', border: '1px solid #333', borderRadius: '6px', padding: '6px 8px', fontSize: '13px', textAlign: 'center' }} />
+                            <span style={{ color: '#888', fontSize: '12px', minWidth: '30px' }}>{mat.unit}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+              <button
+                onClick={() => {
+                  if (!checkoutItems.some(item => item.done_percentage > 0)) {
+                    toast.error('Mark at least one task as completed')
+                    return
+                  }
+                  setCheckoutStep(2)
+                }}
+                style={{ width: '100%', padding: '14px', borderRadius: '12px', border: 'none', background: '#FF8C00', color: '#000', fontWeight: 700, fontSize: '16px', cursor: 'pointer', marginTop: '8px' }}>
+                Continue to Photos →
+              </button>
+            </div>
+          )}
+
+          {/* Step 2: Checkout photos */}
+          {checkoutStep === 2 && (
+            <div>
+              <h3 style={{ color: '#fff', fontWeight: 700, fontSize: '18px', margin: '0 0 4px' }}>Checkout Photos</h3>
+              <p style={{ color: '#888', fontSize: '13px', marginBottom: '16px' }}>Optional — capture end-of-day photos</p>
+              {presentLabours.map(l => (
+                <PhotoCaptureCard key={l.id}
+                  labour={l}
+                  photoUrl={checkoutPhotos[l.id]}
+                  uploading={uploadingCheckoutPhoto[l.id]}
+                  onCapture={uploadCheckoutPhoto} />
+              ))}
+              {presentLabours.length === 0 && (
+                <p style={{ color: '#555', fontSize: '13px', marginBottom: '16px' }}>No labour on attendance record.</p>
+              )}
+              <button disabled={submittingCheckout} onClick={submitCheckout}
+                style={{ width: '100%', padding: '14px', borderRadius: '12px', border: 'none', background: '#22c55e', color: '#000', fontWeight: 700, fontSize: '16px', cursor: 'pointer', marginTop: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', opacity: submittingCheckout ? 0.7 : 1 }}>
+                {submittingCheckout ? <><Loader2 size={18} className="animate-spin" /> Submitting...</> : '✓ Complete Day'}
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  }
+
   // ── Grid view ───────────────────────────────────────────────────────────────
   if (view === 'grid') {
     return (
@@ -831,8 +1116,11 @@ export default function SiteReports() {
         steps={steps}
         progress={progress}
         loading={gridLoading}
+        planSaved={planSaved}
         onBack={() => setView('processes')}
-        onPlanToday={() => {
+        onStartCheckout={() => { initializeCheckout(); setView('checkout') }}
+        onCellClick={openCellHistory}
+        onPlanToday={async () => {
           setSelectedFlatIds([])
           setSelectedStepIds([])
           setPlanItems([])
@@ -842,6 +1130,16 @@ export default function SiteReports() {
           setCheckInPhotos({})
           fetchSiteLabours(selectedSite.id)
           setView('plan')
+          try {
+            const res = await api.get(
+              `/process-master/for-planning?site_id=${selectedSite.id}`,
+              { headers: authHeaders() }
+            )
+            const fullProcess = (res.data || []).find(p => p.id === selectedProcess.id)
+            setPlanningProcess(fullProcess || selectedProcess)
+          } catch {
+            setPlanningProcess(selectedProcess)
+          }
         }}
       />
     )

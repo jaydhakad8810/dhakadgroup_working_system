@@ -275,12 +275,26 @@ router.patch('/progress/:flat_progress_id', supervisorOrAdmin, async (req, res) 
 // GET /api/process-master/progress/:flat_progress_id/history
 router.get('/progress/:flat_progress_id/history', supervisorOrAdmin, async (req, res) => {
   try {
-    const { FlatProgressHistory } = require('../models')
+    const { FlatProgressHistory, Labour } = require('../models')
     const history = await FlatProgressHistory.findAll({
       where: { flat_progress_id: req.params.flat_progress_id },
       order: [['createdAt','DESC']]
     })
-    return res.json(history)
+    const historyWithNames = await Promise.all(
+      history.map(async (entry) => {
+        const labourIds = entry.labour_ids || []
+        let labour_names = []
+        if (labourIds.length > 0) {
+          const labours = await Labour.findAll({
+            where: { id: labourIds },
+            attributes: ['id','name']
+          })
+          labour_names = labours.map(l => l.name)
+        }
+        return { ...entry.toJSON(), labour_names }
+      })
+    )
+    return res.json(historyWithNames)
   } catch (err) { return res.status(500).json({ error: err.message }) }
 })
 
