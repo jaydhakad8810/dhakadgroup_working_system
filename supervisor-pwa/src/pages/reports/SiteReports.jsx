@@ -232,6 +232,69 @@ function StepIndicator({ current, total }) {
   )
 }
 
+// ── Extra material adder ──────────────────────────────────────────────────────
+function ExtraMaterialAdder({ siteId, token, onAdd }) {
+  const [query, setQuery] = useState('')
+  const [results, setResults] = useState([])
+  const [open, setOpen] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const ref = useRef(null)
+
+  useEffect(() => {
+    function handleClick(e) {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [])
+
+  async function search(q) {
+    setQuery(q)
+    if (!q || q.length < 1) { setResults([]); return }
+    setLoading(true)
+    try {
+      const res = await fetch(
+        `/api/site-materials?site_id=${siteId}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      )
+      const data = await res.json()
+      const filtered = (Array.isArray(data) ? data : []).filter(m =>
+        m.full_name?.toLowerCase().includes(q.toLowerCase()) ||
+        m.product_name?.toLowerCase().includes(q.toLowerCase())
+      )
+      setResults(filtered.slice(0, 10))
+      setOpen(true)
+    } catch {}
+    setLoading(false)
+  }
+
+  return (
+    <div ref={ref} style={{ position: 'relative', marginTop: '8px' }}>
+      <input
+        placeholder="+ Add extra material (search...)"
+        value={query}
+        onChange={e => search(e.target.value)}
+        onFocus={() => query && setOpen(true)}
+        style={{ width: '100%', background: '#111', color: '#fff', border: '1px dashed #444', borderRadius: '8px', padding: '8px 12px', fontSize: '13px', boxSizing: 'border-box' }}
+      />
+      {open && results.length > 0 && (
+        <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#1a1a1a', border: '1px solid #333', borderRadius: '8px', zIndex: 100, maxHeight: '180px', overflowY: 'auto', boxShadow: '0 4px 20px rgba(0,0,0,0.5)', marginTop: '4px' }}>
+          {results.map(m => (
+            <div key={m.id}
+              onClick={() => { onAdd(m); setQuery(''); setResults([]); setOpen(false) }}
+              style={{ padding: '10px 12px', cursor: 'pointer', borderBottom: '1px solid #222', fontSize: '13px', color: '#ccc' }}
+              onMouseEnter={e => e.currentTarget.style.background = '#222'}
+              onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+              <div style={{ fontWeight: '500' }}>{m.full_name}</div>
+              <div style={{ color: '#666', fontSize: '11px' }}>{m.unit} · {m.company_name}</div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── SiteReports (main component) ──────────────────────────────────────────────
 export default function SiteReports() {
   const [sites, setSites] = useState([])
@@ -344,21 +407,26 @@ export default function SiteReports() {
   }
 
   function buildPlanItems() {
-    const proc = planningProcess || selectedProcess
+    const proc = planningProcess
+    if (!proc) {
+      toast.error('Process data not loaded. Please try again.')
+      return
+    }
     const items = []
     for (const flatId of selectedFlatIds) {
       const flat = flats.find(f => f.id === flatId)
       if (!flat) continue
       for (const stepId of selectedStepIds) {
-        const step = proc?.steps?.find(s => s.id === stepId) || steps.find(s => s.id === stepId)
+        const step = proc.steps?.find(s => s.id === stepId)
         if (!step) continue
         const stepMaterials = (step.materials || []).map(m => ({
           site_material_id: m.site_material_id,
-          material_name: m.siteMaterial?.full_name || m.material_name || '',
-          unit: m.siteMaterial?.unit || m.unit || '',
+          material_name: m.siteMaterial?.full_name || '',
+          unit: m.siteMaterial?.unit || '',
           qty_per_flat: parseFloat(m.quantity_per_flat || 0),
-          actual_qty: m.quantity_per_flat || '',
-          in_stock: true
+          actual_qty: m.quantity_per_flat ? String(m.quantity_per_flat) : '',
+          in_stock: true,
+          is_extra: false
         }))
         items.push({
           id: `${flatId}_${stepId}`,
@@ -762,63 +830,101 @@ export default function SiteReports() {
               <h3 style={{ color: '#fff', fontWeight: 700, fontSize: '18px', margin: '0 0 4px' }}>Confirm Materials & Assign Labour</h3>
               <p style={{ color: '#888', fontSize: '13px', marginBottom: '16px' }}>{planItems.length} task{planItems.length !== 1 ? 's' : ''} to plan</p>
 
-              {planItems.map(item => (
-                <div key={item.id} style={{ background: '#1c1c1c', borderRadius: '14px', border: '1px solid #333', marginBottom: '14px', overflow: 'hidden' }}>
-                  <div style={{ background: '#222', padding: '12px 16px', borderBottom: '1px solid #333' }}>
-                    <p style={{ color: '#fff', fontWeight: 700, fontSize: '14px', margin: 0 }}>Flat {item.flat_no}{item.bhk_type ? ` (${item.bhk_type})` : ''}</p>
-                    <p style={{ color: '#FF8C00', fontSize: '12px', margin: '2px 0 0' }}>{item.step_name}</p>
+              {planItems.map((item, itemIdx) => (
+                <div key={item.id} style={{ background: '#111', borderRadius: '12px', border: '1px solid #222', marginBottom: '14px', overflow: 'hidden' }}>
+                  {/* Card header */}
+                  <div style={{ padding: '12px 14px', background: '#1a1a1a', borderBottom: '1px solid #222' }}>
+                    <div style={{ color: '#FF8C00', fontWeight: 'bold', fontSize: '15px' }}>
+                      Flat {item.flat_no}
+                      {item.bhk_type && <span style={{ color: '#888', fontWeight: 'normal', fontSize: '13px', marginLeft: '6px' }}>({item.bhk_type})</span>}
+                    </div>
+                    <div style={{ color: '#ccc', fontSize: '13px', marginTop: '2px' }}>Step: {item.step_name}</div>
                   </div>
 
-                  <div style={{ padding: '12px 16px' }}>
-                    {/* Materials */}
-                    <div style={{ marginBottom: '12px' }}>
-                      <p style={{ color: '#888', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '8px' }}>Materials</p>
-                      {item.materials.length === 0 ? (
-                        <p style={{ color: '#555', fontSize: '12px', fontStyle: 'italic' }}>No materials linked to this step</p>
-                      ) : item.materials.map((mat, mi) => {
-                        const stockStatus = getStockStatus(mat.material_name)
-                        return (
-                          <div key={mi} style={{ background: '#2a2a2a', borderRadius: '10px', padding: '10px 12px', marginBottom: '8px' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '6px' }}>
-                              <p style={{ color: '#ccc', fontSize: '13px', fontWeight: 600, margin: 0, flex: 1 }}>{mat.material_name || 'Unnamed material'}</p>
-                              {!stockLoading && (
-                                <span style={{ fontSize: '11px', fontWeight: 600, marginLeft: '8px', flexShrink: 0, color: stockStatus === 'in' ? '#22c55e' : stockStatus === 'low' ? '#fb923c' : stockStatus === 'out' ? '#ef4444' : '#666' }}>
-                                  {stockStatus === 'in' ? '✓ In Stock' : stockStatus === 'low' ? '⚠️ Low Stock' : stockStatus === 'out' ? '❌ Out of Stock' : ''}
-                                </span>
-                              )}
-                            </div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                              <input type="number" value={mat.actual_qty}
-                                onChange={e => updatePlanItemMaterial(item.id, mi, 'actual_qty', e.target.value)}
-                                style={{ width: '90px', padding: '6px 10px', background: '#333', border: '1px solid #444', borderRadius: '8px', color: '#fff', fontSize: '14px' }} />
-                              <span style={{ color: '#888', fontSize: '13px' }}>{mat.unit}</span>
-                              {stockStatus === 'out' && (
-                                <button onClick={() => { setRequestModal({ material_name: mat.material_name, unit: mat.unit }); setRequestForm({ qty: mat.actual_qty || '', urgency: 'Normal' }) }}
-                                  style={{ background: '#7f1d1d', border: '1px solid #ef4444', borderRadius: '8px', padding: '4px 10px', color: '#fca5a5', fontSize: '12px', cursor: 'pointer', marginLeft: 'auto' }}>
-                                  Request Material
-                                </button>
-                              )}
-                            </div>
+                  <div style={{ padding: '14px' }}>
+                    {/* Materials section */}
+                    <div style={{ marginBottom: '14px' }}>
+                      <div style={{ color: '#888', fontSize: '11px', fontWeight: '600', marginBottom: '8px', letterSpacing: '0.5px' }}>MATERIALS</div>
+
+                      {item.materials.length === 0 && (
+                        <div style={{ color: '#555', fontSize: '13px', fontStyle: 'italic', padding: '8px 0' }}>No materials linked to this step</div>
+                      )}
+
+                      {item.materials.map((mat, matIdx) => (
+                        <div key={matIdx} style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', padding: '10px', background: '#1e1e1e', borderRadius: '8px', border: '1px solid #2a2a2a' }}>
+                          <div style={{ flex: 2 }}>
+                            <div style={{ color: '#ccc', fontSize: '13px', fontWeight: '500' }}>{mat.material_name}</div>
+                            {mat.qty_per_flat > 0 && (
+                              <div style={{ color: '#666', fontSize: '11px', marginTop: '2px' }}>Planned: {mat.qty_per_flat} {mat.unit}/flat</div>
+                            )}
+                            {mat.is_extra && <div style={{ color: '#f97316', fontSize: '11px', marginTop: '2px' }}>Extra material</div>}
                           </div>
-                        )
-                      })}
+                          <input
+                            type="number"
+                            placeholder="Qty"
+                            value={mat.actual_qty || ''}
+                            onChange={e => {
+                              const updated = [...planItems]
+                              updated[itemIdx].materials[matIdx].actual_qty = e.target.value
+                              setPlanItems(updated)
+                            }}
+                            style={{ width: '70px', background: '#111', color: '#fff', border: '1px solid #333', borderRadius: '6px', padding: '6px 8px', fontSize: '13px', textAlign: 'center' }}
+                          />
+                          <span style={{ color: '#888', fontSize: '12px', minWidth: '30px' }}>{mat.unit}</span>
+                          {mat.is_extra && (
+                            <button
+                              onClick={() => {
+                                const updated = [...planItems]
+                                updated[itemIdx].materials = updated[itemIdx].materials.filter((_, i) => i !== matIdx)
+                                setPlanItems(updated)
+                              }}
+                              style={{ background: 'none', border: 'none', color: '#666', cursor: 'pointer', fontSize: '16px' }}>×</button>
+                          )}
+                        </div>
+                      ))}
+
+                      <ExtraMaterialAdder
+                        siteId={selectedSite?.id}
+                        token={getToken()}
+                        onAdd={(mat) => {
+                          const updated = [...planItems]
+                          updated[itemIdx].materials.push({
+                            site_material_id: mat.id,
+                            material_name: mat.full_name,
+                            unit: mat.unit,
+                            qty_per_flat: 0,
+                            actual_qty: '',
+                            in_stock: true,
+                            is_extra: true
+                          })
+                          setPlanItems(updated)
+                        }}
+                      />
                     </div>
 
-                    {/* Labour */}
+                    {/* Labour assignment */}
                     <div>
-                      <p style={{ color: '#888', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '8px' }}>Assign Labour</p>
+                      <div style={{ color: '#888', fontSize: '11px', fontWeight: '600', marginBottom: '8px', letterSpacing: '0.5px' }}>ASSIGN LABOUR</div>
                       {siteLabours.length === 0 ? (
-                        <p style={{ color: '#555', fontSize: '12px' }}>No labour registered for this site</p>
+                        <div style={{ color: '#555', fontSize: '13px', fontStyle: 'italic' }}>No labour registered for this site</div>
                       ) : (
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                          {siteLabours.map(l => {
-                            const sel = item.labour_ids.includes(l.id)
+                        <div style={{ maxHeight: '140px', overflowY: 'auto', border: '1px solid #222', borderRadius: '8px' }}>
+                          {siteLabours.map(labour => {
+                            const selected = item.labour_ids.includes(labour.id)
                             return (
-                              <button key={l.id} onClick={() => updatePlanItemLabour(item.id, sel ? item.labour_ids.filter(id => id !== l.id) : [...item.labour_ids, l.id])}
-                                style={{ background: sel ? 'rgba(255,140,0,0.15)' : '#2a2a2a', border: `1.5px solid ${sel ? '#FF8C00' : '#444'}`, borderRadius: '20px', padding: '6px 12px', color: sel ? '#FF8C00' : '#aaa', fontSize: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                {sel && <span>✓</span>}
-                                {l.name}
-                              </button>
+                              <div key={labour.id}
+                                onClick={() => {
+                                  const updated = [...planItems]
+                                  const ids = updated[itemIdx].labour_ids
+                                  updated[itemIdx].labour_ids = selected ? ids.filter(id => id !== labour.id) : [...ids, labour.id]
+                                  setPlanItems(updated)
+                                }}
+                                style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', borderBottom: '1px solid #1e1e1e', cursor: 'pointer', background: selected ? '#1a1200' : 'transparent' }}>
+                                <div style={{ width: '18px', height: '18px', borderRadius: '4px', flexShrink: 0, background: selected ? '#FF8C00' : 'none', border: selected ? '2px solid #FF8C00' : '2px solid #444', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                  {selected && <span style={{ color: '#000', fontSize: '12px', fontWeight: 'bold' }}>✓</span>}
+                                </div>
+                                <span style={{ color: selected ? '#fff' : '#aaa', fontSize: '14px' }}>{labour.name}</span>
+                              </div>
                             )
                           })}
                         </div>
@@ -828,10 +934,35 @@ export default function SiteReports() {
                 </div>
               ))}
 
-              <button disabled={savingPlan} onClick={async () => { await saveDailyPlan(); if (!savingPlan) setPlanStep(4) }}
-                style={{ width: '100%', padding: '14px', borderRadius: '12px', border: 'none', background: '#FF8C00', color: '#000', fontWeight: 700, fontSize: '16px', cursor: 'pointer', marginTop: '8px', opacity: savingPlan ? 0.6 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-                {savingPlan ? <><Loader2 size={18} className="animate-spin" /> Saving...</> : 'Save Plan & Continue →'}
-              </button>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '20px' }}>
+                <button
+                  onClick={async () => {
+                    await saveDailyPlan()
+                    sessionStorage.setItem('daily_plan_context', JSON.stringify({
+                      site_id: selectedSite.id,
+                      site_name: selectedSite.name,
+                      date: planDate,
+                      tasks: planItems.map(item => ({
+                        flat_no: item.flat_no,
+                        bhk_type: item.bhk_type,
+                        step_name: item.step_name,
+                        labour_ids: item.labour_ids,
+                        materials: item.materials
+                      }))
+                    }))
+                    window.location.href = '/attendance'
+                  }}
+                  disabled={savingPlan}
+                  style={{ background: '#FF8C00', border: 'none', borderRadius: '12px', padding: '16px', color: '#000', fontWeight: 'bold', fontSize: '16px', cursor: 'pointer', width: '100%', opacity: savingPlan ? 0.7 : 1 }}>
+                  {savingPlan ? 'Saving...' : '✓ Save Plan & Go to Attendance →'}
+                </button>
+                <button
+                  onClick={saveDailyPlan}
+                  disabled={savingPlan}
+                  style={{ background: 'none', border: '1px solid #444', borderRadius: '12px', padding: '12px', color: '#888', fontSize: '14px', cursor: 'pointer', width: '100%' }}>
+                  Save as Draft Only
+                </button>
+              </div>
             </div>
           )}
 
@@ -1135,8 +1266,11 @@ export default function SiteReports() {
               `/process-master/for-planning?site_id=${selectedSite.id}`,
               { headers: authHeaders() }
             )
-            const fullProcess = (res.data || []).find(p => p.id === selectedProcess.id)
-            setPlanningProcess(fullProcess || selectedProcess)
+            const fullProcess = (res.data || []).find(p => p.id === selectedProcess?.id)
+            console.log('planningProcess steps:', fullProcess?.steps?.map(
+              s => ({ name: s.step_name, materials: s.materials?.length })
+            ))
+            setPlanningProcess(fullProcess || res.data?.[0] || selectedProcess)
           } catch {
             setPlanningProcess(selectedProcess)
           }
