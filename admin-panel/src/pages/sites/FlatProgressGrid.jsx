@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { ArrowLeft, Loader2, X } from 'lucide-react'
+import { PieChart, Pie, Cell, Tooltip } from 'recharts'
 import api from '../../utils/api'
 import { LoadingPage } from '../../components/ui'
 import toast from 'react-hot-toast'
@@ -125,6 +126,8 @@ export default function FlatProgressGrid() {
   const [progress, setProgress] = useState([])
   const [loading, setLoading] = useState(true)
   const [historyModal, setHistoryModal] = useState(null) // {flat, step, progressRecord}
+  const [exporting, setExporting] = useState(false)
+  const [showExportMenu, setShowExportMenu] = useState(false)
 
   useEffect(() => {
     api.get(`/process-master/${processId}/progress`)
@@ -154,6 +157,113 @@ export default function FlatProgressGrid() {
 
   const today = new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
 
+  // Chart data
+  const doneCells = progress.filter(p => p.done_percentage >= 100).length
+  const inProgressCells = progress.filter(p => p.done_percentage > 0 && p.done_percentage < 100).length
+  const pendingCells = totalCells - doneCells - inProgressCells
+  const overallData = [
+    { name: 'Done', value: doneCells, color: '#22c55e' },
+    { name: 'In Progress', value: inProgressCells, color: '#f97316' },
+    { name: 'Pending', value: pendingCells, color: '#374151' }
+  ].filter(d => d.value > 0)
+  const stepData = steps.map(step => {
+    const done = progress.filter(p => p.step_id === step.id && p.done_percentage >= 100).length
+    const total = flats.length
+    return {
+      name: step.step_name.length > 12 ? step.step_name.slice(0, 12) + '…' : step.step_name,
+      full_name: step.step_name,
+      done,
+      pct: total > 0 ? Math.round((done / total) * 100) : 0
+    }
+  })
+
+  // Click-outside closes export menu
+  useEffect(() => {
+    function handleClick() { if (showExportMenu) setShowExportMenu(false) }
+    document.addEventListener('click', handleClick)
+    return () => document.removeEventListener('click', handleClick)
+  }, [showExportMenu])
+
+  async function exportToExcel() {
+    setExporting(true)
+    setShowExportMenu(false)
+    try {
+      const XLSX = (await import('xlsx')).default || (await import('xlsx'))
+      const headers = ['Flat No', 'BHK Type', ...steps.map(s => s.step_name)]
+      const rows = flats.map(flat => {
+        const row = [flat.flat_no, flat.bhk_type || '']
+        steps.forEach(step => {
+          const prog = progress.find(p => p.flat_id === flat.id && p.step_id === step.id)
+          const pct = prog?.done_percentage || 0
+          row.push(pct >= 100 ? 'DONE' : pct > 0 ? `${pct}%` : 'Pending')
+        })
+        return row
+      })
+      rows.push([])
+      rows.push(['SUMMARY', '', ...steps.map(step => {
+        const done = progress.filter(p => p.step_id === step.id && p.done_percentage >= 100).length
+        return `${done}/${flats.length} done`
+      })])
+      const ws = XLSX.utils.aoa_to_sheet([headers, ...rows])
+      ws['!cols'] = [{ wch: 12 }, { wch: 10 }, ...steps.map(() => ({ wch: 18 }))]
+      const wb = XLSX.utils.book_new()
+      XLSX.utils.book_append_sheet(wb, ws, 'Progress Report')
+      const siteName = process?.site?.name || 'Site'
+      const processTitle = process?.title || 'Process'
+      const date = new Date().toLocaleDateString('en-IN').replace(/\//g, '-')
+      XLSX.writeFile(wb, `${siteName}_${processTitle}_Progress_${date}.xlsx`)
+      toast.success('Excel exported')
+    } catch (err) {
+      toast.error('Export failed: ' + err.message)
+    }
+    setExporting(false)
+  }
+
+  async function exportToPDF() {
+    setExporting(true)
+    setShowExportMenu(false)
+    try {
+      const siteName = process?.site?.name || 'Site'
+      const processTitle = process?.title || 'Process'
+      const date = new Date().toLocaleDateString('en-IN')
+      let html = `<html><head><style>
+        body{font-family:Arial,sans-serif;font-size:11px}
+        h1{color:#C9A84C;font-size:18px;margin-bottom:4px}
+        h2{color:#333;font-size:14px;margin-bottom:16px}
+        table{border-collapse:collapse;width:100%}
+        th{background:#C9A84C;color:white;padding:6px 8px;text-align:center;border:1px solid #ddd;font-size:10px}
+        td{padding:5px 8px;border:1px solid #ddd;text-align:center;font-size:10px}
+        tr:nth-child(even){background:#f9f9f9}
+        .done{color:#16a34a;font-weight:bold}.progress{color:#ea580c}.pending{color:#9ca3af}
+      </style></head><body>
+      <h1>Dhakad Group</h1>
+      <h2>${siteName} — ${processTitle}</h2>
+      <p>Generated: ${date} | Flats: ${flats.length} | Steps: ${steps.length} | Overall: ${totalCells > 0 ? Math.round((doneCells / totalCells) * 100) : 0}% Complete</p>
+      <table><tr><th>Flat</th><th>Type</th>${steps.map(s => `<th>${s.step_name}</th>`).join('')}</tr>`
+      flats.forEach(flat => {
+        html += '<tr>'
+        html += `<td><b>${flat.flat_no}</b></td><td>${flat.bhk_type || ''}</td>`
+        steps.forEach(step => {
+          const prog = progress.find(p => p.flat_id === flat.id && p.step_id === step.id)
+          const pct = prog?.done_percentage || 0
+          const cls = pct >= 100 ? 'done' : pct > 0 ? 'progress' : 'pending'
+          html += `<td class="${cls}">${pct >= 100 ? 'DONE' : pct > 0 ? `${pct}%` : '—'}</td>`
+        })
+        html += '</tr>'
+      })
+      html += '</table></body></html>'
+      const win = window.open('', '_blank')
+      win.document.write(html)
+      win.document.close()
+      win.focus()
+      setTimeout(() => { win.print(); win.close() }, 500)
+      toast.success('PDF ready to print/save')
+    } catch (err) {
+      toast.error('PDF export failed: ' + err.message)
+    }
+    setExporting(false)
+  }
+
   if (loading) return <LoadingPage />
 
   return (
@@ -166,6 +276,28 @@ export default function FlatProgressGrid() {
             {process?.title || 'Progress Grid'}
           </h1>
           <p className="text-xs" style={{ color: 'var(--muted)' }}>Last updated: {today}</p>
+        </div>
+        <div style={{ position: 'relative', display: 'inline-block' }} onClick={e => e.stopPropagation()}>
+          <button onClick={() => setShowExportMenu(v => !v)} disabled={exporting}
+            style={{ background: 'var(--gold)', border: 'none', borderRadius: '8px', padding: '8px 16px', color: '#000', fontWeight: 'bold', fontSize: '14px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            {exporting ? '⏳ Exporting…' : '⬇️ Export'}
+          </button>
+          {showExportMenu && (
+            <div style={{ position: 'absolute', top: '100%', right: 0, background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: '8px', zIndex: 100, minWidth: '160px', boxShadow: '0 4px 20px rgba(0,0,0,0.3)', marginTop: '4px' }}>
+              <button onClick={exportToExcel}
+                style={{ display: 'block', width: '100%', padding: '12px 16px', background: 'none', border: 'none', textAlign: 'left', color: 'var(--text)', fontSize: '14px', cursor: 'pointer' }}
+                onMouseEnter={e => e.currentTarget.style.background = 'var(--bg3)'}
+                onMouseLeave={e => e.currentTarget.style.background = 'none'}>
+                📊 Export as Excel
+              </button>
+              <button onClick={exportToPDF}
+                style={{ display: 'block', width: '100%', padding: '12px 16px', background: 'none', border: 'none', textAlign: 'left', color: 'var(--text)', fontSize: '14px', cursor: 'pointer', borderTop: '1px solid var(--border)' }}
+                onMouseEnter={e => e.currentTarget.style.background = 'var(--bg3)'}
+                onMouseLeave={e => e.currentTarget.style.background = 'none'}>
+                📄 Export as PDF
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -195,6 +327,51 @@ export default function FlatProgressGrid() {
             style={{ width: `${Math.min(overallPct, 100)}%` }} />
         </div>
       </div>
+
+      {/* Charts row */}
+      {totalCells > 0 && (
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '24px' }}>
+          <div style={{ background: 'var(--bg2)', borderRadius: '12px', padding: '16px', border: '1px solid var(--border)' }}>
+            <h3 style={{ color: 'var(--text)', fontSize: '14px', fontWeight: '600', marginBottom: '16px', marginTop: 0 }}>Overall Completion</h3>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+              <PieChart width={140} height={140}>
+                <Pie data={overallData} cx={65} cy={65} innerRadius={40} outerRadius={65} dataKey="value" strokeWidth={0}>
+                  {overallData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
+                </Pie>
+                <Tooltip formatter={(v, n) => [v + ' tasks', n]} />
+              </PieChart>
+              <div style={{ flex: 1 }}>
+                {overallData.map((item, i) => (
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                    <div style={{ width: '12px', height: '12px', borderRadius: '50%', flexShrink: 0, background: item.color }} />
+                    <span style={{ color: 'var(--muted)', fontSize: '13px', flex: 1 }}>{item.name}</span>
+                    <span style={{ color: 'var(--text)', fontSize: '13px', fontWeight: 'bold' }}>{item.value}</span>
+                  </div>
+                ))}
+                <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px solid var(--border)', color: 'var(--gold)', fontWeight: 'bold', fontSize: '14px' }}>
+                  {Math.round((doneCells / totalCells) * 100)}% Complete
+                </div>
+              </div>
+            </div>
+          </div>
+          <div style={{ background: 'var(--bg2)', borderRadius: '12px', padding: '16px', border: '1px solid var(--border)' }}>
+            <h3 style={{ color: 'var(--text)', fontSize: '14px', fontWeight: '600', marginBottom: '16px', marginTop: 0 }}>Step Progress</h3>
+            <div style={{ overflowY: 'auto', maxHeight: '140px' }}>
+              {stepData.map((step, i) => (
+                <div key={i} style={{ marginBottom: '10px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '3px' }}>
+                    <span style={{ color: 'var(--muted)', fontSize: '12px', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={step.full_name}>{step.name}</span>
+                    <span style={{ color: 'var(--text)', fontSize: '12px', fontWeight: 'bold', marginLeft: '8px' }}>{step.pct}%</span>
+                  </div>
+                  <div style={{ background: 'var(--bg4,var(--bg3))', borderRadius: '4px', height: '6px' }}>
+                    <div style={{ background: step.pct >= 100 ? '#22c55e' : step.pct > 0 ? '#f97316' : '#374151', borderRadius: '4px', height: '6px', width: `${step.pct}%`, transition: 'width 0.3s' }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {flats.length === 0 || steps.length === 0 ? (
         <div className="card text-center py-12">
