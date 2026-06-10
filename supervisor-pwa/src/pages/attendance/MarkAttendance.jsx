@@ -817,7 +817,7 @@ export default function MarkAttendance() {
       await api.post('/attendance/bulk', {
         site_id: siteId,
         date: today,
-        labours: presentLabours.map(l => ({
+        records: presentLabours.map(l => ({
           labour_id: l.id,
           status: attendance[l.id] || 'present',
           check_in_photo: checkInPhotos[l.id] || null
