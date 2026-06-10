@@ -518,10 +518,7 @@ export default function SiteReports() {
     try {
       const headers = authHeaders()
       const items = planItems.map(item => ({
-        group_name: item.labour_ids.length > 0
-          ? siteLabours.filter(l => item.labour_ids.includes(l.id)).map(l => l.name).join(', ')
-          : '',
-        labour_ids: item.labour_ids,
+        group_name: '',
         process_id: item.process_id,
         process_step_id: item.process_step_id,
         step_name: item.step_name,
@@ -883,7 +880,7 @@ export default function SiteReports() {
           {/* ── STEP 3: Materials + Labour ───────────────────────── */}
           {planStep === 3 && (
             <div>
-              <h3 style={{ color: '#fff', fontWeight: 700, fontSize: '18px', margin: '0 0 4px' }}>Confirm Materials & Assign Labour</h3>
+              <h3 style={{ color: '#fff', fontWeight: 700, fontSize: '18px', margin: '0 0 4px' }}>Confirm Materials</h3>
               <p style={{ color: '#888', fontSize: '13px', marginBottom: '16px' }}>{planItems.length} task{planItems.length !== 1 ? 's' : ''} to plan</p>
 
               {planItems.map((item, itemIdx) => (
@@ -957,35 +954,6 @@ export default function SiteReports() {
                         }}
                       />
                     </div>
-
-                    {/* Labour assignment */}
-                    <div>
-                      <div style={{ color: '#888', fontSize: '11px', fontWeight: '600', marginBottom: '8px', letterSpacing: '0.5px' }}>ASSIGN LABOUR</div>
-                      {siteLabours.length === 0 ? (
-                        <div style={{ color: '#555', fontSize: '13px', fontStyle: 'italic' }}>No labour registered for this site</div>
-                      ) : (
-                        <div style={{ maxHeight: '140px', overflowY: 'auto', border: '1px solid #222', borderRadius: '8px' }}>
-                          {siteLabours.map(labour => {
-                            const selected = item.labour_ids.includes(labour.id)
-                            return (
-                              <div key={labour.id}
-                                onClick={() => {
-                                  const updated = [...planItems]
-                                  const ids = updated[itemIdx].labour_ids
-                                  updated[itemIdx].labour_ids = selected ? ids.filter(id => id !== labour.id) : [...ids, labour.id]
-                                  setPlanItems(updated)
-                                }}
-                                style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', borderBottom: '1px solid #1e1e1e', cursor: 'pointer', background: selected ? '#1a1200' : 'transparent' }}>
-                                <div style={{ width: '18px', height: '18px', borderRadius: '4px', flexShrink: 0, background: selected ? '#FF8C00' : 'none', border: selected ? '2px solid #FF8C00' : '2px solid #444', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                  {selected && <span style={{ color: '#000', fontSize: '12px', fontWeight: 'bold' }}>✓</span>}
-                                </div>
-                                <span style={{ color: selected ? '#fff' : '#aaa', fontSize: '14px' }}>{labour.name}</span>
-                              </div>
-                            )
-                          })}
-                        </div>
-                      )}
-                    </div>
                   </div>
                 </div>
               ))}
@@ -1002,7 +970,6 @@ export default function SiteReports() {
                         flat_no: item.flat_no,
                         bhk_type: item.bhk_type,
                         step_name: item.step_name,
-                        labour_ids: item.labour_ids,
                         materials: item.materials
                       }))
                     }))
