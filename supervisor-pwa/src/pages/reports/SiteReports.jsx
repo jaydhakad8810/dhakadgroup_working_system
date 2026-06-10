@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { ArrowLeft, Loader2, Camera } from 'lucide-react'
+import { PieChart, Pie, Cell } from 'recharts'
 import api from '../../utils/api'
 import toast from 'react-hot-toast'
 
@@ -89,11 +90,20 @@ function ProcessList({ site, processes, loading, onSelect, onBack }) {
 }
 
 // ── Progress grid ─────────────────────────────────────────────────────────────
-function ProgressGrid({ process: pm, flats, steps, progress, loading, onBack, onPlanToday, planSaved, onStartCheckout, onCellClick }) {
+function ProgressGrid({ process: pm, flats, steps, progress, loading, onBack, onPlanToday, planSaved, onStartCheckout, onCellClick, onExportExcel, onExportPDF, showExportMenu, setShowExportMenu, exporting }) {
   const totalCells = flats.length * steps.length
   const sumPct = progress.reduce((acc, p) => acc + (p.done_percentage || 0), 0)
   const completedCells = progress.filter(p => p.done_percentage >= 100).length
   const overallPct = totalCells > 0 ? Math.round(sumPct / (totalCells * 100) * 100) : 0
+
+  const doneCells = completedCells
+  const inProgressCells = progress.filter(p => p.done_percentage > 0 && p.done_percentage < 100).length
+  const pendingCells = totalCells - doneCells - inProgressCells
+  const overallData = [
+    { name: 'Done', value: doneCells, color: '#22c55e' },
+    { name: 'In Progress', value: inProgressCells, color: '#FF8C00' },
+    { name: 'Pending', value: pendingCells, color: '#374151' }
+  ].filter(d => d.value > 0)
 
   function getProg(flat_id, step_id) {
     return progress.find(p => p.flat_id === flat_id && p.step_id === step_id)
@@ -108,6 +118,24 @@ function ProgressGrid({ process: pm, flats, steps, progress, loading, onBack, on
         <div className="flex-1 min-w-0">
           <h2 className="text-sm font-bold text-white truncate">{pm?.title}</h2>
           <p className="text-xs" style={{ color: '#888' }}>Progress Grid</p>
+        </div>
+        <div style={{ position: 'relative', display: 'inline-block' }} onClick={e => e.stopPropagation()}>
+          <button onClick={() => setShowExportMenu(v => !v)} disabled={exporting}
+            style={{ background: '#1a1a1a', border: '1px solid #444', borderRadius: '10px', padding: '8px 14px', color: '#ccc', fontWeight: 'bold', fontSize: '13px', cursor: 'pointer' }}>
+            {exporting ? '⏳' : '⬇️'} Export
+          </button>
+          {showExportMenu && (
+            <div style={{ position: 'absolute', top: '100%', right: 0, background: '#1a1a1a', border: '1px solid #333', borderRadius: '8px', zIndex: 100, minWidth: '150px', boxShadow: '0 4px 20px rgba(0,0,0,0.5)', marginTop: '4px' }}>
+              <button onClick={onExportExcel}
+                style={{ display: 'block', width: '100%', padding: '12px 16px', background: 'none', border: 'none', textAlign: 'left', color: '#ccc', fontSize: '14px', cursor: 'pointer' }}>
+                📊 Excel
+              </button>
+              <button onClick={onExportPDF}
+                style={{ display: 'block', width: '100%', padding: '12px 16px', background: 'none', border: 'none', textAlign: 'left', color: '#ccc', fontSize: '14px', cursor: 'pointer', borderTop: '1px solid #222' }}>
+                📄 PDF
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -136,6 +164,32 @@ function ProgressGrid({ process: pm, flats, steps, progress, loading, onBack, on
           </div>
         </div>
       </div>
+
+      {/* Pie chart */}
+      {totalCells > 0 && (
+        <div className="px-4">
+          <div style={{ background: '#1a1a1a', borderRadius: '12px', padding: '14px', border: '1px solid #222' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+              <PieChart width={100} height={100}>
+                <Pie data={overallData} cx={45} cy={45} innerRadius={28} outerRadius={45} dataKey="value" strokeWidth={0}>
+                  {overallData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
+                </Pie>
+              </PieChart>
+              <div style={{ flex: 1 }}>
+                <div style={{ color: '#FF8C00', fontWeight: 'bold', fontSize: '22px', lineHeight: 1 }}>{overallPct}%</div>
+                <div style={{ color: '#888', fontSize: '12px', marginBottom: '10px' }}>Overall Complete</div>
+                {overallData.map((item, i) => (
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: item.color }} />
+                    <span style={{ color: '#888', fontSize: '12px', flex: 1 }}>{item.name}</span>
+                    <span style={{ color: '#ccc', fontSize: '12px', fontWeight: 'bold' }}>{item.value}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {loading ? (
         <div className="flex justify-center py-12"><Loader2 size={28} className="animate-spin" style={{ color: '#FF8C00' }} /></div>
@@ -340,6 +394,8 @@ export default function SiteReports() {
   const [cellHistory, setCellHistory] = useState([])
   const [cellHistoryLoading, setCellHistoryLoading] = useState(false)
   const [selectedCell, setSelectedCell] = useState(null)
+  const [showExportMenu, setShowExportMenu] = useState(false)
+  const [exporting, setExporting] = useState(false)
 
   useEffect(() => {
     api.get('/sites')
@@ -462,10 +518,7 @@ export default function SiteReports() {
     try {
       const headers = authHeaders()
       const items = planItems.map(item => ({
-        group_name: item.labour_ids.length > 0
-          ? siteLabours.filter(l => item.labour_ids.includes(l.id)).map(l => l.name).join(', ')
-          : '',
-        labour_ids: item.labour_ids,
+        group_name: '',
         process_id: item.process_id,
         process_step_id: item.process_step_id,
         step_name: item.step_name,
@@ -827,7 +880,7 @@ export default function SiteReports() {
           {/* ── STEP 3: Materials + Labour ───────────────────────── */}
           {planStep === 3 && (
             <div>
-              <h3 style={{ color: '#fff', fontWeight: 700, fontSize: '18px', margin: '0 0 4px' }}>Confirm Materials & Assign Labour</h3>
+              <h3 style={{ color: '#fff', fontWeight: 700, fontSize: '18px', margin: '0 0 4px' }}>Confirm Materials</h3>
               <p style={{ color: '#888', fontSize: '13px', marginBottom: '16px' }}>{planItems.length} task{planItems.length !== 1 ? 's' : ''} to plan</p>
 
               {planItems.map((item, itemIdx) => (
@@ -901,35 +954,6 @@ export default function SiteReports() {
                         }}
                       />
                     </div>
-
-                    {/* Labour assignment */}
-                    <div>
-                      <div style={{ color: '#888', fontSize: '11px', fontWeight: '600', marginBottom: '8px', letterSpacing: '0.5px' }}>ASSIGN LABOUR</div>
-                      {siteLabours.length === 0 ? (
-                        <div style={{ color: '#555', fontSize: '13px', fontStyle: 'italic' }}>No labour registered for this site</div>
-                      ) : (
-                        <div style={{ maxHeight: '140px', overflowY: 'auto', border: '1px solid #222', borderRadius: '8px' }}>
-                          {siteLabours.map(labour => {
-                            const selected = item.labour_ids.includes(labour.id)
-                            return (
-                              <div key={labour.id}
-                                onClick={() => {
-                                  const updated = [...planItems]
-                                  const ids = updated[itemIdx].labour_ids
-                                  updated[itemIdx].labour_ids = selected ? ids.filter(id => id !== labour.id) : [...ids, labour.id]
-                                  setPlanItems(updated)
-                                }}
-                                style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', borderBottom: '1px solid #1e1e1e', cursor: 'pointer', background: selected ? '#1a1200' : 'transparent' }}>
-                                <div style={{ width: '18px', height: '18px', borderRadius: '4px', flexShrink: 0, background: selected ? '#FF8C00' : 'none', border: selected ? '2px solid #FF8C00' : '2px solid #444', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                  {selected && <span style={{ color: '#000', fontSize: '12px', fontWeight: 'bold' }}>✓</span>}
-                                </div>
-                                <span style={{ color: selected ? '#fff' : '#aaa', fontSize: '14px' }}>{labour.name}</span>
-                              </div>
-                            )
-                          })}
-                        </div>
-                      )}
-                    </div>
                   </div>
                 </div>
               ))}
@@ -946,7 +970,6 @@ export default function SiteReports() {
                         flat_no: item.flat_no,
                         bhk_type: item.bhk_type,
                         step_name: item.step_name,
-                        labour_ids: item.labour_ids,
                         materials: item.materials
                       }))
                     }))
@@ -1238,6 +1261,88 @@ export default function SiteReports() {
     )
   }
 
+  async function exportToExcel() {
+    setExporting(true)
+    setShowExportMenu(false)
+    try {
+      const XLSX = (await import('xlsx')).default || (await import('xlsx'))
+      const headers = ['Flat No', 'BHK Type', ...steps.map(s => s.step_name)]
+      const rows = flats.map(flat => {
+        const row = [flat.flat_no, flat.bhk_type || '']
+        steps.forEach(step => {
+          const prog = progress.find(p => p.flat_id === flat.id && p.step_id === step.id)
+          const pct = prog?.done_percentage || 0
+          row.push(pct >= 100 ? 'DONE' : pct > 0 ? `${pct}%` : 'Pending')
+        })
+        return row
+      })
+      rows.push([])
+      rows.push(['SUMMARY', '', ...steps.map(step => {
+        const done = progress.filter(p => p.step_id === step.id && p.done_percentage >= 100).length
+        return `${done}/${flats.length} done`
+      })])
+      const ws = XLSX.utils.aoa_to_sheet([headers, ...rows])
+      ws['!cols'] = [{ wch: 12 }, { wch: 10 }, ...steps.map(() => ({ wch: 18 }))]
+      const wb = XLSX.utils.book_new()
+      XLSX.utils.book_append_sheet(wb, ws, 'Progress Report')
+      const siteName = selectedSite?.name || 'Site'
+      const processTitle = selectedProcess?.title || 'Process'
+      const date = new Date().toLocaleDateString('en-IN').replace(/\//g, '-')
+      XLSX.writeFile(wb, `${siteName}_${processTitle}_Progress_${date}.xlsx`)
+      toast.success('Excel exported')
+    } catch (err) {
+      toast.error('Export failed: ' + err.message)
+    }
+    setExporting(false)
+  }
+
+  async function exportToPDF() {
+    setExporting(true)
+    setShowExportMenu(false)
+    try {
+      const siteName = selectedSite?.name || 'Site'
+      const processTitle = selectedProcess?.title || 'Process'
+      const date = new Date().toLocaleDateString('en-IN')
+      const totalCells = flats.length * steps.length
+      const doneCells = progress.filter(p => p.done_percentage >= 100).length
+      let html = `<html><head><style>
+        body{font-family:Arial,sans-serif;font-size:11px}
+        h1{color:#C9A84C;font-size:18px;margin-bottom:4px}
+        h2{color:#333;font-size:14px;margin-bottom:16px}
+        table{border-collapse:collapse;width:100%}
+        th{background:#C9A84C;color:white;padding:6px 8px;text-align:center;border:1px solid #ddd;font-size:10px}
+        td{padding:5px 8px;border:1px solid #ddd;text-align:center;font-size:10px}
+        tr:nth-child(even){background:#f9f9f9}
+        .done{color:#16a34a;font-weight:bold}.progress{color:#ea580c}.pending{color:#9ca3af}
+      </style></head><body>
+      <h1>Dhakad Group</h1>
+      <h2>${siteName} — ${processTitle}</h2>
+      <p>Generated: ${date} | Flats: ${flats.length} | Steps: ${steps.length} | Overall: ${totalCells > 0 ? Math.round((doneCells / totalCells) * 100) : 0}% Complete</p>
+      <table><tr><th>Flat</th><th>Type</th>${steps.map(s => `<th>${s.step_name}</th>`).join('')}</tr>`
+      flats.forEach(flat => {
+        html += '<tr>'
+        html += `<td><b>${flat.flat_no}</b></td><td>${flat.bhk_type || ''}</td>`
+        steps.forEach(step => {
+          const prog = progress.find(p => p.flat_id === flat.id && p.step_id === step.id)
+          const pct = prog?.done_percentage || 0
+          const cls = pct >= 100 ? 'done' : pct > 0 ? 'progress' : 'pending'
+          html += `<td class="${cls}">${pct >= 100 ? 'DONE' : pct > 0 ? `${pct}%` : '—'}</td>`
+        })
+        html += '</tr>'
+      })
+      html += '</table></body></html>'
+      const win = window.open('', '_blank')
+      win.document.write(html)
+      win.document.close()
+      win.focus()
+      setTimeout(() => { win.print(); win.close() }, 500)
+      toast.success('PDF ready to print/save')
+    } catch (err) {
+      toast.error('PDF export failed: ' + err.message)
+    }
+    setExporting(false)
+  }
+
   // ── Grid view ───────────────────────────────────────────────────────────────
   if (view === 'grid') {
     return (
@@ -1251,6 +1356,11 @@ export default function SiteReports() {
         onBack={() => setView('processes')}
         onStartCheckout={() => { initializeCheckout(); setView('checkout') }}
         onCellClick={openCellHistory}
+        onExportExcel={exportToExcel}
+        onExportPDF={exportToPDF}
+        showExportMenu={showExportMenu}
+        setShowExportMenu={setShowExportMenu}
+        exporting={exporting}
         onPlanToday={async () => {
           setSelectedFlatIds([])
           setSelectedStepIds([])
