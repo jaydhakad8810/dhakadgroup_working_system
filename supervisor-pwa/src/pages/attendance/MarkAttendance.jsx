@@ -703,6 +703,66 @@ function TaskCompleteStep({ groups, groupTasks, attendanceRecords, attendanceDat
 
 
 // ─── MarkAttendance ──────────────────────────────────────────────────────────
+// ─── ExtraMaterialAdderCheckout ─────────────────────────────────────────────
+function ExtraMaterialAdderCheckout({ siteId, token, onAdd }) {
+  const [query, setQuery] = useState('')
+  const [results, setResults] = useState([])
+  const [open, setOpen] = useState(false)
+  const ref = useRef(null)
+
+  useEffect(() => {
+    function handleClick(e) {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [])
+
+  async function search(q) {
+    setQuery(q)
+    if (!q || q.length < 1) { setResults([]); return }
+    try {
+      const res = await fetch(
+        `/api/site-materials?site_id=${siteId}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      )
+      const data = await res.json()
+      const filtered = (Array.isArray(data) ? data : []).filter(m =>
+        m.full_name?.toLowerCase().includes(q.toLowerCase()) ||
+        m.product_name?.toLowerCase().includes(q.toLowerCase())
+      )
+      setResults(filtered.slice(0, 10))
+      setOpen(true)
+    } catch {}
+  }
+
+  return (
+    <div ref={ref} style={{ position: 'relative', marginTop: '8px' }}>
+      <input
+        placeholder="+ Add extra material (search...)"
+        value={query}
+        onChange={e => search(e.target.value)}
+        onFocus={() => query && setOpen(true)}
+        style={{ width: '100%', background: '#111', color: '#fff', border: '1px dashed #444', borderRadius: '8px', padding: '8px 12px', fontSize: '13px', boxSizing: 'border-box' }}
+      />
+      {open && results.length > 0 && (
+        <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#1a1a1a', border: '1px solid #333', borderRadius: '8px', zIndex: 100, maxHeight: '180px', overflowY: 'auto', boxShadow: '0 4px 20px rgba(0,0,0,0.5)', marginTop: '4px' }}>
+          {results.map(m => (
+            <div key={m.id}
+              onClick={() => { onAdd(m); setQuery(''); setResults([]); setOpen(false) }}
+              style={{ padding: '10px 12px', cursor: 'pointer', borderBottom: '1px solid #222', fontSize: '13px', color: '#ccc' }}
+              onMouseEnter={e => e.currentTarget.style.background = '#222'}
+              onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+              <div style={{ fontWeight: '500' }}>{m.full_name}</div>
+              <div style={{ color: '#666', fontSize: '11px' }}>{m.unit} · {m.company_name}</div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function MarkAttendance() {
   const navigate = useNavigate()
   const { user } = useAuth()
@@ -745,6 +805,12 @@ export default function MarkAttendance() {
   const [uploadingPhoto, setUploadingPhoto] = useState({})
   const [submittingAttendance, setSubmittingAttendance] = useState(false)
   const [laboursLoading, setLaboursLoading] = useState(false)
+  const [groups, setGroups] = useState([])
+  const [groupTasks, setGroupTasks] = useState({})
+  const [checkoutItems, setCheckoutItems] = useState([])
+  const [checkoutPhotos, setCheckoutPhotos] = useState({})
+  const [uploadingCheckoutPhoto, setUploadingCheckoutPhoto] = useState({})
+  const [submittingCheckout, setSubmittingCheckout] = useState(false)
 
   useEffect(() => {
     api.get('/auth/me').then(res => {
@@ -824,13 +890,52 @@ export default function MarkAttendance() {
         }))
       }, { headers: { Authorization: `Bearer ${token}` } })
       toast.success('Attendance submitted successfully!')
-      setAttendStep('today')
       setCheckInPhotos({})
+      setGroups([])
+      setGroupTasks({})
+      setAttendStep('today')
       loadTodayPlan(siteId)
     } catch (err) {
       toast.error(err.response?.data?.error || 'Failed to submit')
     }
     setSubmittingAttendance(false)
+  }
+
+  async function submitCheckout() {
+    setSubmittingCheckout(true)
+    try {
+      const token = sessionStorage.getItem('sv_token') || localStorage.getItem('sv_token')
+      const headers = { Authorization: `Bearer ${token}` }
+
+      for (const item of checkoutItems) {
+        if (!item.id) continue
+        await api.patch(`/daily-plans/items/${item.id}/checkout`, {
+          done_percentage: item.done_percentage || 0,
+          status: item.done_percentage >= 100 ? 'done' : item.done_percentage > 0 ? 'in_progress' : 'pending',
+          actual_qty: parseFloat(item.materials?.[0]?.actual_qty_used || 0),
+          materials: (item.materials || []).map(m => ({
+            material_name: m.material_name,
+            quantity_used: parseFloat(m.actual_qty_used || 0),
+            unit: m.unit
+          })),
+          checkout_notes: '',
+          date_worked: today,
+          process_step_id: item.process_step_id,
+          process_id: item.process_id,
+          labour_ids: siteLabours.filter(l => attendance[l.id] !== 'absent').map(l => l.id)
+        }, { headers })
+      }
+
+      toast.success('Day completed! Great work. 🎉')
+      setCheckoutItems([])
+      setCheckoutPhotos({})
+      setAttendStep('today')
+      const siteId = typeof selectedSite === 'object' ? selectedSite?.id : selectedSite
+      loadTodayPlan(siteId)
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Checkout failed')
+    }
+    setSubmittingCheckout(false)
   }
 
   async function fetchHistory(filter, sid) {
@@ -974,16 +1079,40 @@ export default function MarkAttendance() {
                     <p className="text-xs text-gray-500">Pending</p>
                   </div>
                 </div>
-                <button
-                  onClick={() => {
-                    const siteId = typeof selectedSite === 'object' ? selectedSite?.id : selectedSite
-                    fetchSiteLabours(siteId)
-                    setAttendStep('mark')
-                  }}
-                  className="w-full py-3 rounded-xl bg-primary-500 text-white text-sm font-semibold flex items-center justify-center gap-2 active:scale-95 transition-all"
-                >
-                  Mark Attendance →
-                </button>
+                {todayPlan.status === 'submitted' && (
+                  <button
+                    onClick={() => {
+                      const siteId = typeof selectedSite === 'object' ? selectedSite?.id : selectedSite
+                      fetchSiteLabours(siteId)
+                      setAttendStep('mark')
+                    }}
+                    className="w-full py-3 rounded-xl bg-primary-500 text-white text-sm font-semibold flex items-center justify-center gap-2 active:scale-95 transition-all"
+                  >
+                    Mark Attendance →
+                  </button>
+                )}
+                {todayPlan.status === 'in_progress' && (
+                  <button
+                    onClick={() => {
+                      const items = (todayPlan.items || []).map(item => ({
+                        ...item,
+                        done_percentage: 0,
+                        status: 'pending',
+                        materials: (item.materials || []).map(m => ({ ...m, actual_qty_used: '' }))
+                      }))
+                      setCheckoutItems(items)
+                      setAttendStep('checkout_tasks')
+                    }}
+                    className="w-full py-3 rounded-xl bg-green-600 text-white text-sm font-semibold flex items-center justify-center gap-2 active:scale-95 transition-all"
+                  >
+                    ✓ Start Checkout
+                  </button>
+                )}
+                {todayPlan.status === 'completed' && (
+                  <div className="text-center py-3 text-green-400 font-semibold text-sm">
+                    ✓ Day Completed
+                  </div>
+                )}
               </div>
               {planItems.length > 0 && (
                 <div className="card">
@@ -1106,10 +1235,129 @@ export default function MarkAttendance() {
           </div>
 
           <button
-            onClick={() => setAttendStep('photos')}
+            onClick={() => setAttendStep('groups')}
             disabled={siteLabours.filter(l => attendance[l.id] !== 'absent').length === 0}
             style={{ width: '100%', background: '#FF8C00', border: 'none', borderRadius: '12px', padding: '16px', color: '#000', fontWeight: 'bold', fontSize: '16px', cursor: 'pointer', opacity: siteLabours.filter(l => attendance[l.id] !== 'absent').length === 0 ? 0.5 : 1 }}>
-            Next → Take Check-in Photos
+            Next → Create Groups
+          </button>
+        </div>
+      )}
+
+      {/* STEP: Create Groups */}
+      {tab === 'today' && attendStep === 'groups' && (
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+            <button onClick={() => setAttendStep('mark')}
+              style={{ background: 'none', border: 'none', color: '#FF8C00', cursor: 'pointer', fontSize: '24px' }}>
+              ←
+            </button>
+            <div>
+              <div style={{ color: '#fff', fontWeight: 'bold', fontSize: '16px' }}>Create Labour Groups</div>
+              <div style={{ color: '#888', fontSize: '12px' }}>Step 2 of 3 — Group your team & assign tasks</div>
+            </div>
+          </div>
+
+          <div style={{ background: '#1a1a1a', borderRadius: '10px', padding: '12px', marginBottom: '16px', border: '1px solid #222' }}>
+            <div style={{ color: '#888', fontSize: '12px', marginBottom: '8px' }}>PRESENT TODAY</div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+              {siteLabours.filter(l => attendance[l.id] !== 'absent').map(l => (
+                <span key={l.id} style={{ background: '#14532d', color: '#22c55e', padding: '4px 10px', borderRadius: '20px', fontSize: '12px', fontWeight: '500' }}>{l.name}</span>
+              ))}
+            </div>
+          </div>
+
+          {groups.map((group, gIdx) => (
+            <div key={group.id} style={{ background: '#111', borderRadius: '12px', border: '1px solid #222', marginBottom: '12px', overflow: 'hidden' }}>
+              <div style={{ padding: '12px 14px', background: '#1a1a1a', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <input
+                  value={group.name}
+                  onChange={e => {
+                    const updated = [...groups]
+                    updated[gIdx].name = e.target.value
+                    setGroups(updated)
+                  }}
+                  placeholder="Group name (e.g. Group A)"
+                  style={{ background: 'none', border: 'none', color: '#FF8C00', fontWeight: 'bold', fontSize: '15px', flex: 1, outline: 'none' }}
+                />
+                <button onClick={() => setGroups(groups.filter((_, i) => i !== gIdx))}
+                  style={{ background: 'none', border: 'none', color: '#666', cursor: 'pointer', fontSize: '18px' }}>
+                  ×
+                </button>
+              </div>
+              <div style={{ padding: '12px' }}>
+                <div style={{ marginBottom: '12px' }}>
+                  <div style={{ color: '#888', fontSize: '11px', marginBottom: '8px' }}>ASSIGN LABOURERS</div>
+                  <div style={{ border: '1px solid #222', borderRadius: '8px', maxHeight: '120px', overflowY: 'auto' }}>
+                    {siteLabours.filter(l => attendance[l.id] !== 'absent').map(l => {
+                      const selected = (group.members || []).some(m => m.labour_id === l.id)
+                      return (
+                        <div key={l.id}
+                          onClick={() => {
+                            const updated = [...groups]
+                            const members = updated[gIdx].members || []
+                            if (selected) {
+                              updated[gIdx].members = members.filter(m => m.labour_id !== l.id)
+                            } else {
+                              updated[gIdx].members = [...members, { labour_id: l.id, name: l.name }]
+                            }
+                            setGroups(updated)
+                          }}
+                          style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 12px', cursor: 'pointer', borderBottom: '1px solid #1e1e1e', background: selected ? '#1a1200' : 'transparent' }}>
+                          <div style={{ width: '16px', height: '16px', borderRadius: '3px', background: selected ? '#FF8C00' : 'none', border: selected ? '2px solid #FF8C00' : '2px solid #444', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                            {selected && <span style={{ color: '#000', fontSize: '11px', fontWeight: 'bold' }}>✓</span>}
+                          </div>
+                          <span style={{ color: selected ? '#fff' : '#aaa', fontSize: '13px' }}>{l.name}</span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+
+                <div>
+                  <div style={{ color: '#888', fontSize: '11px', marginBottom: '8px' }}>ASSIGN TASKS (from today's plan)</div>
+                  {(todayPlan?.items || []).length === 0 ? (
+                    <div style={{ color: '#555', fontSize: '12px', fontStyle: 'italic' }}>No tasks in today's plan</div>
+                  ) : (
+                    <div style={{ border: '1px solid #222', borderRadius: '8px' }}>
+                      {(todayPlan?.items || []).map(item => {
+                        const assigned = (groupTasks[group.id] || []).includes(item.id)
+                        return (
+                          <div key={item.id}
+                            onClick={() => {
+                              const current = groupTasks[group.id] || []
+                              setGroupTasks(prev => ({
+                                ...prev,
+                                [group.id]: assigned ? current.filter(id => id !== item.id) : [...current, item.id]
+                              }))
+                            }}
+                            style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 12px', cursor: 'pointer', borderBottom: '1px solid #1e1e1e', background: assigned ? '#0a1a0a' : 'transparent' }}>
+                            <div style={{ width: '16px', height: '16px', borderRadius: '3px', background: assigned ? '#22c55e' : 'none', border: assigned ? '2px solid #22c55e' : '2px solid #444', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                              {assigned && <span style={{ color: '#000', fontSize: '11px', fontWeight: 'bold' }}>✓</span>}
+                            </div>
+                            <div>
+                              <div style={{ color: assigned ? '#22c55e' : '#ccc', fontSize: '13px' }}>{item.step_name || item.group_name}</div>
+                              <div style={{ color: '#666', fontSize: '11px' }}>{(item.flat_nos || []).join(', ')}</div>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
+
+          <button
+            onClick={() => setGroups(prev => [...prev, { id: 'g_' + Date.now(), name: `Group ${prev.length + 1}`, members: [], isNew: true }])}
+            style={{ width: '100%', background: 'none', border: '1px dashed #444', borderRadius: '10px', padding: '12px', color: '#888', fontSize: '14px', cursor: 'pointer', marginBottom: '16px' }}>
+            + Add Group
+          </button>
+
+          <button
+            onClick={() => setAttendStep('photos')}
+            style={{ width: '100%', background: '#FF8C00', border: 'none', borderRadius: '12px', padding: '16px', color: '#000', fontWeight: 'bold', fontSize: '16px', cursor: 'pointer' }}>
+            Next → Check-in Photos
           </button>
         </div>
       )}
@@ -1118,13 +1366,13 @@ export default function MarkAttendance() {
       {tab === 'today' && attendStep === 'photos' && (
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
-            <button onClick={() => setAttendStep('mark')}
+            <button onClick={() => setAttendStep('groups')}
               style={{ background: 'none', border: 'none', color: '#FF8C00', cursor: 'pointer', fontSize: '24px' }}>
               ←
             </button>
             <div>
               <div style={{ color: '#fff', fontWeight: 'bold', fontSize: '16px' }}>Check-in Photos</div>
-              <div style={{ color: '#888', fontSize: '12px' }}>Step 2 of 2 — Take photos for present labourers</div>
+              <div style={{ color: '#888', fontSize: '12px' }}>Step 3 of 3 — Take photos for present labourers</div>
             </div>
           </div>
 
@@ -1185,6 +1433,200 @@ export default function MarkAttendance() {
             {submittingAttendance ? 'Submitting...' : '✓ Submit Attendance'}
           </button>
           <p style={{ textAlign: 'center', color: '#666', fontSize: '12px', marginTop: '8px' }}>All present labourers must have a photo</p>
+        </div>
+      )}
+
+      {/* CHECKOUT STEP 1: Task Completion */}
+      {tab === 'today' && attendStep === 'checkout_tasks' && (
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+            <button onClick={() => setAttendStep('today')}
+              style={{ background: 'none', border: 'none', color: '#FF8C00', cursor: 'pointer', fontSize: '24px' }}>
+              ←
+            </button>
+            <div>
+              <div style={{ color: '#fff', fontWeight: 'bold', fontSize: '16px' }}>Task Completion</div>
+              <div style={{ color: '#888', fontSize: '12px' }}>Checkout Step 1 of 3</div>
+            </div>
+          </div>
+
+          {checkoutItems.map((item, idx) => {
+            const PCTS = [10, 30, 50, 70, 90, 100]
+            return (
+              <div key={item.id} style={{ background: '#111', borderRadius: '12px', border: '1px solid #222', marginBottom: '12px', overflow: 'hidden' }}>
+                <div style={{ padding: '12px 14px', background: '#1a1a1a', borderBottom: '1px solid #222' }}>
+                  <div style={{ color: '#FF8C00', fontWeight: 'bold', fontSize: '14px' }}>{item.flat_nos?.[0] || item.flat_no || 'Task'}</div>
+                  <div style={{ color: '#ccc', fontSize: '13px', marginTop: '2px' }}>{item.step_name || item.group_name}</div>
+                </div>
+                <div style={{ padding: '12px' }}>
+                  <div style={{ color: '#888', fontSize: '11px', marginBottom: '8px' }}>COMPLETION</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: '6px' }}>
+                    {PCTS.map(pct => (
+                      <button key={pct}
+                        onClick={() => {
+                          const updated = [...checkoutItems]
+                          updated[idx].done_percentage = pct
+                          updated[idx].status = pct === 100 ? 'done' : 'in_progress'
+                          setCheckoutItems(updated)
+                        }}
+                        style={{
+                          padding: '8px 4px', borderRadius: '8px',
+                          border: item.done_percentage === pct ? '2px solid #FF8C00' : '1px solid #333',
+                          background: item.done_percentage === pct ? (pct === 100 ? '#14532d' : '#1a1200') : '#1a1a1a',
+                          color: item.done_percentage === pct ? (pct === 100 ? '#22c55e' : '#FF8C00') : '#666',
+                          fontSize: '12px', fontWeight: 'bold', cursor: 'pointer'
+                        }}>
+                        {pct === 100 ? 'Done ✓' : `${pct}%`}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )
+          })}
+
+          <button
+            onClick={() => setAttendStep('checkout_materials')}
+            disabled={checkoutItems.every(i => !i.done_percentage)}
+            style={{ width: '100%', background: '#FF8C00', border: 'none', borderRadius: '12px', padding: '16px', color: '#000', fontWeight: 'bold', fontSize: '16px', cursor: 'pointer', opacity: checkoutItems.every(i => !i.done_percentage) ? 0.5 : 1 }}>
+            Next → Materials Used
+          </button>
+        </div>
+      )}
+
+      {/* CHECKOUT STEP 2: Materials Used */}
+      {tab === 'today' && attendStep === 'checkout_materials' && (
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+            <button onClick={() => setAttendStep('checkout_tasks')}
+              style={{ background: 'none', border: 'none', color: '#FF8C00', cursor: 'pointer', fontSize: '24px' }}>
+              ←
+            </button>
+            <div>
+              <div style={{ color: '#fff', fontWeight: 'bold', fontSize: '16px' }}>Materials Used</div>
+              <div style={{ color: '#888', fontSize: '12px' }}>Checkout Step 2 of 3</div>
+            </div>
+          </div>
+
+          {checkoutItems.map((item, idx) => (
+            <div key={item.id} style={{ background: '#111', borderRadius: '12px', border: '1px solid #222', marginBottom: '12px', overflow: 'hidden' }}>
+              <div style={{ padding: '10px 14px', background: '#1a1a1a', borderBottom: '1px solid #222' }}>
+                <div style={{ color: '#FF8C00', fontSize: '13px', fontWeight: 'bold' }}>{item.flat_nos?.[0] || item.flat_no} — {item.step_name}</div>
+                <div style={{ color: item.done_percentage >= 100 ? '#22c55e' : '#f97316', fontSize: '12px' }}>
+                  {item.done_percentage >= 100 ? 'Done ✓' : `${item.done_percentage}% complete`}
+                </div>
+              </div>
+              <div style={{ padding: '12px' }}>
+                {(item.materials || []).length === 0 ? (
+                  <div style={{ color: '#555', fontSize: '12px', fontStyle: 'italic' }}>No materials for this task</div>
+                ) : (
+                  (item.materials || []).map((mat, mIdx) => (
+                    <div key={mIdx} style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                      <span style={{ flex: 2, color: '#ccc', fontSize: '13px' }}>{mat.material_name}</span>
+                      <input type="number"
+                        placeholder="Used qty"
+                        value={mat.actual_qty_used || ''}
+                        onChange={e => {
+                          const updated = [...checkoutItems]
+                          updated[idx].materials[mIdx].actual_qty_used = e.target.value
+                          setCheckoutItems(updated)
+                        }}
+                        style={{ width: '70px', background: '#111', color: '#fff', border: '1px solid #333', borderRadius: '6px', padding: '6px 8px', fontSize: '13px', textAlign: 'center' }}
+                      />
+                      <span style={{ color: '#888', fontSize: '12px', minWidth: '30px' }}>{mat.unit}</span>
+                    </div>
+                  ))
+                )}
+                <ExtraMaterialAdderCheckout
+                  siteId={typeof selectedSite === 'object' ? selectedSite?.id : selectedSite}
+                  token={sessionStorage.getItem('sv_token') || localStorage.getItem('sv_token')}
+                  onAdd={mat => {
+                    const updated = [...checkoutItems]
+                    updated[idx].materials = [
+                      ...(updated[idx].materials || []),
+                      { material_name: mat.full_name, unit: mat.unit, actual_qty_used: '', is_extra: true }
+                    ]
+                    setCheckoutItems(updated)
+                  }}
+                />
+              </div>
+            </div>
+          ))}
+
+          <button
+            onClick={() => setAttendStep('checkout_photos')}
+            style={{ width: '100%', background: '#FF8C00', border: 'none', borderRadius: '12px', padding: '16px', color: '#000', fontWeight: 'bold', fontSize: '16px', cursor: 'pointer' }}>
+            Next → Checkout Photos
+          </button>
+        </div>
+      )}
+
+      {/* CHECKOUT STEP 3: Checkout Photos */}
+      {tab === 'today' && attendStep === 'checkout_photos' && (
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+            <button onClick={() => setAttendStep('checkout_materials')}
+              style={{ background: 'none', border: 'none', color: '#FF8C00', cursor: 'pointer', fontSize: '24px' }}>
+              ←
+            </button>
+            <div>
+              <div style={{ color: '#fff', fontWeight: 'bold', fontSize: '16px' }}>Checkout Photos</div>
+              <div style={{ color: '#888', fontSize: '12px' }}>Checkout Step 3 of 3 — Optional</div>
+            </div>
+          </div>
+
+          {siteLabours.filter(l => attendance[l.id] !== 'absent').map(labour => (
+            <div key={labour.id} style={{ background: '#111', borderRadius: '12px', padding: '14px', marginBottom: '10px', border: checkoutPhotos[labour.id] ? '1px solid #22c55e' : '1px solid #222' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#333', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#888', fontWeight: 'bold' }}>
+                    {labour.name?.[0]}
+                  </div>
+                  <span style={{ color: '#fff', fontSize: '14px' }}>{labour.name}</span>
+                </div>
+                {checkoutPhotos[labour.id] ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <img src={checkoutPhotos[labour.id]} style={{ width: '44px', height: '44px', borderRadius: '8px', objectFit: 'cover' }} />
+                    <span style={{ color: '#22c55e', fontSize: '18px' }}>✓</span>
+                  </div>
+                ) : uploadingCheckoutPhoto[labour.id] ? (
+                  <span style={{ color: '#FF8C00', fontSize: '13px' }}>Uploading...</span>
+                ) : (
+                  <label style={{ background: '#333', border: 'none', borderRadius: '8px', padding: '8px 12px', color: '#ccc', fontSize: '13px', cursor: 'pointer' }}>
+                    📷 Photo
+                    <input type="file" accept="image/*" capture="environment" style={{ display: 'none' }}
+                      onChange={async e => {
+                        const file = e.target.files?.[0]
+                        if (!file) return
+                        setUploadingCheckoutPhoto(prev => ({ ...prev, [labour.id]: true }))
+                        try {
+                          const token = sessionStorage.getItem('sv_token') || localStorage.getItem('sv_token')
+                          const fd = new FormData()
+                          fd.append('file', file)
+                          const res = await api.post('/upload/single', fd, {
+                            headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'multipart/form-data' }
+                          })
+                          setCheckoutPhotos(prev => ({ ...prev, [labour.id]: res.data.url }))
+                        } catch {
+                          toast.error('Upload failed')
+                        }
+                        setUploadingCheckoutPhoto(prev => ({ ...prev, [labour.id]: false }))
+                      }}
+                    />
+                  </label>
+                )}
+              </div>
+            </div>
+          ))}
+
+          <p style={{ textAlign: 'center', color: '#666', fontSize: '12px', marginBottom: '12px' }}>Photos are optional</p>
+
+          <button
+            onClick={submitCheckout}
+            disabled={submittingCheckout}
+            style={{ width: '100%', background: '#22c55e', border: 'none', borderRadius: '12px', padding: '16px', color: '#000', fontWeight: 'bold', fontSize: '16px', cursor: 'pointer', opacity: submittingCheckout ? 0.7 : 1 }}>
+            {submittingCheckout ? 'Completing...' : '✓ Complete Day'}
+          </button>
         </div>
       )}
 
